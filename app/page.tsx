@@ -50,7 +50,7 @@ export default function Home() {
           </nav>
           <Link
             href="/dashboard"
-            className="rounded-full bg-[color:var(--accent)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#265b42]"
+            className="rounded-full bg-[color:var(--accent)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#4f3fa0]"
           >
             Login
           </Link>
@@ -59,7 +59,7 @@ export default function Home() {
 
       <main>
         <section className="relative px-4 pb-14 pt-10 sm:px-6 sm:pt-16 lg:px-8 lg:pt-24">
-          <div className="pointer-events-none absolute inset-x-0 top-8 -z-10 mx-auto h-[420px] max-w-6xl rounded-full bg-[radial-gradient(circle,rgba(216,234,214,0.9)_0%,rgba(216,234,214,0.25)_42%,transparent_72%)]" />
+          <div className="pointer-events-none absolute inset-x-0 top-8 -z-10 mx-auto h-[420px] max-w-6xl rounded-full bg-[radial-gradient(circle,rgba(184,167,240,0.82)_0%,rgba(60,169,164,0.22)_46%,transparent_72%)]" />
           <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[1.02fr_0.98fr] lg:items-center">
             <div className="max-w-2xl">
               <p className="inline-flex rounded-full border border-[color:var(--line)] bg-white/75 px-4 py-2 text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--muted)]">
@@ -75,7 +75,7 @@ export default function Home() {
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                 <Link
                   href="/dashboard"
-                  className="inline-flex items-center justify-center rounded-full bg-[color:var(--accent)] px-7 py-3.5 text-base font-semibold text-white transition hover:bg-[#265b42]"
+                  className="inline-flex items-center justify-center rounded-full bg-[color:var(--accent)] px-7 py-3.5 text-base font-semibold text-white transition hover:bg-[#4f3fa0]"
                 >
                   Get Started
                 </Link>
@@ -95,9 +95,9 @@ export default function Home() {
             </div>
 
             <div className="relative">
-              <div className="absolute -left-6 top-8 h-24 w-24 rounded-full bg-[color:var(--warm)]/40 blur-2xl" />
-              <div className="absolute -right-4 bottom-10 h-28 w-28 rounded-full bg-[color:var(--accent-soft)] blur-2xl" />
-              <div className="soft-shadow relative overflow-hidden rounded-[38px] border border-[color:var(--line)] bg-[linear-gradient(160deg,#fbf8f1_0%,#f0f7ee_55%,#e1ecdb_100%)] p-4 sm:p-5">
+              <div className="absolute -left-6 top-8 h-24 w-24 rounded-full bg-[color:var(--glow)]/40 blur-2xl" />
+              <div className="absolute -right-4 bottom-10 h-28 w-28 rounded-full bg-[color:var(--teal-soft)] blur-2xl" />
+              <div className="soft-shadow relative overflow-hidden rounded-[38px] border border-[color:var(--line)] bg-[linear-gradient(160deg,#faf8ff_0%,#ebe7fd_44%,#d8f2f0_100%)] p-4 sm:p-5">
                 <div className="rounded-[30px] border border-white/70 bg-white/80 p-5 sm:p-6">
                   <div className="flex items-start justify-between gap-4">
                     <div>
@@ -108,29 +108,29 @@ export default function Home() {
                         148 chicks tracked
                       </p>
                     </div>
-                    <div className="rounded-full bg-[color:var(--accent-soft)] px-4 py-2 text-sm font-semibold text-[color:var(--accent)]">
+                    <div className="rounded-full bg-[color:var(--teal-soft)] px-4 py-2 text-sm font-semibold text-[color:var(--teal)]">
                       24 reserved
                     </div>
                   </div>
 
                   <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                    <div className="rounded-[26px] border border-[color:var(--line)] bg-[#fcfdf9] p-4">
+                    <div className="rounded-[26px] border border-[color:var(--line)] bg-[#fbfaff] p-4">
                       <p className="text-sm text-[color:var(--muted)]">Breeding groups</p>
                       <p className="mt-2 text-2xl font-semibold">18 active</p>
-                      <p className="mt-1 text-sm text-[color:var(--accent)]">
+                      <p className="mt-1 text-sm text-[color:var(--teal)]">
                         Lineage and notes connected
                       </p>
                     </div>
-                    <div className="rounded-[26px] border border-[color:var(--line)] bg-[#fcfdf9] p-4">
+                    <div className="rounded-[26px] border border-[color:var(--line)] bg-[#fbfaff] p-4">
                       <p className="text-sm text-[color:var(--muted)]">Band registry</p>
                       <p className="mt-2 text-2xl font-semibold">96% complete</p>
-                      <p className="mt-1 text-sm text-[color:var(--accent)]">
+                      <p className="mt-1 text-sm text-[color:var(--teal)]">
                         Searchable by bird or hatch
                       </p>
                     </div>
                   </div>
 
-                  <div className="mt-6 rounded-[28px] border border-[color:var(--line)] bg-[#f7f3e8] p-4">
+                  <div className="mt-6 rounded-[28px] border border-[color:var(--line)] bg-[#efeafd] p-4">
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm text-[color:var(--muted)]">
@@ -138,7 +138,7 @@ export default function Home() {
                         </p>
                         <p className="mt-1 text-lg font-semibold">Saturday hatch group</p>
                       </div>
-                      <p className="text-sm font-medium text-[color:var(--accent)]">
+                      <p className="text-sm font-medium text-[color:var(--teal)]">
                         9 reservations
                       </p>
                     </div>
@@ -166,7 +166,7 @@ export default function Home() {
 
         <section className="px-4 py-8 sm:px-6 lg:px-8 lg:py-14">
           <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[0.95fr_1.05fr]">
-            <div className="rounded-[34px] border border-[color:var(--line)] bg-[#23372b] p-8 text-white">
+            <div className="rounded-[34px] border border-[color:var(--line)] bg-[#2f2558] p-8 text-white">
               <p className="text-sm font-semibold uppercase tracking-[0.24em] text-white/65">
                 Built for real breeder workflows
               </p>
@@ -215,7 +215,7 @@ export default function Home() {
                 <article
                   key={feature.title}
                   className={`soft-shadow rounded-[30px] border border-[color:var(--line)] p-6 ${
-                    index % 2 === 0 ? "bg-white/90" : "bg-[#f8fbf6]"
+                    index % 2 === 0 ? "bg-[#fcfaff]" : "bg-[#edf7f8]"
                   }`}
                 >
                   <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[color:var(--accent-soft)] text-sm font-semibold text-[color:var(--accent)]">
@@ -251,7 +251,7 @@ export default function Home() {
                 ].map(([title, description]) => (
                   <div
                     key={title}
-                    className="rounded-[26px] border border-[color:var(--line)] bg-[#fcfdf9] p-5"
+                    className="rounded-[26px] border border-[color:var(--line)] bg-[#fbfaff] p-5"
                   >
                     <p className="text-lg font-semibold tracking-tight">{title}</p>
                     <p className="mt-2 text-sm leading-7 text-[color:var(--muted)]">
@@ -262,7 +262,7 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="rounded-[36px] border border-[color:var(--line)] bg-[linear-gradient(180deg,#f7f3e8_0%,#edf5ea_100%)] p-7 sm:p-8">
+            <div className="rounded-[36px] border border-[color:var(--line)] bg-[linear-gradient(180deg,#eee7ff_0%,#daf4f2_100%)] p-7 sm:p-8">
               <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[color:var(--muted)]">
                 Made for small farms and growing hatcheries
               </p>
@@ -270,13 +270,13 @@ export default function Home() {
                 Keep the operation tidy without making it feel corporate.
               </h2>
               <p className="mt-5 text-base leading-8 text-[color:var(--muted)]">
-                The visual direction is intentionally warm, calm, and practical.
+                The visual direction is intentionally calm, polished, and practical.
                 It feels more like a thoughtful breeding workspace than generic
                 software.
               </p>
               <Link
                 href="/dashboard"
-                className="mt-8 inline-flex items-center justify-center rounded-full bg-[color:var(--accent)] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#265b42]"
+                className="mt-8 inline-flex items-center justify-center rounded-full bg-[color:var(--accent)] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#4f3fa0]"
               >
                 Open HavenHatchr
               </Link>
@@ -300,7 +300,7 @@ export default function Home() {
                 </p>
               </div>
 
-              <div className="rounded-[30px] border border-[color:var(--line)] bg-[#f8fbf6] p-6">
+              <div className="rounded-[30px] border border-[color:var(--line)] bg-[#eaf8f7] p-6">
                 <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)]">
                   Starter
                 </p>
@@ -312,7 +312,7 @@ export default function Home() {
                 </p>
                 <Link
                   href="/dashboard"
-                  className="mt-6 inline-flex w-full items-center justify-center rounded-full bg-[color:var(--accent)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#265b42]"
+                  className="mt-6 inline-flex w-full items-center justify-center rounded-full bg-[color:var(--accent)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#4f3fa0]"
                 >
                   Get Started
                 </Link>

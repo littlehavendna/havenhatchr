@@ -1,23 +1,47 @@
-import { DataTable } from "@/components/DataTable";
+import { DataTable } from "@/components/data-table";
 
 const rows = [
-  { batch: "CHK-2407", breed: "Easter Egger", age: "5 days", brooder: "North Wing", status: "Strong" },
-  { batch: "CHK-2408", breed: "Buff Orpington", age: "8 days", brooder: "Sun Room", status: "Ready soon" },
-  { batch: "CHK-2409", breed: "Ameraucana", age: "2 days", brooder: "North Wing", status: "Monitoring" },
-  { batch: "CHK-2410", breed: "Speckled Sussex", age: "11 days", brooder: "South Bay", status: "Strong" },
+  {
+    bandNumber: "CH-2041",
+    hatchDate: "Apr 3, 2026",
+    flock: "Blue Meadow",
+    status: "Available",
+    notes: "Pullet hold candidate",
+  },
+  {
+    bandNumber: "CH-2042",
+    hatchDate: "Apr 3, 2026",
+    flock: "Golden Fern",
+    status: "Reserved",
+    notes: "Reserved for Maple Row Farm",
+  },
+  {
+    bandNumber: "CH-2043",
+    hatchDate: "Apr 4, 2026",
+    flock: "Silver Ridge",
+    status: "Brooder",
+    notes: "Observe toe alignment",
+  },
+  {
+    bandNumber: "CH-2044",
+    hatchDate: "Apr 5, 2026",
+    flock: "Willow Patch",
+    status: "Available",
+    notes: "Ready for reservation list",
+  },
 ];
 
 export default function ChicksPage() {
   return (
     <DataTable
-      title="Chick Batches"
-      description="Placeholder brooder batches and readiness status for current chicks."
+      title="Chicks"
+      description="Band numbers, hatch dates, and current chick status."
       columns={[
-        { key: "batch", label: "Batch" },
-        { key: "breed", label: "Breed" },
-        { key: "age", label: "Age" },
-        { key: "brooder", label: "Brooder" },
+        { key: "bandNumber", label: "Band Number" },
+        { key: "hatchDate", label: "Hatch Date" },
+        { key: "flock", label: "Flock" },
         { key: "status", label: "Status" },
+        { key: "notes", label: "Notes" },
       ]}
       rows={rows}
     />

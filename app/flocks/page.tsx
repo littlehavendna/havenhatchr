@@ -1,23 +1,42 @@
-import { DataTable } from "@/components/DataTable";
+import { DataTable } from "@/components/data-table";
 
 const rows = [
-  { flock: "Aurora Layers", breed: "ISA Brown", count: "540", collection: "1,920 eggs", health: "Excellent" },
-  { flock: "Meadowline", breed: "Rhode Island Red", count: "320", collection: "1,060 eggs", health: "Stable" },
-  { flock: "Pinecrest", breed: "Barred Rock", count: "270", collection: "840 eggs", health: "Watch feed" },
-  { flock: "Silver Brook", breed: "Australorp", count: "410", collection: "1,380 eggs", health: "Excellent" },
+  {
+    flockName: "Blue Meadow",
+    breed: "Blue Copper Marans",
+    pairing: "Pen A",
+    notes: "Strong fertility this month",
+  },
+  {
+    flockName: "Golden Fern",
+    breed: "Buff Orpington",
+    pairing: "Pen C",
+    notes: "Steady customer demand",
+  },
+  {
+    flockName: "Silver Ridge",
+    breed: "Ameraucana",
+    pairing: "Pen B",
+    notes: "Egg color tracking active",
+  },
+  {
+    flockName: "Willow Patch",
+    breed: "Olive Egger",
+    pairing: "Grow-out pen",
+    notes: "New pair introduced",
+  },
 ];
 
 export default function FlocksPage() {
   return (
     <DataTable
-      title="Flock Overview"
-      description="Example flock records with breed mix, counts, and collection output."
+      title="Flocks"
+      description="Current breeding flocks, pairings, and general notes."
       columns={[
-        { key: "flock", label: "Flock" },
+        { key: "flockName", label: "Flock Name" },
         { key: "breed", label: "Breed" },
-        { key: "count", label: "Bird Count" },
-        { key: "collection", label: "Egg Collection" },
-        { key: "health", label: "Health" },
+        { key: "pairing", label: "Pairing" },
+        { key: "notes", label: "Notes" },
       ]}
       rows={rows}
     />

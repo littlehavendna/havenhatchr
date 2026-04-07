@@ -2,8 +2,8 @@
 
 import { ReactNode, useState } from "react";
 import { usePathname } from "next/navigation";
-import { Sidebar } from "@/components/Sidebar";
-import { Topbar } from "@/components/Topbar";
+import { Sidebar } from "@/components/sidebar";
+import { Topbar } from "@/components/topbar";
 
 type DashboardShellProps = {
   children: ReactNode;
@@ -20,13 +20,10 @@ export function DashboardShell({ children }: DashboardShellProps) {
   return (
     <div className="min-h-screen text-foreground">
       <div className="mx-auto flex min-h-screen max-w-[1600px]">
-        <Sidebar
-          isOpen={isSidebarOpen}
-          onClose={() => setIsSidebarOpen(false)}
-        />
+        <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
         <div className="flex min-h-screen min-w-0 flex-1 flex-col">
           <Topbar onMenuClick={() => setIsSidebarOpen(true)} />
-          <main className="flex-1 px-4 pb-6 pt-2 sm:px-6 lg:px-8">
+          <main className="flex-1 px-4 pb-6 pt-4 sm:px-6 lg:px-8">
             {children}
           </main>
         </div>

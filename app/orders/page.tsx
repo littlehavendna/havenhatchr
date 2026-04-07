@@ -1,23 +1,42 @@
-import { DataTable } from "@/components/DataTable";
+import { DataTable } from "@/components/data-table";
 
 const rows = [
-  { order: "#HH-1024", customer: "Green Pastures Co-op", window: "Apr 10", quantity: "220 chicks", status: "Confirmed" },
-  { order: "#HH-1025", customer: "Willow Creek Farm", window: "Apr 11", quantity: "140 chicks", status: "Packing" },
-  { order: "#HH-1026", customer: "North Ridge Homestead", window: "Apr 13", quantity: "80 chicks", status: "Awaiting payment" },
-  { order: "#HH-1027", customer: "Sunrise Poultry", window: "Apr 15", quantity: "300 chicks", status: "Reserved" },
+  {
+    customer: "Maple Row Farm",
+    chickCount: "12",
+    status: "Reserved",
+    pickupDate: "Apr 12, 2026",
+  },
+  {
+    customer: "Clover Hen Co.",
+    chickCount: "8",
+    status: "Pending",
+    pickupDate: "Apr 14, 2026",
+  },
+  {
+    customer: "Elm Hollow Homestead",
+    chickCount: "16",
+    status: "Ready",
+    pickupDate: "Apr 16, 2026",
+  },
+  {
+    customer: "Oak & Grain Farm",
+    chickCount: "4",
+    status: "Awaiting hatch",
+    pickupDate: "Apr 19, 2026",
+  },
 ];
 
 export default function OrdersPage() {
   return (
     <DataTable
-      title="Order Queue"
-      description="Placeholder orders tied to upcoming hatch and fulfillment dates."
+      title="Orders"
+      description="Customer chick counts, order status, and planned pickup dates."
       columns={[
-        { key: "order", label: "Order" },
         { key: "customer", label: "Customer" },
-        { key: "window", label: "Pickup Window" },
-        { key: "quantity", label: "Quantity" },
+        { key: "chickCount", label: "Chick Count" },
         { key: "status", label: "Status" },
+        { key: "pickupDate", label: "Pickup Date" },
       ]}
       rows={rows}
     />

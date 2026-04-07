@@ -1,15 +1,17 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f3f0e8;
-  --foreground: #1f2a1f;
+  --background: #f5f4fb;
+  --foreground: #201b35;
   --panel: rgba(255, 255, 255, 0.82);
   --panel-strong: #ffffff;
-  --line: rgba(88, 104, 82, 0.14);
-  --muted: #667160;
-  --accent: #2f6c4f;
-  --accent-soft: #d8ead6;
-  --warm: #e6c98b;
+  --line: rgba(95, 82, 153, 0.14);
+  --muted: #6f6793;
+  --accent: #5e4bb6;
+  --accent-soft: #d9d2f6;
+  --teal: #3ca9a4;
+  --teal-soft: #d7f1ef;
+  --glow: #b8a7f0;
 }
 
 @theme inline {
@@ -25,9 +27,9 @@
 
 html {
   background:
-    radial-gradient(circle at top left, rgba(230, 201, 139, 0.35), transparent 28%),
-    radial-gradient(circle at right 20%, rgba(151, 192, 150, 0.3), transparent 30%),
-    linear-gradient(180deg, #f8f5ee 0%, #eff3eb 100%);
+    radial-gradient(circle at top left, rgba(184, 167, 240, 0.36), transparent 28%),
+    radial-gradient(circle at right 20%, rgba(60, 169, 164, 0.22), transparent 30%),
+    linear-gradient(180deg, #fbfaff 0%, #eef6f8 100%);
 }
 
 body {
@@ -46,7 +48,7 @@ button {
 }
 
 ::selection {
-  background: rgba(47, 108, 79, 0.18);
+  background: rgba(94, 75, 182, 0.18);
 }
 
 .glass-panel {
@@ -56,6 +58,6 @@ button {
 
 .soft-shadow {
   box-shadow:
-    0 18px 40px rgba(43, 60, 41, 0.08),
-    0 2px 10px rgba(43, 60, 41, 0.04);
+    0 18px 40px rgba(52, 39, 103, 0.08),
+    0 2px 10px rgba(52, 39, 103, 0.04);
 }

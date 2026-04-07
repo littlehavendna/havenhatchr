@@ -1,16 +1,18 @@
+type RowValue = string | number;
+
 type Column<T> = {
   key: keyof T;
   label: string;
 };
 
-type DataTableProps<T extends Record<string, string>> = {
+type DataTableProps<T extends Record<string, RowValue>> = {
   title: string;
-  description: string;
+  description?: string;
   columns: Column<T>[];
   rows: T[];
 };
 
-export function DataTable<T extends Record<string, string>>({
+export function DataTable<T extends Record<string, RowValue>>({
   title,
   description,
   columns,
@@ -19,13 +21,15 @@ export function DataTable<T extends Record<string, string>>({
   return (
     <section className="soft-shadow overflow-hidden rounded-[28px] border border-[color:var(--line)] bg-[color:var(--panel-strong)]">
       <div className="border-b border-[color:var(--line)] px-5 py-5 sm:px-6">
-        <h3 className="text-lg font-semibold tracking-tight">{title}</h3>
-        <p className="mt-1 text-sm text-[color:var(--muted)]">{description}</p>
+        <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
+        {description ? (
+          <p className="mt-1 text-sm text-[color:var(--muted)]">{description}</p>
+        ) : null}
       </div>
 
       <div className="overflow-x-auto">
         <table className="min-w-full text-left">
-          <thead className="bg-[#f5f8f3]">
+          <thead className="bg-[#f5f3fd]">
             <tr>
               {columns.map((column) => (
                 <th
@@ -41,7 +45,7 @@ export function DataTable<T extends Record<string, string>>({
             {rows.map((row, index) => (
               <tr
                 key={index}
-                className="border-t border-[color:var(--line)] transition hover:bg-[#fafcf8]"
+                className="border-t border-[color:var(--line)] transition hover:bg-[#f8f7fe]"
               >
                 {columns.map((column) => (
                   <td

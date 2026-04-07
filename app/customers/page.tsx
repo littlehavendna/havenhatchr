@@ -1,23 +1,42 @@
-import { DataTable } from "@/components/DataTable";
+import { DataTable } from "@/components/data-table";
 
 const rows = [
-  { customer: "Green Pastures Co-op", region: "Hudson Valley", tier: "Wholesale", lastOrder: "Apr 4", status: "Active" },
-  { customer: "Willow Creek Farm", region: "Lancaster", tier: "Retail", lastOrder: "Apr 2", status: "Recurring" },
-  { customer: "North Ridge Homestead", region: "Vermont", tier: "Breeder", lastOrder: "Mar 29", status: "Pending quote" },
-  { customer: "Sunrise Poultry", region: "Finger Lakes", tier: "Wholesale", lastOrder: "Mar 26", status: "Active" },
+  {
+    name: "Maple Row Farm",
+    contact: "maplerow@example.com",
+    reserved: "12 chicks",
+    notes: "Prefers Saturday pickup",
+  },
+  {
+    name: "Clover Hen Co.",
+    contact: "555-214-8874",
+    reserved: "8 chicks",
+    notes: "Blue egg layers requested",
+  },
+  {
+    name: "Elm Hollow Homestead",
+    contact: "elmhollow@example.com",
+    reserved: "16 chicks",
+    notes: "Repeat customer",
+  },
+  {
+    name: "Oak & Grain Farm",
+    contact: "555-782-1313",
+    reserved: "4 chicks",
+    notes: "Waiting on hatch confirmation",
+  },
 ];
 
 export default function CustomersPage() {
   return (
     <DataTable
-      title="Customer Directory"
-      description="Placeholder customer accounts for the HavenHatchr CRM view."
+      title="Customers"
+      description="Customer reservations, contact details, and pickup notes."
       columns={[
-        { key: "customer", label: "Customer" },
-        { key: "region", label: "Region" },
-        { key: "tier", label: "Tier" },
-        { key: "lastOrder", label: "Last Order" },
-        { key: "status", label: "Status" },
+        { key: "name", label: "Name" },
+        { key: "contact", label: "Contact" },
+        { key: "reserved", label: "Reserved" },
+        { key: "notes", label: "Notes" },
       ]}
       rows={rows}
     />
