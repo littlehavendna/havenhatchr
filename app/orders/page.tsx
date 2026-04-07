@@ -1,37 +1,19 @@
 import { DataTable } from "@/components/data-table";
-
-const rows = [
-  {
-    customer: "Maple Row Farm",
-    chickCount: "12",
-    status: "Reserved",
-    pickupDate: "Apr 12, 2026",
-  },
-  {
-    customer: "Clover Hen Co.",
-    chickCount: "8",
-    status: "Pending",
-    pickupDate: "Apr 14, 2026",
-  },
-  {
-    customer: "Elm Hollow Homestead",
-    chickCount: "16",
-    status: "Ready",
-    pickupDate: "Apr 16, 2026",
-  },
-  {
-    customer: "Oak & Grain Farm",
-    chickCount: "4",
-    status: "Awaiting hatch",
-    pickupDate: "Apr 19, 2026",
-  },
-];
+import { customers, orders } from "@/lib/mock-data";
 
 export default function OrdersPage() {
+  const rows = orders.map((order) => ({
+    customer:
+      customers.find((customer) => customer.id === order.customerId)?.name ?? "Unknown",
+    chickCount: String(order.chickIds.length),
+    status: toTitleCase(order.status),
+    pickupDate: formatDate(order.pickupDate),
+  }));
+
   return (
     <DataTable
       title="Orders"
-      description="Customer chick counts, order status, and planned pickup dates."
+      description="Order records shaped for fulfillment, analytics, waitlist conversion, and future automation."
       columns={[
         { key: "customer", label: "Customer" },
         { key: "chickCount", label: "Chick Count" },
@@ -41,4 +23,18 @@ export default function OrdersPage() {
       rows={rows}
     />
   );
+}
+
+function formatDate(value: string) {
+  const date = new Date(`${value}T00:00:00`);
+
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(date);
+}
+
+function toTitleCase(value: string) {
+  return value.charAt(0).toUpperCase() + value.slice(1);
 }

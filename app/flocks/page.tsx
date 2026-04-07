@@ -1,37 +1,18 @@
 import { DataTable } from "@/components/data-table";
-
-const rows = [
-  {
-    flockName: "Blue Meadow",
-    breed: "Blue Copper Marans",
-    pairing: "Pen A",
-    notes: "Strong fertility this month",
-  },
-  {
-    flockName: "Golden Fern",
-    breed: "Buff Orpington",
-    pairing: "Pen C",
-    notes: "Steady customer demand",
-  },
-  {
-    flockName: "Silver Ridge",
-    breed: "Ameraucana",
-    pairing: "Pen B",
-    notes: "Egg color tracking active",
-  },
-  {
-    flockName: "Willow Patch",
-    breed: "Olive Egger",
-    pairing: "Grow-out pen",
-    notes: "New pair introduced",
-  },
-];
+import { flocks } from "@/lib/mock-data";
 
 export default function FlocksPage() {
+  const rows = flocks.map((flock) => ({
+    flockName: flock.name,
+    breed: `${flock.breed} ${flock.variety}`.trim(),
+    pairing: flock.active ? "Active" : "Inactive",
+    notes: flock.notes,
+  }));
+
   return (
     <DataTable
       title="Flocks"
-      description="Current breeding flocks, pairings, and general notes."
+      description="Breeding groups organized for future pairing outcome tools, hatch analysis, and genetics workflows."
       columns={[
         { key: "flockName", label: "Flock Name" },
         { key: "breed", label: "Breed" },

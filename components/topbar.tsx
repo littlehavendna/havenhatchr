@@ -27,8 +27,13 @@ export function Topbar({ onMenuClick }: TopbarProps) {
           </div>
         </div>
 
-        <div className="flex h-11 w-11 items-center justify-center rounded-full border border-[color:var(--line)] bg-white/80 text-sm font-semibold text-[color:var(--accent)]">
-          HH
+        <div className="flex items-center gap-3">
+          <div className="hidden rounded-full border border-[color:var(--line)] bg-[color:var(--teal-soft)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--teal)] sm:block">
+            AI-ready shell
+          </div>
+          <div className="flex h-11 w-11 items-center justify-center rounded-full border border-[color:var(--line)] bg-white/80 text-sm font-semibold text-[color:var(--accent)]">
+            HH
+          </div>
         </div>
       </div>
     </header>

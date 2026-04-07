@@ -7,7 +7,10 @@ const links = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/customers", label: "Customers" },
   { href: "/flocks", label: "Flocks" },
+  { href: "/pairings", label: "Pairings" },
+  { href: "/hatch-groups", label: "Hatch Groups" },
   { href: "/chicks", label: "Chicks" },
+  { href: "/reservations", label: "Reservations" },
   { href: "/orders", label: "Orders" },
   { href: "/settings", label: "Settings" },
 ];
@@ -75,9 +78,9 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         </nav>
 
         <div className="rounded-[24px] border border-[color:var(--line)] bg-white/72 p-4">
-          <p className="text-sm font-semibold">Farm Tech, Simplified</p>
+          <p className="text-sm font-semibold">Future Workspace</p>
           <p className="mt-2 text-sm leading-6 text-[color:var(--muted)]">
-            Track birds, hatches, and customer reservations in one calm workspace.
+            Ready for genetics, AI drafting, analytics, and waitlist automation.
           </p>
         </div>
       </aside>
