@@ -1,26 +1,61 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f3f0e8;
+  --foreground: #1f2a1f;
+  --panel: rgba(255, 255, 255, 0.82);
+  --panel-strong: #ffffff;
+  --line: rgba(88, 104, 82, 0.14);
+  --muted: #667160;
+  --accent: #2f6c4f;
+  --accent-soft: #d8ead6;
+  --warm: #e6c98b;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background:
+    radial-gradient(circle at top left, rgba(230, 201, 139, 0.35), transparent 28%),
+    radial-gradient(circle at right 20%, rgba(151, 192, 150, 0.3), transparent 30%),
+    linear-gradient(180deg, #f8f5ee 0%, #eff3eb 100%);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  cursor: pointer;
+}
+
+::selection {
+  background: rgba(47, 108, 79, 0.18);
+}
+
+.glass-panel {
+  background: var(--panel);
+  backdrop-filter: blur(18px);
+}
+
+.soft-shadow {
+  box-shadow:
+    0 18px 40px rgba(43, 60, 41, 0.08),
+    0 2px 10px rgba(43, 60, 41, 0.04);
 }
