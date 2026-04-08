@@ -1,23 +1,62 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, type ReactNode, useEffect, useState } from "react";
 import { DataTable } from "@/components/data-table";
-import { chicks as starterChicksData, flocks, hatchGroups } from "@/lib/mock-data";
-import type { Chick, ChickStatus } from "@/lib/types";
+import type { BirdSex, ChickStatus } from "@/lib/types";
+
+type ChickRow = {
+  id: string;
+  bandNumber: string;
+  hatchDate: string;
+  flockId: string;
+  flockName: string;
+  hatchGroupId: string | null;
+  hatchGroupName: string;
+  status: ChickStatus;
+  sex: BirdSex;
+  color: string;
+  observedTraits: string[];
+  notes: string;
+  createdAt: string;
+};
+
+type FlockOption = {
+  id: string;
+  name: string;
+};
+
+type HatchGroupOption = {
+  id: string;
+  name: string;
+};
+
+type ChicksResponse = {
+  chicks: ChickRow[];
+  flocks: FlockOption[];
+  hatchGroups: HatchGroupOption[];
+};
 
 type FormState = {
   bandNumber: string;
   hatchDate: string;
-  flock: string;
+  flockId: string;
+  hatchGroupId: string;
   status: ChickStatus;
+  sex: BirdSex;
+  color: string;
+  observedTraits: string;
   notes: string;
 };
 
 const emptyForm: FormState = {
   bandNumber: "",
   hatchDate: "",
-  flock: "",
+  flockId: "",
+  hatchGroupId: "",
   status: "Available",
+  sex: "Unknown",
+  color: "",
+  observedTraits: "",
   notes: "",
 };
 
@@ -29,28 +68,52 @@ const statusOptions: Array<ChickStatus | "All Statuses"> = [
   "Holdback",
 ];
 
+const sexOptions: BirdSex[] = ["Male", "Female", "Unknown"];
+
 export default function ChicksPage() {
-  const [chicks, setChicks] = useState<Chick[]>(starterChicksData);
+  const [chicks, setChicks] = useState<ChickRow[]>([]);
+  const [flocks, setFlocks] = useState<FlockOption[]>([]);
+  const [hatchGroups, setHatchGroups] = useState<HatchGroupOption[]>([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<ChickStatus | "All Statuses">(
     "All Statuses",
   );
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [form, setForm] = useState<FormState>(emptyForm);
-  const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>(
-    {},
-  );
+  const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({});
+  const [requestError, setRequestError] = useState("");
+
+  useEffect(() => {
+    void loadChicks();
+  }, []);
+
+  async function loadChicks() {
+    try {
+      setRequestError("");
+      const response = await fetch("/api/chicks", { cache: "no-store" });
+
+      if (!response.ok) {
+        throw new Error("Failed to load chicks.");
+      }
+
+      const data = (await response.json()) as ChicksResponse;
+      setChicks(data.chicks);
+      setFlocks(data.flocks);
+      setHatchGroups(data.hatchGroups);
+    } catch (error) {
+      setRequestError(error instanceof Error ? error.message : "Failed to load chicks.");
+    } finally {
+      setIsLoading(false);
+    }
+  }
 
   const filteredChicks = chicks.filter((chick) => {
-    const flockName =
-      flocks.find((flock) => flock.id === chick.flockId)?.name.toLowerCase() ?? "";
-
+    const query = search.toLowerCase();
     const matchesSearch =
-      chick.bandNumber.toLowerCase().includes(search.toLowerCase()) ||
-      flockName.includes(search.toLowerCase());
-
-    const matchesStatus =
-      statusFilter === "All Statuses" || chick.status === statusFilter;
+      chick.bandNumber.toLowerCase().includes(query) || chick.flockName.toLowerCase().includes(query);
+    const matchesStatus = statusFilter === "All Statuses" || chick.status === statusFilter;
 
     return matchesSearch && matchesStatus;
   });
@@ -58,6 +121,7 @@ export default function ChicksPage() {
   function openModal() {
     setErrors({});
     setForm(emptyForm);
+    setRequestError("");
     setIsModalOpen(true);
   }
 
@@ -65,57 +129,69 @@ export default function ChicksPage() {
     setIsModalOpen(false);
     setErrors({});
     setForm(emptyForm);
+    setRequestError("");
   }
 
   function updateField<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((current) => ({ ...current, [key]: value }));
     setErrors((current) => ({ ...current, [key]: undefined }));
+    setRequestError("");
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     const nextErrors: Partial<Record<keyof FormState, string>> = {};
-
-    if (!form.bandNumber.trim()) {
-      nextErrors.bandNumber = "Band Number is required.";
-    }
-
-    if (!form.hatchDate) {
-      nextErrors.hatchDate = "Hatch Date is required.";
-    }
+    if (!form.bandNumber.trim()) nextErrors.bandNumber = "Band Number is required.";
+    if (!form.hatchDate) nextErrors.hatchDate = "Hatch Date is required.";
+    if (!form.flockId) nextErrors.flockId = "Flock is required.";
 
     if (Object.keys(nextErrors).length > 0) {
       setErrors(nextErrors);
       return;
     }
 
-    setChicks((current) => [
-      {
-        id: `chick_${crypto.randomUUID()}`,
-        createdAt: new Date().toISOString(),
-        flockId:
-          flocks.find((flock) => flock.name === form.flock.trim())?.id ?? "flock_custom",
-        hatchGroupId: "manual",
-        bandNumber: form.bandNumber.trim(),
-        hatchDate: form.hatchDate,
-        status: form.status,
-        sex: "Unknown",
-        color: "Unspecified",
-        notes: form.notes.trim() || "-",
-        photoUrl: "",
-      },
-      ...current,
-    ]);
-    closeModal();
+    try {
+      setIsSaving(true);
+      setRequestError("");
+
+      const response = await fetch("/api/chicks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          bandNumber: form.bandNumber.trim(),
+          hatchDate: form.hatchDate,
+          flockId: form.flockId,
+          hatchGroupId: form.hatchGroupId || undefined,
+          status: form.status,
+          sex: form.sex,
+          color: form.color.trim() || "Unspecified",
+          observedTraits: splitTraits(form.observedTraits),
+          notes: form.notes.trim() || "-",
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to save chick.");
+      }
+
+      await loadChicks();
+      closeModal();
+    } catch (error) {
+      setRequestError(error instanceof Error ? error.message : "Failed to save chick.");
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   const rows = filteredChicks.map((chick) => ({
     bandNumber: chick.bandNumber,
     hatchDate: formatDate(chick.hatchDate),
-    flock: flocks.find((flock) => flock.id === chick.flockId)?.name ?? "Unassigned",
-    hatchGroup:
-      hatchGroups.find((group) => group.id === chick.hatchGroupId)?.name ?? "-",
+    flock: chick.flockName || "Unassigned",
+    hatchGroup: chick.hatchGroupName || "-",
+    sex: chick.sex,
+    color: chick.color,
+    observedTraits: chick.observedTraits.join(", ") || "-",
     status: chick.status,
     notes: chick.notes,
   }));
@@ -128,8 +204,8 @@ export default function ChicksPage() {
             <div>
               <h2 className="text-lg font-semibold tracking-tight">Chick Records</h2>
               <p className="mt-1 text-sm text-[color:var(--muted)]">
-                Search band numbers, narrow by status, and add new chicks to the
-                current hatch list.
+                Search band numbers, narrow by status, and track observed traits, sex, and color
+                alongside each hatch record.
               </p>
             </div>
             <button
@@ -174,20 +250,27 @@ export default function ChicksPage() {
               </select>
             </label>
           </div>
+
+          {requestError ? <p className="mt-4 text-sm text-[#b34b75]">{requestError}</p> : null}
         </section>
 
         <DataTable
           title="Chicks"
           description={
-            rows.length > 0
-              ? "Band numbers, hatch dates, and current chick status."
-              : "No chicks match the current search or filter."
+            isLoading
+              ? "Loading chicks..."
+              : rows.length > 0
+                ? "Band numbers, hatch dates, genetics clues, and current chick status."
+                : "No chicks match the current search or filter."
           }
           columns={[
             { key: "bandNumber", label: "Band Number" },
             { key: "hatchDate", label: "Hatch Date" },
             { key: "flock", label: "Flock" },
             { key: "hatchGroup", label: "Hatch Group" },
+            { key: "sex", label: "Sex" },
+            { key: "color", label: "Color" },
+            { key: "observedTraits", label: "Observed Traits" },
             { key: "status", label: "Status" },
             { key: "notes", label: "Notes" },
           ]}
@@ -197,12 +280,12 @@ export default function ChicksPage() {
 
       {isModalOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#221c3f]/40 px-4 backdrop-blur-sm">
-          <div className="soft-shadow w-full max-w-2xl rounded-[30px] border border-[color:var(--line)] bg-white p-6 sm:p-7">
+          <div className="soft-shadow w-full max-w-3xl rounded-[30px] border border-[color:var(--line)] bg-white p-6 sm:p-7">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h3 className="text-2xl font-semibold tracking-tight">Add Chick</h3>
                 <p className="mt-1 text-sm text-[color:var(--muted)]">
-                  Create a new chick record and add it to the table immediately.
+                  Create a new chick record and store it in PostgreSQL immediately.
                 </p>
               </div>
               <button
@@ -229,7 +312,6 @@ export default function ChicksPage() {
                   />
                 }
               />
-
               <FormField
                 label="Hatch Date"
                 error={errors.hatchDate}
@@ -243,20 +325,41 @@ export default function ChicksPage() {
                   />
                 }
               />
-
               <FormField
                 label="Flock"
+                error={errors.flockId}
                 input={
-                  <input
-                    type="text"
-                    value={form.flock}
-                    onChange={(event) => updateField("flock", event.target.value)}
-                    placeholder="Blue Meadow"
-                    className={inputClassName()}
-                  />
+                  <select
+                    value={form.flockId}
+                    onChange={(event) => updateField("flockId", event.target.value)}
+                    className={inputClassName(errors.flockId)}
+                  >
+                    <option value="">Select flock</option>
+                    {flocks.map((flock) => (
+                      <option key={flock.id} value={flock.id}>
+                        {flock.name}
+                      </option>
+                    ))}
+                  </select>
                 }
               />
-
+              <FormField
+                label="Hatch Group"
+                input={
+                  <select
+                    value={form.hatchGroupId}
+                    onChange={(event) => updateField("hatchGroupId", event.target.value)}
+                    className={inputClassName()}
+                  >
+                    <option value="">Optional hatch group</option>
+                    {hatchGroups.map((group) => (
+                      <option key={group.id} value={group.id}>
+                        {group.name}
+                      </option>
+                    ))}
+                  </select>
+                }
+              />
               <FormField
                 label="Status"
                 input={
@@ -277,7 +380,48 @@ export default function ChicksPage() {
                   </select>
                 }
               />
-
+              <FormField
+                label="Sex"
+                input={
+                  <select
+                    value={form.sex}
+                    onChange={(event) => updateField("sex", event.target.value as BirdSex)}
+                    className={inputClassName()}
+                  >
+                    {sexOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                }
+              />
+              <FormField
+                label="Color"
+                input={
+                  <input
+                    type="text"
+                    value={form.color}
+                    onChange={(event) => updateField("color", event.target.value)}
+                    placeholder="Blue Copper"
+                    className={inputClassName()}
+                  />
+                }
+              />
+              <div className="sm:col-span-2">
+                <FormField
+                  label="Observed Traits"
+                  input={
+                    <input
+                      type="text"
+                      value={form.observedTraits}
+                      onChange={(event) => updateField("observedTraits", event.target.value)}
+                      placeholder="Blue Copper, Dark Legs"
+                      className={inputClassName()}
+                    />
+                  }
+                />
+              </div>
               <div className="sm:col-span-2">
                 <FormField
                   label="Notes"
@@ -292,7 +436,6 @@ export default function ChicksPage() {
                   }
                 />
               </div>
-
               <div className="sm:col-span-2 flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-end">
                 <button
                   type="button"
@@ -303,9 +446,10 @@ export default function ChicksPage() {
                 </button>
                 <button
                   type="submit"
-                  className="inline-flex items-center justify-center rounded-full bg-[color:var(--accent)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#4f3fa0]"
+                  disabled={isSaving}
+                  className="inline-flex items-center justify-center rounded-full bg-[color:var(--accent)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#4f3fa0] disabled:cursor-not-allowed disabled:opacity-70"
                 >
-                  Save Chick
+                  {isSaving ? "Saving..." : "Save Chick"}
                 </button>
               </div>
             </form>
@@ -323,7 +467,7 @@ function FormField({
   required,
 }: {
   label: string;
-  input: React.ReactNode;
+  input: ReactNode;
   error?: string;
   required?: boolean;
 }) {
@@ -354,4 +498,11 @@ function formatDate(value: string) {
     day: "numeric",
     year: "numeric",
   }).format(date);
+}
+
+function splitTraits(value: string) {
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
 }

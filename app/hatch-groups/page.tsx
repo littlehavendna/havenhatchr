@@ -1,9 +1,32 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, type ReactNode, useEffect, useState } from "react";
 import { DataTable } from "@/components/data-table";
-import { hatchGroups as starterHatchGroups, pairings } from "@/lib/mock-data";
-import type { HatchGroup } from "@/lib/types";
+
+type HatchGroupRow = {
+  id: string;
+  name: string;
+  pairingId: string;
+  pairingName: string;
+  setDate: string;
+  hatchDate: string;
+  eggsSet: number;
+  eggsHatched: number;
+  producedTraitsSummary: string;
+  notes: string;
+  createdAt: string;
+};
+
+type PairingOption = {
+  id: string;
+  name: string;
+  targetTraits: string[];
+};
+
+type HatchGroupsResponse = {
+  hatchGroups: HatchGroupRow[];
+  pairings: PairingOption[];
+};
 
 type HatchGroupForm = {
   name: string;
@@ -26,41 +49,61 @@ const emptyForm: HatchGroupForm = {
 };
 
 export default function HatchGroupsPage() {
-  const [hatchGroups, setHatchGroups] = useState<HatchGroup[]>(starterHatchGroups);
+  const [hatchGroups, setHatchGroups] = useState<HatchGroupRow[]>([]);
+  const [pairings, setPairings] = useState<PairingOption[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [form, setForm] = useState<HatchGroupForm>(emptyForm);
-  const [errors, setErrors] = useState<Partial<Record<keyof HatchGroupForm, string>>>(
-    {},
-  );
+  const [errors, setErrors] = useState<Partial<Record<keyof HatchGroupForm, string>>>({});
+  const [requestError, setRequestError] = useState("");
 
-  const rows = hatchGroups.map((group) => ({
-    name: group.name,
-    pairing: pairings.find((pairing) => pairing.id === group.pairingId)?.name ?? "-",
-    setDate: formatDate(group.setDate),
-    hatchDate: formatDate(group.hatchDate),
-    eggsSet: String(group.eggsSet),
-    eggsHatched: String(group.eggsHatched),
-    notes: group.notes,
-  }));
+  useEffect(() => {
+    void loadHatchGroups();
+  }, []);
+
+  async function loadHatchGroups() {
+    try {
+      setRequestError("");
+      const response = await fetch("/api/hatch-groups", { cache: "no-store" });
+
+      if (!response.ok) {
+        throw new Error("Failed to load hatch groups.");
+      }
+
+      const data = (await response.json()) as HatchGroupsResponse;
+      setHatchGroups(data.hatchGroups);
+      setPairings(data.pairings);
+    } catch (error) {
+      setRequestError(
+        error instanceof Error ? error.message : "Failed to load hatch groups.",
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  }
 
   function updateField<K extends keyof HatchGroupForm>(key: K, value: HatchGroupForm[K]) {
     setForm((current) => ({ ...current, [key]: value }));
     setErrors((current) => ({ ...current, [key]: undefined }));
+    setRequestError("");
   }
 
   function openModal() {
     setForm(emptyForm);
     setErrors({});
+    setRequestError("");
     setIsOpen(true);
   }
 
   function closeModal() {
     setForm(emptyForm);
     setErrors({});
+    setRequestError("");
     setIsOpen(false);
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     const nextErrors: Partial<Record<keyof HatchGroupForm, string>> = {};
@@ -74,23 +117,53 @@ export default function HatchGroupsPage() {
       return;
     }
 
-    setHatchGroups((current) => [
-      {
-        id: `hatch_${crypto.randomUUID()}`,
-        name: form.name.trim(),
-        pairingId: form.pairingId,
-        setDate: form.setDate,
-        hatchDate: form.hatchDate,
-        eggsSet: Number(form.eggsSet) || 0,
-        eggsHatched: Number(form.eggsHatched) || 0,
-        notes: form.notes.trim() || "-",
-        createdAt: new Date().toISOString(),
-      },
-      ...current,
-    ]);
+    const selectedPairing = pairings.find((pairing) => pairing.id === form.pairingId);
 
-    closeModal();
+    try {
+      setIsSaving(true);
+      setRequestError("");
+
+      const response = await fetch("/api/hatch-groups", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: form.name.trim(),
+          pairingId: form.pairingId,
+          setDate: form.setDate,
+          hatchDate: form.hatchDate,
+          eggsSet: Number(form.eggsSet) || 0,
+          eggsHatched: Number(form.eggsHatched) || 0,
+          producedTraitsSummary:
+            selectedPairing && selectedPairing.targetTraits.length > 0
+              ? `Expected traits: ${selectedPairing.targetTraits.join(", ")}`
+              : "Traits still being evaluated.",
+          notes: form.notes.trim() || "-",
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to save hatch group.");
+      }
+
+      await loadHatchGroups();
+      closeModal();
+    } catch (error) {
+      setRequestError(error instanceof Error ? error.message : "Failed to save hatch group.");
+    } finally {
+      setIsSaving(false);
+    }
   }
+
+  const rows = hatchGroups.map((group) => ({
+    name: group.name,
+    pairing: group.pairingName,
+    setDate: formatDate(group.setDate),
+    hatchDate: formatDate(group.hatchDate),
+    eggsSet: String(group.eggsSet),
+    eggsHatched: String(group.eggsHatched),
+    producedTraits: group.producedTraitsSummary,
+    notes: group.notes,
+  }));
 
   return (
     <>
@@ -100,7 +173,8 @@ export default function HatchGroupsPage() {
             <div>
               <h2 className="text-lg font-semibold tracking-tight">Hatch Groups</h2>
               <p className="mt-1 text-sm text-[color:var(--muted)]">
-                Track incubator groups, hatch timing, and outcomes tied to breeder pairings.
+                Track incubator groups, hatch timing, outcomes, and simple produced-trait
+                summaries tied to breeder pairings.
               </p>
             </div>
             <button
@@ -111,11 +185,16 @@ export default function HatchGroupsPage() {
               Add Hatch Group
             </button>
           </div>
+          {requestError ? <p className="mt-4 text-sm text-[#b34b75]">{requestError}</p> : null}
         </section>
 
         <DataTable
           title="Hatch Groups"
-          description="Hatch batches organized for incubator planning, results tracking, and future analytics."
+          description={
+            isLoading
+              ? "Loading hatch groups..."
+              : "Hatch batches organized for incubator planning, genetics review, and future analytics."
+          }
           columns={[
             { key: "name", label: "Hatch Group Name" },
             { key: "pairing", label: "Pairing" },
@@ -123,6 +202,7 @@ export default function HatchGroupsPage() {
             { key: "hatchDate", label: "Hatch Date" },
             { key: "eggsSet", label: "Eggs Set" },
             { key: "eggsHatched", label: "Eggs Hatched" },
+            { key: "producedTraits", label: "Produced Traits" },
             { key: "notes", label: "Notes" },
           ]}
           rows={rows}
@@ -136,7 +216,7 @@ export default function HatchGroupsPage() {
               <div>
                 <h3 className="text-2xl font-semibold tracking-tight">Add Hatch Group</h3>
                 <p className="mt-1 text-sm text-[color:var(--muted)]">
-                  Create a new hatch group and add it to the table immediately.
+                  Create a new hatch group and store it in PostgreSQL immediately.
                 </p>
               </div>
               <button
@@ -162,7 +242,6 @@ export default function HatchGroupsPage() {
                   />
                 }
               />
-
               <FormField
                 label="Pairing"
                 error={errors.pairingId}
@@ -181,7 +260,6 @@ export default function HatchGroupsPage() {
                   </select>
                 }
               />
-
               <FormField
                 label="Set Date"
                 error={errors.setDate}
@@ -194,7 +272,6 @@ export default function HatchGroupsPage() {
                   />
                 }
               />
-
               <FormField
                 label="Hatch Date"
                 error={errors.hatchDate}
@@ -207,7 +284,6 @@ export default function HatchGroupsPage() {
                   />
                 }
               />
-
               <FormField
                 label="Eggs Set"
                 input={
@@ -221,7 +297,6 @@ export default function HatchGroupsPage() {
                   />
                 }
               />
-
               <FormField
                 label="Eggs Hatched"
                 input={
@@ -235,7 +310,6 @@ export default function HatchGroupsPage() {
                   />
                 }
               />
-
               <div className="sm:col-span-2">
                 <FormField
                   label="Notes"
@@ -250,7 +324,6 @@ export default function HatchGroupsPage() {
                   }
                 />
               </div>
-
               <div className="sm:col-span-2 flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-end">
                 <button
                   type="button"
@@ -261,9 +334,10 @@ export default function HatchGroupsPage() {
                 </button>
                 <button
                   type="submit"
-                  className="inline-flex items-center justify-center rounded-full bg-[color:var(--accent)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#4f3fa0]"
+                  disabled={isSaving}
+                  className="inline-flex items-center justify-center rounded-full bg-[color:var(--accent)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#4f3fa0] disabled:cursor-not-allowed disabled:opacity-70"
                 >
-                  Save Hatch Group
+                  {isSaving ? "Saving..." : "Save Hatch Group"}
                 </button>
               </div>
             </form>
@@ -280,7 +354,7 @@ function FormField({
   error,
 }: {
   label: string;
-  input: React.ReactNode;
+  input: ReactNode;
   error?: string;
 }) {
   return (

@@ -1,4 +1,16 @@
 export type ChickStatus = "Available" | "Reserved" | "Sold" | "Holdback";
+export type BirdSex = "Male" | "Female" | "Unknown";
+export type BirdStatus = "Active" | "Holdback" | "Retired" | "Sold";
+export type NoteEntityType =
+  | "bird"
+  | "flock"
+  | "customer"
+  | "pairing"
+  | "hatchGroup"
+  | "chick"
+  | "order"
+  | "reservation";
+export type PhotoEntityType = "bird" | "chick" | "flock" | "hatchGroup";
 
 export interface User {
   id: string;
@@ -33,15 +45,19 @@ export interface Bird {
   id: string;
   name: string;
   bandNumber: string;
-  sex: string;
+  sex: BirdSex;
   breed: string;
   variety: string;
   color: string;
   genetics: string;
   flockId: string;
-  status: string;
+  status: BirdStatus;
   notes: string;
   photoUrl: string;
+  visualTraits: string[];
+  carriedTraits: string[];
+  genotypeNotes: string;
+  projectTags: string[];
   createdAt: string;
 }
 
@@ -51,6 +67,9 @@ export interface Pairing {
   sireId: string;
   damId: string;
   goals: string;
+  targetTraits: string[];
+  avoidTraits: string[];
+  projectGoal: string;
   notes: string;
   active: boolean;
   createdAt: string;
@@ -64,6 +83,7 @@ export interface HatchGroup {
   hatchDate: string;
   eggsSet: number;
   eggsHatched: number;
+  producedTraitsSummary: string;
   notes: string;
   createdAt: string;
 }
@@ -75,8 +95,9 @@ export interface Chick {
   flockId: string;
   hatchGroupId: string;
   status: ChickStatus;
-  sex: string;
+  sex: BirdSex;
   color: string;
+  observedTraits: string[];
   notes: string;
   photoUrl: string;
   createdAt: string;
@@ -115,7 +136,7 @@ export interface Trait {
 
 export interface Note {
   id: string;
-  entityType: string;
+  entityType: NoteEntityType;
   entityId: string;
   content: string;
   createdAt: string;
@@ -123,7 +144,7 @@ export interface Note {
 
 export interface Photo {
   id: string;
-  entityType: string;
+  entityType: PhotoEntityType;
   entityId: string;
   url: string;
   caption: string;

@@ -1,0 +1,221 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum BirdSex {
+  Male
+  Female
+  Unknown
+}
+
+enum BirdStatus {
+  Active
+  Holdback
+  Retired
+  Sold
+}
+
+enum ChickStatus {
+  Available
+  Reserved
+  Sold
+  Holdback
+}
+
+enum ReservationStatus {
+  Waiting
+  Matched
+  Completed
+  Cancelled
+}
+
+enum NoteEntityType {
+  bird
+  flock
+  customer
+  pairing
+  hatchGroup
+  chick
+  order
+  reservation
+}
+
+enum PhotoEntityType {
+  bird
+  chick
+  flock
+  hatchGroup
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  plan      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Customer {
+  id           String        @id @default(cuid())
+  name         String
+  email        String
+  phone        String
+  location     String
+  notes        String
+  status       String
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  reservations Reservation[]
+  orders       Order[]
+}
+
+model Flock {
+  id        String   @id @default(cuid())
+  name      String
+  breed     String
+  variety   String
+  notes     String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  birds     Bird[]
+  chicks    Chick[]
+}
+
+model Bird {
+  id             String        @id @default(cuid())
+  name           String
+  bandNumber     String        @unique
+  sex            BirdSex
+  breed          String
+  variety        String
+  color          String
+  genetics       String
+  flockId        String
+  status         BirdStatus
+  notes          String
+  photoUrl       String
+  visualTraits   String[]      @default([])
+  carriedTraits  String[]      @default([])
+  genotypeNotes  String
+  projectTags    String[]      @default([])
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  flock          Flock         @relation(fields: [flockId], references: [id], onDelete: Cascade)
+  sirePairings   Pairing[]     @relation("PairingSire")
+  damPairings    Pairing[]     @relation("PairingDam")
+  traits         Trait[]
+}
+
+model Pairing {
+  id           String    @id @default(cuid())
+  name         String
+  sireId       String
+  damId        String
+  goals        String
+  targetTraits String[]  @default([])
+  avoidTraits  String[]  @default([])
+  projectGoal  String
+  notes        String
+  active       Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  sire         Bird      @relation("PairingSire", fields: [sireId], references: [id], onDelete: Cascade)
+  dam          Bird      @relation("PairingDam", fields: [damId], references: [id], onDelete: Cascade)
+  hatchGroups  HatchGroup[]
+}
+
+model HatchGroup {
+  id                    String    @id @default(cuid())
+  name                  String
+  pairingId             String
+  setDate               DateTime
+  hatchDate             DateTime
+  eggsSet               Int
+  eggsHatched           Int
+  producedTraitsSummary String
+  notes                 String
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  pairing               Pairing   @relation(fields: [pairingId], references: [id], onDelete: Cascade)
+  chicks                Chick[]
+}
+
+model Chick {
+  id             String      @id @default(cuid())
+  bandNumber     String      @unique
+  hatchDate      DateTime
+  flockId        String
+  hatchGroupId   String?
+  status         ChickStatus
+  sex            BirdSex
+  color          String
+  observedTraits String[]    @default([])
+  notes          String
+  photoUrl       String
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  flock          Flock       @relation(fields: [flockId], references: [id], onDelete: Cascade)
+  hatchGroup     HatchGroup? @relation(fields: [hatchGroupId], references: [id], onDelete: SetNull)
+}
+
+model Reservation {
+  id               String            @id @default(cuid())
+  customerId       String
+  requestedSex     String
+  requestedBreed   String
+  requestedVariety String
+  requestedColor   String
+  quantity         Int
+  status           ReservationStatus
+  notes            String
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  customer         Customer          @relation(fields: [customerId], references: [id], onDelete: Cascade)
+}
+
+model Order {
+  id         String   @id @default(cuid())
+  customerId String
+  chickIds   String[] @default([])
+  total      Float
+  status     String
+  pickupDate DateTime
+  notes      String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+}
+
+model Trait {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  category    String
+  description String
+  birds       Bird[]
+}
+
+model Note {
+  id         String         @id @default(cuid())
+  entityType NoteEntityType
+  entityId   String
+  content    String
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+}
+
+model Photo {
+  id         String          @id @default(cuid())
+  entityType PhotoEntityType
+  entityId   String
+  url        String
+  caption    String
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+}

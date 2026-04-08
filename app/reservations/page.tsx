@@ -1,17 +1,61 @@
 "use client";
 
-import { FormEvent, useState } from "react";
-import { DataTable } from "@/components/data-table";
-import {
-  chicks,
-  customers,
-  flocks,
-  hatchGroups,
-  reservations as starterReservations,
-} from "@/lib/mock-data";
-import type { Reservation } from "@/lib/types";
+import { FormEvent, type ReactNode, useEffect, useMemo, useState } from "react";
 
-type ReservationStatus = Reservation["status"];
+type ReservationStatus = "Waiting" | "Matched" | "Completed" | "Cancelled";
+
+type ReservationRow = {
+  id: string;
+  customerId: string;
+  customerName: string;
+  requestedSex: string;
+  requestedBreed: string;
+  requestedVariety: string;
+  requestedColor: string;
+  quantity: number;
+  status: ReservationStatus;
+  notes: string;
+  createdAt: string;
+};
+
+type CustomerOption = {
+  id: string;
+  name: string;
+};
+
+type FlockOption = {
+  id: string;
+  name: string;
+  breed: string;
+  variety: string;
+};
+
+type HatchGroupOption = {
+  id: string;
+  name: string;
+  producedTraitsSummary: string;
+};
+
+type ChickOption = {
+  id: string;
+  bandNumber: string;
+  flockId: string;
+  flockName: string;
+  breed: string;
+  variety: string;
+  hatchGroupId: string | null;
+  hatchGroupName: string | null;
+  color: string;
+  status: string;
+};
+
+type ReservationsResponse = {
+  reservations: ReservationRow[];
+  customers: CustomerOption[];
+  flocks: FlockOption[];
+  hatchGroups: HatchGroupOption[];
+  chicks: ChickOption[];
+};
 
 type ReservationForm = {
   customerId: string;
@@ -22,6 +66,14 @@ type ReservationForm = {
   quantity: string;
   status: ReservationStatus;
   notes: string;
+};
+
+type MatchSuggestion = {
+  id: string;
+  customerName: string;
+  summary: string;
+  suggestion: string;
+  source: string;
 };
 
 const statusOptions: Array<ReservationStatus | "All Statuses"> = [
@@ -44,100 +96,129 @@ const emptyForm: ReservationForm = {
 };
 
 export default function ReservationsPage() {
-  const [reservations, setReservations] = useState<Reservation[]>(starterReservations);
+  const [reservations, setReservations] = useState<ReservationRow[]>([]);
+  const [customers, setCustomers] = useState<CustomerOption[]>([]);
+  const [hatchGroups, setHatchGroups] = useState<HatchGroupOption[]>([]);
+  const [chicks, setChicks] = useState<ChickOption[]>([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<ReservationStatus | "All Statuses">(
     "All Statuses",
   );
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [form, setForm] = useState<ReservationForm>(emptyForm);
-  const [errors, setErrors] = useState<Partial<Record<keyof ReservationForm, string>>>(
-    {},
-  );
+  const [errors, setErrors] = useState<Partial<Record<keyof ReservationForm, string>>>({});
+  const [requestError, setRequestError] = useState("");
 
-  const filteredReservations = reservations.filter((reservation) => {
-    const customerName =
-      customers.find((customer) => customer.id === reservation.customerId)?.name.toLowerCase() ??
-      "";
-    const query = search.toLowerCase();
+  useEffect(() => {
+    void loadReservations();
+  }, []);
 
-    const matchesSearch =
-      customerName.includes(query) ||
-      reservation.requestedBreed.toLowerCase().includes(query) ||
-      reservation.requestedVariety.toLowerCase().includes(query) ||
-      reservation.requestedColor.toLowerCase().includes(query);
+  async function loadReservations() {
+    try {
+      setRequestError("");
+      const response = await fetch("/api/reservations", { cache: "no-store" });
 
-    const matchesStatus =
-      statusFilter === "All Statuses" || reservation.status === statusFilter;
+      if (!response.ok) {
+        throw new Error("Failed to load reservations.");
+      }
 
-    return matchesSearch && matchesStatus;
-  });
+      const data = (await response.json()) as ReservationsResponse;
+      setReservations(data.reservations);
+      setCustomers(data.customers);
+      setHatchGroups(data.hatchGroups);
+      setChicks(data.chicks);
+    } catch (error) {
+      setRequestError(
+        error instanceof Error ? error.message : "Failed to load reservations.",
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  }
 
-  const rows = filteredReservations.map((reservation) => ({
-    customer:
-      customers.find((customer) => customer.id === reservation.customerId)?.name ?? "Unknown",
-    requestedSex: reservation.requestedSex,
-    requestedBreed: reservation.requestedBreed,
-    requestedVariety: reservation.requestedVariety,
-    requestedColor: reservation.requestedColor,
-    quantity: String(reservation.quantity),
-    status: reservation.status,
-    notes: reservation.notes,
-  }));
+  const filteredReservations = useMemo(() => {
+    const query = search.trim().toLowerCase();
 
-  const matchSuggestions = reservations
-    .filter((reservation) => ["Waiting", "Matched"].includes(reservation.status))
-    .map((reservation) => {
-      const customerName =
-        customers.find((customer) => customer.id === reservation.customerId)?.name ?? "Unknown";
+    return reservations.filter((reservation) => {
+      const matchesSearch =
+        !query ||
+        reservation.customerName.toLowerCase().includes(query) ||
+        reservation.requestedBreed.toLowerCase().includes(query) ||
+        reservation.requestedVariety.toLowerCase().includes(query) ||
+        reservation.requestedColor.toLowerCase().includes(query);
+      const matchesStatus =
+        statusFilter === "All Statuses" || reservation.status === statusFilter;
 
-      const suggestedChick = chicks.find((chick) => {
-        const flock = flocks.find((item) => item.id === chick.flockId);
-
-        if (chick.status !== "Available") return false;
-
-        return (
-          flock?.breed.toLowerCase().includes(reservation.requestedBreed.toLowerCase()) ||
-          flock?.variety.toLowerCase().includes(reservation.requestedVariety.toLowerCase()) ||
-          chick.color.toLowerCase().includes(reservation.requestedColor.toLowerCase())
-        );
-      });
-
-      const suggestedHatchGroup = suggestedChick
-        ? hatchGroups.find((group) => group.id === suggestedChick.hatchGroupId)
-        : undefined;
-
-      return {
-        id: reservation.id,
-        customerName,
-        summary: `${reservation.quantity} ${reservation.requestedVariety} ${reservation.requestedBreed} (${reservation.requestedSex})`,
-        match: suggestedChick
-          ? `${suggestedChick.bandNumber} from ${flocks.find((flock) => flock.id === suggestedChick.flockId)?.name ?? "Unknown flock"}`
-          : suggestedHatchGroup?.name ?? "No current match suggestion",
-      };
+      return matchesSearch && matchesStatus;
     });
+  }, [reservations, search, statusFilter]);
 
-  function updateField<K extends keyof ReservationForm>(
-    key: K,
-    value: ReservationForm[K],
-  ) {
+  const matchSuggestions = useMemo<MatchSuggestion[]>(() => {
+    return reservations
+      .filter((reservation) => ["Waiting", "Matched"].includes(reservation.status))
+      .map((reservation) => {
+        const suggestedChick = chicks.find((chick) => {
+          if (chick.status !== "Available") {
+            return false;
+          }
+
+          const requestedBreed = reservation.requestedBreed.toLowerCase();
+          const requestedVariety = reservation.requestedVariety.toLowerCase();
+          const requestedColor = reservation.requestedColor.toLowerCase();
+
+          return (
+            chick.breed.toLowerCase().includes(requestedBreed) ||
+            chick.variety.toLowerCase().includes(requestedVariety) ||
+            chick.color.toLowerCase().includes(requestedColor)
+          );
+        });
+
+        if (suggestedChick) {
+          return {
+            id: reservation.id,
+            customerName: reservation.customerName,
+            summary: buildReservationSummary(reservation),
+            suggestion: `${suggestedChick.bandNumber} · ${suggestedChick.color} from ${suggestedChick.flockName}`,
+            source: "Available Chick",
+          };
+        }
+
+        const suggestedHatchGroup = hatchGroups.find((group) => {
+          return (
+            group.name.toLowerCase().includes(reservation.requestedBreed.toLowerCase()) ||
+            group.name.toLowerCase().includes(reservation.requestedVariety.toLowerCase()) ||
+            group.producedTraitsSummary
+              .toLowerCase()
+              .includes(reservation.requestedColor.toLowerCase())
+          );
+        });
+
+        return {
+          id: reservation.id,
+          customerName: reservation.customerName,
+          summary: buildReservationSummary(reservation),
+          suggestion: suggestedHatchGroup?.name ?? "No current match suggestion",
+          source: suggestedHatchGroup ? "Hatch Group" : "Backlog",
+        };
+      });
+  }, [chicks, hatchGroups, reservations]);
+
+  function updateField<K extends keyof ReservationForm>(key: K, value: ReservationForm[K]) {
     setForm((current) => ({ ...current, [key]: value }));
     setErrors((current) => ({ ...current, [key]: undefined }));
+    setRequestError("");
   }
 
-  function openModal() {
-    setForm(emptyForm);
-    setErrors({});
-    setIsOpen(true);
-  }
-
-  function closeModal() {
-    setForm(emptyForm);
-    setErrors({});
+  function closePanel() {
     setIsOpen(false);
+    setForm(emptyForm);
+    setErrors({});
+    setRequestError("");
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     const nextErrors: Partial<Record<keyof ReservationForm, string>> = {};
@@ -152,46 +233,90 @@ export default function ReservationsPage() {
       return;
     }
 
-    setReservations((current) => [
-      {
-        id: `reservation_${crypto.randomUUID()}`,
-        customerId: form.customerId,
-        requestedSex: form.requestedSex.trim() || "No preference",
-        requestedBreed: form.requestedBreed.trim(),
-        requestedVariety: form.requestedVariety.trim() || "Any",
-        requestedColor: form.requestedColor.trim() || "Any",
-        quantity: Number(form.quantity),
-        status: form.status,
-        notes: form.notes.trim() || "-",
-        createdAt: new Date().toISOString(),
-      },
-      ...current,
-    ]);
+    try {
+      setIsSaving(true);
+      setRequestError("");
 
-    closeModal();
+      const response = await fetch("/api/reservations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customerId: form.customerId,
+          requestedSex: form.requestedSex.trim() || "No Preference",
+          requestedBreed: form.requestedBreed.trim(),
+          requestedVariety: form.requestedVariety.trim() || "Any Variety",
+          requestedColor: form.requestedColor.trim() || "Any Color",
+          quantity: Number(form.quantity),
+          status: form.status,
+          notes: form.notes.trim() || "-",
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to save reservation.");
+      }
+
+      await loadReservations();
+      closePanel();
+    } catch (error) {
+      setRequestError(
+        error instanceof Error ? error.message : "Failed to save reservation.",
+      );
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   return (
     <>
       <div className="space-y-6">
-        <section className="soft-shadow rounded-[28px] border border-[color:var(--line)] bg-white/88 p-5 sm:p-6">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <section className="soft-shadow rounded-[32px] border border-[color:var(--line)] bg-white/90 p-6">
+          <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
             <div>
-              <h2 className="text-lg font-semibold tracking-tight">Reservations</h2>
-              <p className="mt-1 text-sm text-[color:var(--muted)]">
-                Manage chick requests, filter breeder demand, and review simple match suggestions.
+              <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[color:var(--muted)]">
+                Demand Tracking
+              </p>
+              <h1 className="mt-2 text-2xl font-semibold tracking-tight">Reservations</h1>
+              <p className="mt-2 max-w-3xl text-sm leading-7 text-[color:var(--muted)]">
+                Keep breeder demand organized with searchable requests, clean status tracking, and
+                quick match suggestions from available chicks and current hatches.
               </p>
             </div>
             <button
               type="button"
-              onClick={openModal}
+              onClick={() => setIsOpen(true)}
               className="inline-flex items-center justify-center rounded-full bg-[color:var(--accent)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#4f3fa0]"
             >
               Add Reservation
             </button>
           </div>
 
-          <div className="mt-5 grid gap-4 md:grid-cols-[minmax(0,1fr)_220px]">
+          <div className="mt-6 grid gap-4 md:grid-cols-3">
+            <MetricCard
+              label="Open Requests"
+              value={String(
+                reservations.filter((reservation) =>
+                  ["Waiting", "Matched"].includes(reservation.status),
+                ).length,
+              )}
+            />
+            <MetricCard
+              label="Customers Waiting"
+              value={String(
+                new Set(
+                  reservations
+                    .filter((reservation) => reservation.status === "Waiting")
+                    .map((reservation) => reservation.customerId),
+                ).size,
+              )}
+            />
+            <MetricCard
+              label="Suggested Matches"
+              value={String(matchSuggestions.filter((item) => item.source !== "Backlog").length)}
+            />
+          </div>
+
+          <div className="mt-6 grid gap-4 md:grid-cols-[minmax(0,1fr)_240px]">
             <label className="block">
               <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)]">
                 Search
@@ -224,40 +349,129 @@ export default function ReservationsPage() {
               </select>
             </label>
           </div>
+
+          {requestError ? <p className="mt-4 text-sm text-[#b34b75]">{requestError}</p> : null}
         </section>
 
-        <DataTable
-          title="Reservations"
-          description="Customer demand organized for matching, customer communication, and breeder planning."
-          columns={[
-            { key: "customer", label: "Customer" },
-            { key: "requestedSex", label: "Requested Sex" },
-            { key: "requestedBreed", label: "Requested Breed" },
-            { key: "requestedVariety", label: "Requested Variety" },
-            { key: "requestedColor", label: "Requested Color" },
-            { key: "quantity", label: "Quantity" },
-            { key: "status", label: "Status" },
-            { key: "notes", label: "Notes" },
-          ]}
-          rows={rows}
-        />
+        <section className="soft-shadow overflow-hidden rounded-[32px] border border-[color:var(--line)] bg-[color:var(--panel-strong)]">
+          <div className="border-b border-[color:var(--line)] px-6 py-5">
+            <h2 className="text-lg font-semibold tracking-tight">Reservation Queue</h2>
+            <p className="mt-1 text-sm text-[color:var(--muted)]">
+              Customer demand organized for breeder planning, matching, and follow-up.
+            </p>
+          </div>
 
-        <section className="soft-shadow rounded-[28px] border border-[color:var(--line)] bg-white/88 p-5 sm:p-6">
-          <h3 className="text-lg font-semibold tracking-tight">Match Suggestions</h3>
-          <p className="mt-1 text-sm text-[color:var(--muted)]">
-            Simple placeholder matching based on available chicks and flock details.
-          </p>
-          <div className="mt-5 grid gap-4 lg:grid-cols-2">
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-left">
+              <thead className="bg-[#f5f3fd]">
+                <tr>
+                  {[
+                    "Customer",
+                    "Requested Sex",
+                    "Requested Breed",
+                    "Requested Variety",
+                    "Requested Color",
+                    "Quantity",
+                    "Status",
+                    "Notes",
+                  ].map((label) => (
+                    <th
+                      key={label}
+                      className="px-6 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-[color:var(--muted)]"
+                    >
+                      {label}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {filteredReservations.map((reservation) => (
+                  <tr
+                    key={reservation.id}
+                    className="border-t border-[color:var(--line)] transition hover:bg-[#faf8ff]"
+                  >
+                    <td className="px-6 py-4 text-sm font-semibold text-foreground">
+                      {reservation.customerName}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-foreground">{reservation.requestedSex}</td>
+                    <td className="px-6 py-4 text-sm text-foreground">
+                      {reservation.requestedBreed}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-foreground">
+                      {reservation.requestedVariety}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-foreground">
+                      {reservation.requestedColor}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-foreground">{reservation.quantity}</td>
+                    <td className="px-6 py-4 text-sm text-foreground">
+                      <span className={statusBadgeClassName(reservation.status)}>
+                        {reservation.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-sm leading-7 text-[color:var(--muted)]">
+                      {reservation.notes}
+                    </td>
+                  </tr>
+                ))}
+                {filteredReservations.length === 0 && !isLoading ? (
+                  <tr>
+                    <td
+                      colSpan={8}
+                      className="px-6 py-8 text-center text-sm text-[color:var(--muted)]"
+                    >
+                      No reservations match the current filters.
+                    </td>
+                  </tr>
+                ) : null}
+                {isLoading ? (
+                  <tr>
+                    <td
+                      colSpan={8}
+                      className="px-6 py-8 text-center text-sm text-[color:var(--muted)]"
+                    >
+                      Loading reservations...
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section className="soft-shadow rounded-[32px] border border-[color:var(--line)] bg-white/90 p-6">
+          <div className="flex flex-col gap-2">
+            <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[color:var(--muted)]">
+              Match Suggestions
+            </p>
+            <h2 className="text-xl font-semibold tracking-tight">
+              Quick placeholder matches from current availability
+            </h2>
+          </div>
+
+          <div className="mt-5 grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
             {matchSuggestions.map((suggestion) => (
               <article
                 key={suggestion.id}
-                className="rounded-[24px] border border-[color:var(--line)] bg-[#fcfaff] p-4"
+                className="rounded-[24px] border border-[color:var(--line)] bg-[#fcfbff] p-4"
               >
-                <p className="text-base font-semibold tracking-tight">{suggestion.customerName}</p>
-                <p className="mt-2 text-sm text-[color:var(--muted)]">{suggestion.summary}</p>
-                <p className="mt-3 text-sm font-medium text-[color:var(--teal)]">
-                  Suggested matching chick or hatch group: {suggestion.match}
+                <div className="flex items-start justify-between gap-4">
+                  <p className="text-base font-semibold tracking-tight">{suggestion.customerName}</p>
+                  <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--teal)]">
+                    {suggestion.source}
+                  </span>
+                </div>
+                <p className="mt-3 text-sm leading-7 text-[color:var(--muted)]">
+                  {suggestion.summary}
                 </p>
+                <div className="mt-4 rounded-[18px] bg-[#edf7f8] px-4 py-3">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)]">
+                    Suggested matching chick or hatch group
+                  </p>
+                  <p className="mt-2 text-sm font-medium text-foreground">
+                    {suggestion.suggestion}
+                  </p>
+                </div>
               </article>
             ))}
           </div>
@@ -265,25 +479,31 @@ export default function ReservationsPage() {
       </div>
 
       {isOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#221c3f]/40 px-4 backdrop-blur-sm">
-          <div className="soft-shadow w-full max-w-3xl rounded-[30px] border border-[color:var(--line)] bg-white p-6 sm:p-7">
+        <div className="fixed inset-0 z-50 flex justify-end bg-[#221c3f]/35 backdrop-blur-sm">
+          <button
+            type="button"
+            aria-label="Close reservation panel"
+            onClick={closePanel}
+            className="flex-1"
+          />
+          <aside className="soft-shadow h-full w-full max-w-xl border-l border-[color:var(--line)] bg-white px-6 py-7">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h3 className="text-2xl font-semibold tracking-tight">Add Reservation</h3>
-                <p className="mt-1 text-sm text-[color:var(--muted)]">
-                  Create a new breeder reservation and add it to the table immediately.
+                <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[color:var(--muted)]">
+                  New Reservation
                 </p>
+                <h2 className="mt-2 text-2xl font-semibold tracking-tight">Add Reservation</h2>
               </div>
               <button
                 type="button"
-                onClick={closeModal}
+                onClick={closePanel}
                 className="rounded-2xl border border-[color:var(--line)] px-3 py-2 text-sm text-[color:var(--muted)] transition hover:bg-[#f8f7fe]"
               >
-                Cancel
+                Close
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="mt-6 grid gap-4 sm:grid-cols-2">
+            <form onSubmit={handleSubmit} className="mt-8 space-y-5">
               <FormField
                 label="Customer"
                 error={errors.customerId}
@@ -302,7 +522,6 @@ export default function ReservationsPage() {
                   </select>
                 }
               />
-
               <FormField
                 label="Requested Sex"
                 input={
@@ -315,7 +534,6 @@ export default function ReservationsPage() {
                   />
                 }
               />
-
               <FormField
                 label="Requested Breed"
                 error={errors.requestedBreed}
@@ -329,7 +547,6 @@ export default function ReservationsPage() {
                   />
                 }
               />
-
               <FormField
                 label="Requested Variety"
                 input={
@@ -342,7 +559,6 @@ export default function ReservationsPage() {
                   />
                 }
               />
-
               <FormField
                 label="Requested Color"
                 input={
@@ -355,79 +571,81 @@ export default function ReservationsPage() {
                   />
                 }
               />
-
+              <div className="grid gap-4 sm:grid-cols-2">
+                <FormField
+                  label="Quantity"
+                  error={errors.quantity}
+                  input={
+                    <input
+                      type="number"
+                      min="1"
+                      value={form.quantity}
+                      onChange={(event) => updateField("quantity", event.target.value)}
+                      className={inputClassName(errors.quantity)}
+                    />
+                  }
+                />
+                <FormField
+                  label="Status"
+                  input={
+                    <select
+                      value={form.status}
+                      onChange={(event) =>
+                        updateField("status", event.target.value as ReservationStatus)
+                      }
+                      className={inputClassName()}
+                    >
+                      {statusOptions
+                        .filter((option): option is ReservationStatus => option !== "All Statuses")
+                        .map((option) => (
+                          <option key={option} value={option}>
+                            {option}
+                          </option>
+                        ))}
+                    </select>
+                  }
+                />
+              </div>
               <FormField
-                label="Quantity"
-                error={errors.quantity}
+                label="Notes"
                 input={
-                  <input
-                    type="number"
-                    min="1"
-                    value={form.quantity}
-                    onChange={(event) => updateField("quantity", event.target.value)}
-                    className={inputClassName(errors.quantity)}
+                  <textarea
+                    value={form.notes}
+                    onChange={(event) => updateField("notes", event.target.value)}
+                    rows={6}
+                    placeholder="Optional breeder notes, timing requests, or customer preferences"
+                    className={`${inputClassName()} resize-none`}
                   />
                 }
               />
 
-              <FormField
-                label="Status"
-                input={
-                  <select
-                    value={form.status}
-                    onChange={(event) =>
-                      updateField("status", event.target.value as ReservationStatus)
-                    }
-                    className={inputClassName()}
-                  >
-                    {statusOptions
-                      .filter(
-                        (option): option is ReservationStatus => option !== "All Statuses",
-                      )
-                      .map((option) => (
-                        <option key={option} value={option}>
-                          {option}
-                        </option>
-                      ))}
-                  </select>
-                }
-              />
-
-              <div className="sm:col-span-2">
-                <FormField
-                  label="Notes"
-                  input={
-                    <textarea
-                      value={form.notes}
-                      onChange={(event) => updateField("notes", event.target.value)}
-                      rows={4}
-                      placeholder="Optional reservation notes"
-                      className={`${inputClassName()} resize-none`}
-                    />
-                  }
-                />
-              </div>
-
-              <div className="sm:col-span-2 flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-end">
-                <button
-                  type="button"
-                  onClick={closeModal}
-                  className="inline-flex items-center justify-center rounded-full border border-[color:var(--line)] bg-white px-5 py-3 text-sm font-semibold text-foreground transition hover:bg-[#f8f7fe]"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="inline-flex items-center justify-center rounded-full bg-[color:var(--accent)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#4f3fa0]"
-                >
-                  Save Reservation
-                </button>
-              </div>
+              <button
+                type="submit"
+                disabled={isSaving}
+                className="inline-flex w-full items-center justify-center rounded-full bg-[color:var(--accent)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#4f3fa0] disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {isSaving ? "Saving..." : "Save Reservation"}
+              </button>
             </form>
-          </div>
+          </aside>
         </div>
       ) : null}
     </>
+  );
+}
+
+function buildReservationSummary(reservation: ReservationRow) {
+  return `${reservation.quantity} ${reservation.requestedVariety} ${reservation.requestedBreed} for ${reservation.requestedSex}, color preference ${reservation.requestedColor}`;
+}
+
+function MetricCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-[24px] border border-[color:var(--line)] bg-[#fcfbff] p-4">
+      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)]">
+        {label}
+      </p>
+      <p className="mt-2 text-xl font-semibold tracking-tight">{value}</p>
+    </div>
   );
 }
 
@@ -437,7 +655,7 @@ function FormField({
   error,
 }: {
   label: string;
-  input: React.ReactNode;
+  input: ReactNode;
   error?: string;
 }) {
   return (
@@ -457,4 +675,16 @@ function inputClassName(error?: string) {
       ? "border-[#d67aa0] focus:border-[#d67aa0] focus:ring-[#f3d4e1]"
       : "border-[color:var(--line)] focus:border-[color:var(--accent)] focus:ring-[color:var(--accent-soft)]"
   }`;
+}
+
+function statusBadgeClassName(status: ReservationStatus) {
+  if (status === "Completed") {
+    return "rounded-full bg-[#edf7f8] px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--teal)]";
+  }
+
+  if (status === "Cancelled") {
+    return "rounded-full bg-[#f9e7ef] px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[#b34b75]";
+  }
+
+  return "rounded-full bg-[#ece7fb] px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--accent)]";
 }

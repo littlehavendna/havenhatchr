@@ -1,56 +1,124 @@
+"use client";
+
+import Link from "next/link";
+import { useEffect, useState } from "react";
 import { DataTable } from "@/components/data-table";
 import { StatCard } from "@/components/stat-card";
-import {
-  aiWorkbench,
-  birds,
-  chicks,
-  currentUser,
-  customers,
-  dashboardStats,
-  flocks,
-  hatchGroups,
-  orders,
-  pairings,
-  platformModules,
-  reservations,
-} from "@/lib/mock-data";
+
+type DashboardStat = {
+  label: string;
+  value: string;
+  detail: string;
+};
+
+type DashboardData = {
+  stats: DashboardStat[];
+  recentChicks: Array<Record<string, string>>;
+  recentReservations: Array<Record<string, string>>;
+  recentOrders: Array<Record<string, string>>;
+  recentHatchGroups: Array<Record<string, string>>;
+  recentBirds: Array<Record<string, string>>;
+  activePairings: Array<Record<string, string>>;
+};
+
+type AnalyticsData = {
+  geneticsSnapshot: {
+    mostTrackedTraits: Array<{ trait: string; count: number }>;
+    mostActiveProjectTags: string[];
+  };
+  dashboardInsights: {
+    bestPerformingPairing: string;
+    currentAverageHatchRate: number;
+    openReservationsCount: number;
+    topProjectTag: string;
+  };
+  activeGoalPairings?: Array<{ name: string; projectGoal: string }>;
+};
+
+const productLanes = [
+  {
+    title: "Genetics Tracking",
+    description:
+      "Bird, Trait, Pairing, and HatchGroup entities are structured for lineage review, trait planning, and future genetics intelligence.",
+  },
+  {
+    title: "AI Assistant",
+    description:
+      "The shared type system makes it easier to build farm-aware answers and assistant workflows on top of structured breeder data.",
+  },
+  {
+    title: "Listing Text & Message Drafts",
+    description:
+      "Customers, chicks, notes, photos, and genetics context are organized so future AI tools can draft clean outbound content.",
+  },
+  {
+    title: "Analytics & Automation",
+    description:
+      "Reservations, pairings, hatch results, and trait outcomes are centralized for dashboards and breeder automations.",
+  },
+];
+
+const aiWorkbench = [
+  {
+    lane: "Pairing Outcome Tools",
+    summary: "Use pairings, hatch groups, and chick outcomes to guide future breeder decisions.",
+    readiness: "Planned",
+  },
+  {
+    lane: "AI Listing Drafts",
+    summary: "Generate polished listing copy from chick traits, breeder notes, photos, and project tags.",
+    readiness: "Stub ready",
+  },
+  {
+    lane: "Customer Reply Drafts",
+    summary: "Draft customer reservation updates and pickup reminders from order state.",
+    readiness: "Stub ready",
+  },
+  {
+    lane: "Hatch Analytics",
+    summary: "Analyze eggs set, hatch rate, genetic goals, and downstream reservation performance.",
+    readiness: "Data mapped",
+  },
+];
 
 export default function DashboardPage() {
-  const recentChicks = chicks.slice(0, 3).map((chick) => ({
-    bandNumber: chick.bandNumber,
-    hatchDate: formatDate(chick.hatchDate),
-    flock: flocks.find((flock) => flock.id === chick.flockId)?.name ?? "Unknown",
-    status: chick.status,
-    notes: chick.notes,
-  }));
+  const [dashboard, setDashboard] = useState<DashboardData | null>(null);
+  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
+  const [requestError, setRequestError] = useState("");
 
-  const recentOrders = orders.slice(0, 3).map((order) => ({
-    customer:
-      customers.find((customer) => customer.id === order.customerId)?.name ?? "Unknown",
-    chickCount: String(order.chickIds.length),
-    status: toTitleCase(order.status),
-    pickupDate: formatDate(order.pickupDate),
-  }));
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const [dashboardResponse, analyticsResponse] = await Promise.all([
+          fetch("/api/dashboard", { cache: "no-store" }),
+          fetch("/api/analytics", { cache: "no-store" }),
+        ]);
 
-  const recentHatchGroups = hatchGroups.slice(0, 3).map((group) => ({
-    name: group.name,
-    pairing: pairings.find((pairing) => pairing.id === group.pairingId)?.name ?? "Unknown",
-    setDate: formatDate(group.setDate),
-    hatchDate: formatDate(group.hatchDate),
-    eggsSet: String(group.eggsSet),
-    eggsHatched: String(group.eggsHatched),
-  }));
+        if (!dashboardResponse.ok || !analyticsResponse.ok) {
+          throw new Error("Failed to load dashboard data.");
+        }
 
-  const activePairings = pairings
-    .filter((pairing) => pairing.active)
-    .slice(0, 3)
-    .map((pairing) => ({
-      name: pairing.name,
-      sire: birds.find((bird) => bird.id === pairing.sireId)?.name ?? "Unknown",
-      dam: birds.find((bird) => bird.id === pairing.damId)?.name ?? "Unknown",
-      goals: pairing.goals,
-      status: pairing.active ? "Active" : "Inactive",
-    }));
+        const [dashboardData, analyticsData] = await Promise.all([
+          dashboardResponse.json() as Promise<DashboardData>,
+          analyticsResponse.json() as Promise<AnalyticsData>,
+        ]);
+
+        setDashboard(dashboardData);
+        setAnalytics(analyticsData);
+      } catch (error) {
+        setRequestError(
+          error instanceof Error ? error.message : "Failed to load dashboard data.",
+        );
+      }
+    }
+
+    void loadData();
+  }, []);
+
+  const commonTraits = analytics?.geneticsSnapshot.mostTrackedTraits ?? [];
+  const recentProjectTags = analytics?.geneticsSnapshot.mostActiveProjectTags ?? [];
+  const activeGoalPairings = analytics?.activeGoalPairings ?? [];
+  const dashboardInsights = analytics?.dashboardInsights;
 
   return (
     <div className="space-y-6">
@@ -58,29 +126,22 @@ export default function DashboardPage() {
         <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[color:var(--muted)]">
           Scalable SaaS Foundation
         </p>
-        <h2 className="mt-2 text-2xl font-semibold tracking-tight">
-          {currentUser.name}
-        </h2>
+        <h2 className="mt-2 text-2xl font-semibold tracking-tight">HavenHatchr</h2>
         <p className="mt-2 max-w-3xl text-sm leading-7 text-[color:var(--muted)]">
-          The dashboard is structured around typed breeder entities so future
-          genetics tracking, AI drafting, pairing analysis, analytics, and
-          automation can plug into stable records instead of ad hoc UI state.
+          The dashboard is now loading breeder operations from PostgreSQL through Prisma while
+          preserving the current HavenHatchr UI structure.
         </p>
+        {requestError ? <p className="mt-4 text-sm text-[#b34b75]">{requestError}</p> : null}
       </section>
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        {dashboardStats.map((card) => (
-          <StatCard
-            key={card.label}
-            label={card.label}
-            value={card.value}
-            detail={card.detail}
-          />
+        {(dashboard?.stats ?? []).map((card) => (
+          <StatCard key={card.label} label={card.label} value={card.value} detail={card.detail} />
         ))}
       </section>
 
       <div className="grid gap-6 xl:grid-cols-2">
-        <DataTable
+        <DataTable<Record<string, string>>
           title="Recent Chicks"
           description="Newest chick records added to the brooder and reservation flow."
           columns={[
@@ -90,9 +151,9 @@ export default function DashboardPage() {
             { key: "status", label: "Status" },
             { key: "notes", label: "Notes" },
           ]}
-          rows={recentChicks}
+          rows={dashboard?.recentChicks ?? []}
         />
-        <DataTable
+        <DataTable<Record<string, string>>
           title="Recent Reservations"
           description="Newest customer requests waiting to be matched or fulfilled."
           columns={[
@@ -103,21 +164,15 @@ export default function DashboardPage() {
             { key: "status", label: "Status" },
             { key: "createdAt", label: "Created" },
           ]}
-          rows={reservations.slice(0, 3).map((reservation) => ({
-            customer:
-              customers.find((customer) => customer.id === reservation.customerId)?.name ??
-              "Unknown",
-            breed: reservation.requestedBreed,
-            variety: reservation.requestedVariety,
-            quantity: String(reservation.quantity),
-            status: reservation.status,
-            createdAt: formatDate(reservation.createdAt),
+          rows={(dashboard?.recentReservations ?? []).map((reservation) => ({
+            ...reservation,
+            createdAt: formatDateTime(reservation.createdAt),
           }))}
         />
       </div>
 
       <div className="grid gap-6 xl:grid-cols-2">
-        <DataTable
+        <DataTable<Record<string, string>>
           title="Recent Orders"
           description="Latest customer reservations and pickup plans."
           columns={[
@@ -126,9 +181,13 @@ export default function DashboardPage() {
             { key: "status", label: "Status" },
             { key: "pickupDate", label: "Pickup Date" },
           ]}
-          rows={recentOrders}
+          rows={(dashboard?.recentOrders ?? []).map((order) => ({
+            ...order,
+            status: toTitleCase(order.status),
+            pickupDate: formatDate(order.pickupDate),
+          }))}
         />
-        <DataTable
+        <DataTable<Record<string, string>>
           title="Recent Hatch Groups"
           description="Newest incubator groups and hatch batches."
           columns={[
@@ -139,22 +198,140 @@ export default function DashboardPage() {
             { key: "eggsSet", label: "Eggs Set" },
             { key: "eggsHatched", label: "Eggs Hatched" },
           ]}
-          rows={recentHatchGroups}
+          rows={(dashboard?.recentHatchGroups ?? []).map((group) => ({
+            ...group,
+            setDate: formatDate(group.setDate),
+            hatchDate: formatDate(group.hatchDate),
+          }))}
         />
       </div>
 
-      <DataTable
-        title="Active Pairings"
-        description="Breeder pairs currently shaping upcoming hatch plans."
-        columns={[
-          { key: "name", label: "Pairing" },
-          { key: "sire", label: "Sire" },
-          { key: "dam", label: "Dam" },
-          { key: "goals", label: "Goals" },
-          { key: "status", label: "Status" },
-        ]}
-        rows={activePairings}
-      />
+      <div className="grid gap-6 xl:grid-cols-2">
+        <DataTable<Record<string, string>>
+          title="Recent Birds"
+          description="Newest breeder records added to the central bird directory."
+          columns={[
+            { key: "name", label: "Name" },
+            { key: "bandNumber", label: "Band Number" },
+            { key: "flock", label: "Flock" },
+            { key: "sex", label: "Sex" },
+            { key: "status", label: "Status" },
+          ]}
+          rows={dashboard?.recentBirds ?? []}
+        />
+        <DataTable<Record<string, string>>
+          title="Active Pairings"
+          description="Breeder pairs currently shaping upcoming hatch plans."
+          columns={[
+            { key: "name", label: "Pairing" },
+            { key: "sire", label: "Sire" },
+            { key: "dam", label: "Dam" },
+            { key: "goals", label: "Goals" },
+            { key: "status", label: "Status" },
+          ]}
+          rows={dashboard?.activePairings ?? []}
+        />
+      </div>
+
+      <section className="soft-shadow rounded-[28px] border border-[color:var(--line)] bg-white/88 p-5 sm:p-6">
+        <div className="flex flex-col gap-2">
+          <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[color:var(--muted)]">
+            Genetics Snapshot
+          </p>
+          <h2 className="text-xl font-semibold tracking-tight">Current trait and project signals</h2>
+        </div>
+
+        <div className="mt-5 grid gap-4 xl:grid-cols-3">
+          <div className="rounded-[24px] border border-[color:var(--line)] bg-[#fcfaff] p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)]">
+              Most Common Tracked Traits
+            </p>
+            <div className="mt-4 space-y-3">
+              {commonTraits.map((entry) => (
+                <div key={entry.trait} className="flex items-center justify-between gap-4">
+                  <span className="text-sm text-foreground">{entry.trait}</span>
+                  <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--accent)]">
+                    {entry.count} birds
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-[24px] border border-[color:var(--line)] bg-[#edf7f8] p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)]">
+              Recent Project Tags
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {recentProjectTags.map((tag) => (
+                <span
+                  key={tag}
+                  className="rounded-full bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--teal)]"
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-[24px] border border-[color:var(--line)] bg-[#f7f5ff] p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)]">
+              Pairings With Active Genetic Goals
+            </p>
+            <div className="mt-4 space-y-3">
+              {activeGoalPairings.map((pairing) => (
+                <div key={pairing.name} className="rounded-[18px] bg-white px-4 py-3">
+                  <p className="text-sm font-semibold text-foreground">{pairing.name}</p>
+                  <p className="mt-1 text-sm text-[color:var(--muted)]">{pairing.projectGoal}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="soft-shadow rounded-[28px] border border-[color:var(--line)] bg-white/88 p-5 sm:p-6">
+        <div className="flex flex-col gap-2">
+          <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[color:var(--muted)]">
+            AI Quick Tools
+          </p>
+          <h2 className="text-xl font-semibold tracking-tight">
+            Jump into the first breeder AI workflows
+          </h2>
+        </div>
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <QuickToolLink href="/ai?tool=listing" label="Generate Listing" />
+          <QuickToolLink href="/ai?tool=notes" label="Summarize Notes" />
+          <QuickToolLink href="/ai?tool=reply" label="Draft Reply" />
+          <QuickToolLink href="/ai?tool=pairing" label="Suggest Pairing" />
+        </div>
+      </section>
+
+      <section className="soft-shadow rounded-[28px] border border-[color:var(--line)] bg-white/88 p-5 sm:p-6">
+        <div className="flex flex-col gap-2">
+          <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[color:var(--muted)]">
+            Insights
+          </p>
+          <h2 className="text-xl font-semibold tracking-tight">Compact breeder intelligence</h2>
+        </div>
+        <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <InsightPill
+            label="Best Performing Pairing"
+            value={dashboardInsights?.bestPerformingPairing ?? "-"}
+          />
+          <InsightPill
+            label="Current Average Hatch Rate"
+            value={
+              dashboardInsights ? `${dashboardInsights.currentAverageHatchRate}%` : "-"
+            }
+          />
+          <InsightPill
+            label="Open Reservations Count"
+            value={dashboardInsights ? String(dashboardInsights.openReservationsCount) : "-"}
+          />
+          <InsightPill label="Top Project Tag" value={dashboardInsights?.topProjectTag ?? "-"} />
+        </div>
+      </section>
 
       <section className="grid gap-6 lg:grid-cols-2">
         <div className="soft-shadow rounded-[28px] border border-[color:var(--line)] bg-white/88 p-5 sm:p-6">
@@ -162,7 +339,7 @@ export default function DashboardPage() {
             Product Lanes
           </p>
           <div className="mt-5 space-y-4">
-            {platformModules.map((module) => (
+            {productLanes.map((module) => (
               <div
                 key={module.title}
                 className="rounded-[22px] border border-[color:var(--line)] bg-[#fcfaff] p-4"
@@ -192,9 +369,7 @@ export default function DashboardPage() {
                     {item.readiness}
                   </span>
                 </div>
-                <p className="mt-2 text-sm leading-7 text-[color:var(--muted)]">
-                  {item.summary}
-                </p>
+                <p className="mt-2 text-sm leading-7 text-[color:var(--muted)]">{item.summary}</p>
               </div>
             ))}
           </div>
@@ -204,10 +379,40 @@ export default function DashboardPage() {
   );
 }
 
+function QuickToolLink({ href, label }: { href: string; label: string }) {
+  return (
+    <Link
+      href={href}
+      className="rounded-[22px] border border-[color:var(--line)] bg-[#fcfbff] px-4 py-4 text-sm font-semibold text-foreground transition hover:bg-white"
+    >
+      {label}
+    </Link>
+  );
+}
+
+function InsightPill({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-[22px] border border-[color:var(--line)] bg-[#fcfbff] px-4 py-4">
+      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)]">
+        {label}
+      </p>
+      <p className="mt-2 text-sm font-semibold leading-7 text-foreground">{value}</p>
+    </div>
+  );
+}
+
 function formatDate(value: string) {
-  const date = value.includes("T")
-    ? new Date(value)
-    : new Date(`${value}T00:00:00`);
+  const date = new Date(`${value}T00:00:00`);
+
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(date);
+}
+
+function formatDateTime(value: string) {
+  const date = new Date(value);
 
   return new Intl.DateTimeFormat("en-US", {
     month: "short",
