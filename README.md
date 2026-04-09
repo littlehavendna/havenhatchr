@@ -1,59 +1,9 @@
 # HavenHatchr
 
-HavenHatchr is a Next.js breeder management app with polished workflows for customers, flocks, birds, pairings, hatch groups, chicks, reservations, orders, analytics, genetics, and AI placeholders.
+## Project Overview
+HavenHatchr is a breeder management application for organizing day-to-day poultry operations around structured records instead of ad hoc spreadsheets and notes.
 
-The app is now set up to use PostgreSQL with Prisma, with Railway assumed as the hosted database provider.
-
-## Railway PostgreSQL Setup
-
-1. Create or open the HavenHatchr project in Railway.
-2. Add a dedicated PostgreSQL service.
-3. Copy the PostgreSQL connection string from Railway.
-4. Set `DATABASE_URL` in a local `.env` file:
-
-```bash
-DATABASE_URL="postgresql://USER:PASSWORD@HOST:PORT/DB?schema=public"
-```
-
-Railway usually exposes this value in the database service variables panel.
-
-## Install And Generate Prisma
-
-Install dependencies:
-
-```bash
-npm install
-```
-
-Generate the Prisma client:
-
-```bash
-npm run prisma:generate
-```
-
-## Run Migrations
-
-Create and apply the local development migration:
-
-```bash
-npm run prisma:migrate -- --name init
-```
-
-This will:
-- read `DATABASE_URL`
-- create the PostgreSQL tables from `prisma/schema.prisma`
-- regenerate the Prisma client if needed
-
-## Seed Starter Data
-
-Load realistic starter data for development:
-
-```bash
-npm run prisma:seed
-```
-
-The seed script populates:
-- users
+Current product areas:
 - customers
 - flocks
 - birds
@@ -62,35 +12,147 @@ The seed script populates:
 - chicks
 - reservations
 - orders
-- traits
-- notes
-- photos
+- analytics
+- genetics
+- AI tool placeholders
 
-## Run The App
+The app is designed so breeder workflows such as genetics tracking, hatch analysis, reservations, order fulfillment, and AI-assisted drafting can build on the same core data model.
 
-Start the dev server:
+## Current Tech Stack
+- Next.js
+- TypeScript
+- Prisma
+- PostgreSQL
+- Railway
+
+## Current Database Status
+The richer Prisma schema in [prisma/schema.prisma](/C:/Users/Jordi/havenhatchr/prisma/schema.prisma) is the current source of truth for the application.
+
+Key schema notes:
+- the schema keeps the current product surface for birds, pairings, hatch groups, chicks, reservations, orders, traits, notes, photos, and genetics fields
+- orders now use a real join model through `OrderChick` instead of relying only on `chickIds` as a string array
+- `Note` and `Photo` still keep practical entity metadata, but now also support optional relations for the major entities the app works with most
+- the schema is intentionally richer than a minimal CRUD model because the current UI already depends on genetics fields, reservation request fields, pairing goals, chick detail fields, and analytics-ready records
+
+Important database files:
+- [prisma/schema.prisma](/C:/Users/Jordi/havenhatchr/prisma/schema.prisma)
+- [prisma/seed.ts](/C:/Users/Jordi/havenhatchr/prisma/seed.ts)
+- [lib/prisma.ts](/C:/Users/Jordi/havenhatchr/lib/prisma.ts)
+- [lib/db.ts](/C:/Users/Jordi/havenhatchr/lib/db.ts)
+
+## Environment Setup
+Create a local `.env` file in the project root with:
+
+```env
+DATABASE_URL="postgresql://USER:PASSWORD@HOST:PORT/DBNAME?schema=public"
+```
+
+For Railway, use the PostgreSQL connection string exposed by the Railway database service.
+
+Required environment variable:
+- `DATABASE_URL`
+
+## Local Development Setup
+1. Install dependencies:
+
+```bash
+npm install
+```
+
+2. Generate the Prisma client:
+
+```bash
+npm run prisma:generate
+```
+
+3. Run local development migrations:
+
+```bash
+npx prisma migrate dev --name init
+```
+
+4. Seed the database with realistic starter breeder data:
+
+```bash
+npm run prisma:seed
+```
+
+5. Start the dev server:
 
 ```bash
 npm run dev
 ```
 
-Open `http://localhost:3000`.
+Then open `http://localhost:3000`.
 
-## Current Database-Backed Areas
+## Railway Deployment Notes
+HavenHatchr can be deployed with Railway hosting both:
+- the PostgreSQL database
+- the Next.js app service
 
-These pages now read real data from PostgreSQL through Prisma:
-- Dashboard
-- Customers
-- Flocks
-- Birds
-- Pairings
-- Hatch Groups
-- Chicks
-- Reservations
-- Orders
-- Analytics
+For the Railway app service:
+1. make sure `DATABASE_URL` is available in the app service variables
+2. use the same Railway PostgreSQL connection string for the app service
+3. run production migrations with `prisma migrate deploy`
 
-These create flows now write to the real database:
+Current Railway-friendly scripts in [package.json](/C:/Users/Jordi/havenhatchr/package.json):
+- `npm run railway:build`
+- `npm run railway:start`
+
+Recommended Railway settings:
+- Build Command:
+
+```bash
+npm run railway:build
+```
+
+- Start Command:
+
+```bash
+npm run railway:start
+```
+
+Production should use:
+
+```bash
+npx prisma migrate deploy
+```
+
+Do not use `prisma migrate dev` in production.
+
+## Prisma Workflow
+Use these commands for the following situations:
+
+`npx prisma generate`
+- regenerate the Prisma client after schema changes
+- run this if TypeScript or Prisma types look out of date
+
+`npx prisma migrate dev --name <name>`
+- create and apply a new migration in local development
+- use this when changing the schema during development
+
+`npm run prisma:seed`
+- reset or repopulate local development data
+- use this after migrations when you want a clean starter dataset
+
+`npx prisma migrate deploy`
+- apply already-created migrations in production or hosted environments
+- use this in Railway deployment flows
+
+## Current Database-Backed Pages And Flows
+These pages currently read real data from Prisma-backed route handlers:
+- dashboard
+- customers
+- flocks
+- birds
+- pairings
+- hatch groups
+- chicks
+- reservations
+- orders
+- analytics
+
+These create flows currently write to PostgreSQL through Prisma:
 - Add Customer
 - Add Flock
 - Add Bird
@@ -99,17 +161,39 @@ These create flows now write to the real database:
 - Add Chick
 - Add Reservation
 
-## Prisma Files
+## Remaining Work
+The app is partially migrated to the real database foundation, but not every screen is fully Prisma-backed yet.
 
-Key database files:
-- `prisma/schema.prisma`
-- `prisma/seed.ts`
-- `lib/prisma.ts`
-- `lib/db.ts`
+Remaining or partial areas:
+- some pages still rely on mock-backed or placeholder logic where full DB migration was not completed yet
+- bird detail and some feature-specific screens still need deeper Prisma-backed read/write support
+- genetics and AI surfaces are still primarily placeholder-oriented and not real AI-integrated
 
-## Notes
+Not included yet:
+- authentication
+- Stripe
+- real AI API integrations
 
-- Authentication is not added yet.
-- Stripe is not added yet.
-- Real AI API integration is not added yet.
-- Some remaining pages still use placeholder or mock-backed logic where full DB migration was not part of the first pass.
+## Troubleshooting
+Common issues and checks:
+
+Prisma client out of date:
+- run `npx prisma generate`
+
+`DATABASE_URL` missing:
+- confirm `.env` exists locally
+- confirm the Railway app service has `DATABASE_URL` in production
+
+Migration errors:
+- check that the database already has the expected prior migrations
+- use `npx prisma migrate dev --name <name>` locally
+- use `npx prisma migrate deploy` in hosted environments
+
+Seed issues:
+- confirm migrations are applied before running `npm run prisma:seed`
+- check for legacy data assumptions if the schema changed recently
+
+Build passes locally but production fails:
+- confirm `DATABASE_URL` exists in the Railway app service
+- confirm production runs `prisma migrate deploy`
+- confirm Prisma client generation is part of the build flow

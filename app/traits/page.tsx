@@ -1,7 +1,6 @@
 "use client";
 
-import { FormEvent, type ReactNode, useState } from "react";
-import { traits as starterTraits } from "@/lib/mock-data";
+import { FormEvent, type ReactNode, useEffect, useState } from "react";
 import type { Trait } from "@/lib/types";
 
 type TraitForm = {
@@ -17,25 +16,52 @@ const emptyForm: TraitForm = {
 };
 
 export default function TraitsPage() {
-  const [traits, setTraits] = useState<Trait[]>(starterTraits);
+  const [traits, setTraits] = useState<Trait[]>([]);
   const [isOpen, setIsOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const [form, setForm] = useState<TraitForm>(emptyForm);
   const [errors, setErrors] = useState<Partial<Record<keyof TraitForm, string>>>({});
+  const [requestError, setRequestError] = useState("");
+
+  useEffect(() => {
+    void loadTraits();
+  }, []);
 
   const categories = Array.from(new Set(traits.map((trait) => trait.category)));
+
+  async function loadTraits() {
+    try {
+      setRequestError("");
+      const response = await fetch("/api/traits", { cache: "no-store" });
+
+      if (!response.ok) {
+        throw new Error("Failed to load traits.");
+      }
+
+      const data = (await response.json()) as { traits: Trait[] };
+      setTraits(data.traits);
+    } catch (error) {
+      setRequestError(error instanceof Error ? error.message : "Failed to load traits.");
+    } finally {
+      setIsLoading(false);
+    }
+  }
 
   function updateField<K extends keyof TraitForm>(key: K, value: TraitForm[K]) {
     setForm((current) => ({ ...current, [key]: value }));
     setErrors((current) => ({ ...current, [key]: undefined }));
+    setRequestError("");
   }
 
   function closePanel() {
     setIsOpen(false);
     setForm(emptyForm);
     setErrors({});
+    setRequestError("");
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     const nextErrors: Partial<Record<keyof TraitForm, string>> = {};
@@ -48,17 +74,32 @@ export default function TraitsPage() {
       return;
     }
 
-    setTraits((current) => [
-      {
-        id: `trait_${crypto.randomUUID()}`,
-        name: form.name.trim(),
-        category: form.category.trim(),
-        description: form.description.trim(),
-      },
-      ...current,
-    ]);
+    try {
+      setIsSaving(true);
+      setRequestError("");
 
-    closePanel();
+      const response = await fetch("/api/traits", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: form.name.trim(),
+          category: form.category.trim(),
+          description: form.description.trim(),
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to save trait.");
+      }
+
+      const data = (await response.json()) as { trait: Trait };
+      setTraits((current) => [data.trait, ...current]);
+      closePanel();
+    } catch (error) {
+      setRequestError(error instanceof Error ? error.message : "Failed to save trait.");
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   return (
@@ -90,6 +131,7 @@ export default function TraitsPage() {
             <StatPill label="Categories" value={String(categories.length)} />
             <StatPill label="Newest Focus" value={traits[0]?.category ?? "Unassigned"} />
           </div>
+          {requestError ? <p className="mt-4 text-sm text-[#b34b75]">{requestError}</p> : null}
         </section>
 
         <section className="soft-shadow overflow-hidden rounded-[32px] border border-[color:var(--line)] bg-[color:var(--panel-strong)]">
@@ -133,6 +175,26 @@ export default function TraitsPage() {
                     </td>
                   </tr>
                 ))}
+                {!isLoading && traits.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={3}
+                      className="px-6 py-8 text-center text-sm text-[color:var(--muted)]"
+                    >
+                      No traits saved yet.
+                    </td>
+                  </tr>
+                ) : null}
+                {isLoading ? (
+                  <tr>
+                    <td
+                      colSpan={3}
+                      className="px-6 py-8 text-center text-sm text-[color:var(--muted)]"
+                    >
+                      Loading traits...
+                    </td>
+                  </tr>
+                ) : null}
               </tbody>
             </table>
           </div>
@@ -207,9 +269,10 @@ export default function TraitsPage() {
 
               <button
                 type="submit"
+                disabled={isSaving}
                 className="inline-flex w-full items-center justify-center rounded-full bg-[color:var(--accent)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#4f3fa0]"
               >
-                Save Trait
+                {isSaving ? "Saving..." : "Save Trait"}
               </button>
             </form>
           </aside>

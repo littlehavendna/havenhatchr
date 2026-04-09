@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, Suspense, useMemo, useState } from "react";
+import { FormEvent, Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   analyzeHatchRates,
@@ -10,8 +10,17 @@ import {
   suggestPairings,
   summarizeBreedingNotes,
 } from "@/lib/ai-tools";
-import { birds, chicks, customers, flocks, hatchGroups, pairings, traits } from "@/lib/mock-data";
-import type { Bird, Chick, Customer } from "@/lib/types";
+import type { Bird, Chick, Customer, Flock, HatchGroup, Pairing, Trait } from "@/lib/types";
+
+type AiToolsResponse = {
+  birds: Bird[];
+  chicks: Chick[];
+  customers: Customer[];
+  flocks: Flock[];
+  hatchGroups: HatchGroup[];
+  pairings: Pairing[];
+  traits: Trait[];
+};
 
 type ListingForm = {
   selectedId: string;
@@ -81,19 +90,81 @@ export default function AiToolsPage() {
 
 function AiToolsClientPage() {
   const searchParams = useSearchParams();
+  const [birds, setBirds] = useState<Bird[]>([]);
+  const [chicks, setChicks] = useState<Chick[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [flocks, setFlocks] = useState<Flock[]>([]);
+  const [hatchGroups, setHatchGroups] = useState<HatchGroup[]>([]);
+  const [pairings, setPairings] = useState<Pairing[]>([]);
+  const [traits, setTraits] = useState<Trait[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [requestError, setRequestError] = useState("");
 
   const tool = searchParams.get("tool");
   const customerIdParam = searchParams.get("customerId");
   const customerNameParam = searchParams.get("customerName");
   const birdIdParam = searchParams.get("birdId");
 
-  const initialBird = birdIdParam
-    ? birds.find((entry) => entry.id === birdIdParam) ?? null
-    : null;
+  useEffect(() => {
+    void loadAiToolsData();
+  }, []);
+
+  async function loadAiToolsData() {
+    try {
+      setRequestError("");
+      const response = await fetch("/api/ai", { cache: "no-store" });
+
+      if (!response.ok) {
+        throw new Error("Failed to load AI tool context.");
+      }
+
+      const data = (await response.json()) as AiToolsResponse;
+      setBirds(data.birds);
+      setChicks(data.chicks);
+      setCustomers(data.customers);
+      setFlocks(data.flocks);
+      setHatchGroups(data.hatchGroups);
+      setPairings(data.pairings);
+      setTraits(data.traits);
+    } catch (error) {
+      setRequestError(error instanceof Error ? error.message : "Failed to load AI tool context.");
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  const initialBird = useMemo(
+    () => (birdIdParam ? birds.find((entry) => entry.id === birdIdParam) ?? null : null),
+    [birdIdParam, birds],
+  );
 
   const [listingForm, setListingForm] = useState<ListingForm>(() => {
+    return emptyListingForm;
+  });
+  const [listingOutput, setListingOutput] = useState("");
+
+  const [notesForm, setNotesForm] = useState<NotesForm>(() => {
+    return emptyNotesForm;
+  });
+  const [notesOutput, setNotesOutput] = useState("");
+
+  const [replyForm, setReplyForm] = useState<ReplyForm>(() => {
+    return emptyReplyForm;
+  });
+  const [replyOutput, setReplyOutput] = useState("");
+
+  const [pairingForm, setPairingForm] = useState<PairingForm>(() => {
+    return emptyPairingForm;
+  });
+  const [pairingOutput, setPairingOutput] = useState<ReturnType<typeof suggestPairings> | null>(
+    null,
+  );
+
+  const hatchAnalysis = useMemo(() => analyzeHatchRates(hatchGroups), [hatchGroups]);
+
+  useEffect(() => {
     if (tool === "listing" && initialBird) {
-      return {
+      setListingForm({
         selectedId: `bird:${initialBird.id}`,
         sourceType: "bird",
         breed: initialBird.breed,
@@ -102,53 +173,38 @@ function AiToolsClientPage() {
         sex: initialBird.sex,
         notes: initialBird.notes,
         price: "$",
-      };
+      });
     }
+  }, [initialBird, tool]);
 
-    return emptyListingForm;
-  });
-  const [listingOutput, setListingOutput] = useState("");
-
-  const [notesForm, setNotesForm] = useState<NotesForm>(() => {
+  useEffect(() => {
     if (tool === "notes" && initialBird) {
-      return { text: initialBird.notes };
+      setNotesForm({ text: initialBird.notes });
     }
+  }, [initialBird, tool]);
 
-    return emptyNotesForm;
-  });
-  const [notesOutput, setNotesOutput] = useState("");
-
-  const [replyForm, setReplyForm] = useState<ReplyForm>(() => {
+  useEffect(() => {
     if (tool === "reply" && customerIdParam) {
-      return {
+      setReplyForm({
         customerId: customerIdParam,
         topic: `your recent HavenHatchr inquiry${
           customerNameParam ? `, ${customerNameParam}` : ""
         }`,
         customNotes: "",
-      };
+      });
     }
+  }, [customerIdParam, customerNameParam, tool]);
 
-    return emptyReplyForm;
-  });
-  const [replyOutput, setReplyOutput] = useState("");
-
-  const [pairingForm, setPairingForm] = useState<PairingForm>(() => {
+  useEffect(() => {
     if (tool === "pairing" && initialBird?.sex === "Male") {
-      return { ...emptyPairingForm, sireId: initialBird.id };
+      setPairingForm((current) => ({ ...current, sireId: initialBird.id }));
+      return;
     }
 
     if (tool === "pairing" && initialBird?.sex === "Female") {
-      return { ...emptyPairingForm, damId: initialBird.id };
+      setPairingForm((current) => ({ ...current, damId: initialBird.id }));
     }
-
-    return emptyPairingForm;
-  });
-  const [pairingOutput, setPairingOutput] = useState<ReturnType<typeof suggestPairings> | null>(
-    null,
-  );
-
-  const [hatchAnalysis] = useState(() => analyzeHatchRates(hatchGroups));
+  }, [initialBird, tool]);
 
   const listingOptions = useMemo(
     () => [
@@ -163,7 +219,7 @@ function AiToolsClientPage() {
         sourceType: "chick" as const,
       })),
     ],
-    [],
+    [birds, chicks],
   );
 
   const selectedBird = birds.find((bird) => bird.id === pairingForm.sireId);
@@ -200,8 +256,8 @@ function AiToolsClientPage() {
     setListingForm({
       selectedId: value,
       sourceType: "chick",
-      breed: flocksBreed(chick.flockId),
-      variety: flocksVariety(chick.flockId),
+      breed: flockBreed(chick.flockId, flocks),
+      variety: flockVariety(chick.flockId, flocks),
       color: chick.color,
       sex: chick.sex,
       notes: chick.notes,
@@ -295,6 +351,7 @@ function AiToolsClientPage() {
             </p>
           </div>
         </div>
+        {requestError ? <p className="mt-4 text-sm text-[#b34b75]">{requestError}</p> : null}
       </section>
 
       <div className="grid gap-6 xl:grid-cols-2">
@@ -311,7 +368,7 @@ function AiToolsClientPage() {
                   onChange={(event) => handleListingSelect(event.target.value)}
                   className={inputClassName()}
                 >
-                  <option value="">Select record</option>
+                  <option value="">{isLoading ? "Loading records..." : "Select record"}</option>
                   {listingOptions.map((option) => (
                     <option key={option.id} value={option.id}>
                       {option.label}
@@ -458,7 +515,7 @@ function AiToolsClientPage() {
                   }
                   className={inputClassName()}
                 >
-                  <option value="">Select customer</option>
+                  <option value="">{isLoading ? "Loading customers..." : "Select customer"}</option>
                   {customers.map((customer) => (
                     <option key={customer.id} value={customer.id}>
                       {customer.name}
@@ -525,7 +582,7 @@ function AiToolsClientPage() {
                     }
                     className={inputClassName()}
                   >
-                    <option value="">Select sire</option>
+                    <option value="">{isLoading ? "Loading birds..." : "Select sire"}</option>
                     {birds
                       .filter((bird) => bird.sex === "Male")
                       .map((bird) => (
@@ -546,7 +603,7 @@ function AiToolsClientPage() {
                     }
                     className={inputClassName()}
                   >
-                    <option value="">Select dam</option>
+                    <option value="">{isLoading ? "Loading birds..." : "Select dam"}</option>
                     {birds
                       .filter((bird) => bird.sex === "Female")
                       .map((bird) => (
@@ -763,11 +820,11 @@ function inputClassName() {
   return "w-full rounded-2xl border border-[color:var(--line)] bg-white px-4 py-3 text-sm outline-none transition focus:border-[color:var(--accent)] focus:ring-2 focus:ring-[color:var(--accent-soft)]";
 }
 
-function flocksBreed(flockId: string) {
+function flockBreed(flockId: string, flocks: Flock[]) {
   return flocks.find((flock) => flock.id === flockId)?.breed ?? "Unspecified";
 }
 
-function flocksVariety(flockId: string) {
+function flockVariety(flockId: string, flocks: Flock[]) {
   return flocks.find((flock) => flock.id === flockId)?.variety ?? "Unspecified";
 }
 

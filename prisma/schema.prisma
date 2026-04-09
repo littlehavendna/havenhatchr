@@ -53,169 +53,312 @@ enum PhotoEntityType {
 }
 
 model User {
+  id           String        @id @default(cuid())
+  name         String
+  email        String        @unique
+  passwordHash String
+  plan         String        @default("starter")
+  stripeCustomerId      String?       @unique
+  stripeSubscriptionId  String?       @unique
+  subscriptionStatus    String        @default("inactive")
+  trialEnd              DateTime?
+  currentPeriodEnd      DateTime?
+  isBetaUser            Boolean       @default(false)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  sessions     Session[]
+  customers    Customer[]
+  flocks       Flock[]
+  birds        Bird[]
+  pairings     Pairing[]
+  hatchGroups  HatchGroup[]
+  chicks       Chick[]
+  reservations Reservation[]
+  orders       Order[]
+  traits       Trait[]
+  notes        Note[]
+  photos       Photo[]
+}
+
+model Session {
   id        String   @id @default(cuid())
-  name      String
-  email     String   @unique
-  plan      String
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 model Customer {
   id           String        @id @default(cuid())
+  userId       String
   name         String
-  email        String
-  phone        String
-  location     String
-  notes        String
-  status       String
+  email        String        @default("")
+  phone        String        @default("")
+  location     String        @default("")
+  notes        String        @default("")
+  status       String        @default("Active")
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   reservations Reservation[]
   orders       Order[]
+  noteEntries  Note[]        @relation("CustomerNotes")
+
+  @@index([userId])
 }
 
 model Flock {
-  id        String   @id @default(cuid())
-  name      String
-  breed     String
-  variety   String
-  notes     String
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  birds     Bird[]
-  chicks    Chick[]
+  id           String   @id @default(cuid())
+  userId       String
+  name         String
+  breed        String   @default("")
+  variety      String   @default("")
+  notes        String   @default("")
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  birds        Bird[]
+  chicks       Chick[]
+  noteEntries  Note[]   @relation("FlockNotes")
+  photoEntries Photo[]  @relation("FlockPhotos")
+
+  @@index([userId])
 }
 
 model Bird {
-  id             String        @id @default(cuid())
-  name           String
-  bandNumber     String        @unique
-  sex            BirdSex
-  breed          String
-  variety        String
-  color          String
-  genetics       String
-  flockId        String
-  status         BirdStatus
-  notes          String
-  photoUrl       String
-  visualTraits   String[]      @default([])
-  carriedTraits  String[]      @default([])
-  genotypeNotes  String
-  projectTags    String[]      @default([])
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  flock          Flock         @relation(fields: [flockId], references: [id], onDelete: Cascade)
-  sirePairings   Pairing[]     @relation("PairingSire")
-  damPairings    Pairing[]     @relation("PairingDam")
-  traits         Trait[]
+  id            String     @id @default(cuid())
+  userId        String
+  name          String
+  bandNumber    String
+  sex           BirdSex
+  breed         String     @default("")
+  variety       String     @default("")
+  color         String     @default("")
+  genetics      String     @default("")
+  flockId       String
+  status        BirdStatus
+  notes         String     @default("")
+  photoUrl      String     @default("")
+  visualTraits  String[]   @default([])
+  carriedTraits String[]   @default([])
+  genotypeNotes String     @default("")
+  projectTags   String[]   @default([])
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  flock         Flock      @relation(fields: [flockId], references: [id], onDelete: Cascade)
+  sirePairings  Pairing[]  @relation("PairingSire")
+  damPairings   Pairing[]  @relation("PairingDam")
+  traits        Trait[]
+  noteEntries   Note[]     @relation("BirdNotes")
+  photoEntries  Photo[]    @relation("BirdPhotos")
+
+  @@index([userId])
+  @@unique([userId, bandNumber])
 }
 
 model Pairing {
-  id           String    @id @default(cuid())
+  id           String      @id @default(cuid())
+  userId       String
   name         String
   sireId       String
   damId        String
-  goals        String
-  targetTraits String[]  @default([])
-  avoidTraits  String[]  @default([])
-  projectGoal  String
-  notes        String
-  active       Boolean   @default(true)
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  sire         Bird      @relation("PairingSire", fields: [sireId], references: [id], onDelete: Cascade)
-  dam          Bird      @relation("PairingDam", fields: [damId], references: [id], onDelete: Cascade)
+  goals        String      @default("")
+  targetTraits String[]    @default([])
+  avoidTraits  String[]    @default([])
+  projectGoal  String      @default("")
+  notes        String      @default("")
+  active       Boolean     @default(true)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sire         Bird        @relation("PairingSire", fields: [sireId], references: [id], onDelete: Cascade)
+  dam          Bird        @relation("PairingDam", fields: [damId], references: [id], onDelete: Cascade)
   hatchGroups  HatchGroup[]
+  noteEntries  Note[]      @relation("PairingNotes")
+  photoEntries Photo[]     @relation("PairingPhotos")
+
+  @@index([userId])
 }
 
 model HatchGroup {
-  id                    String    @id @default(cuid())
+  id                    String     @id @default(cuid())
+  userId                String
   name                  String
   pairingId             String
   setDate               DateTime
   hatchDate             DateTime
-  eggsSet               Int
-  eggsHatched           Int
-  producedTraitsSummary String
-  notes                 String
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
-  pairing               Pairing   @relation(fields: [pairingId], references: [id], onDelete: Cascade)
+  eggsSet               Int        @default(0)
+  eggsHatched           Int        @default(0)
+  producedTraitsSummary String     @default("")
+  notes                 String     @default("")
+  createdAt             DateTime   @default(now())
+  updatedAt             DateTime   @updatedAt
+  user                  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pairing               Pairing    @relation(fields: [pairingId], references: [id], onDelete: Cascade)
   chicks                Chick[]
+  noteEntries           Note[]     @relation("HatchGroupNotes")
+  photoEntries          Photo[]    @relation("HatchGroupPhotos")
+
+  @@index([userId])
 }
 
 model Chick {
   id             String      @id @default(cuid())
-  bandNumber     String      @unique
+  userId         String
+  bandNumber     String
   hatchDate      DateTime
   flockId        String
   hatchGroupId   String?
   status         ChickStatus
   sex            BirdSex
-  color          String
+  color          String      @default("")
   observedTraits String[]    @default([])
-  notes          String
-  photoUrl       String
+  notes          String      @default("")
+  photoUrl       String      @default("")
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
+  user           User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   flock          Flock       @relation(fields: [flockId], references: [id], onDelete: Cascade)
   hatchGroup     HatchGroup? @relation(fields: [hatchGroupId], references: [id], onDelete: SetNull)
+  noteEntries    Note[]      @relation("ChickNotes")
+  photoEntries   Photo[]     @relation("ChickPhotos")
+  orderItems     OrderChick[]
+
+  @@index([userId])
+  @@unique([userId, bandNumber])
 }
 
 model Reservation {
   id               String            @id @default(cuid())
+  userId           String
   customerId       String
-  requestedSex     String
-  requestedBreed   String
-  requestedVariety String
-  requestedColor   String
+  requestedSex     String            @default("No Preference")
+  requestedBreed   String            @default("")
+  requestedVariety String            @default("")
+  requestedColor   String            @default("")
   quantity         Int
   status           ReservationStatus
-  notes            String
+  notes            String            @default("")
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   customer         Customer          @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  noteEntries      Note[]            @relation("ReservationNotes")
+
+  @@index([userId])
 }
 
 model Order {
-  id         String   @id @default(cuid())
-  customerId String
-  chickIds   String[] @default([])
-  total      Float
-  status     String
-  pickupDate DateTime
-  notes      String
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  id          String       @id @default(cuid())
+  userId      String
+  customerId  String
+  total       Float        @default(0)
+  status      String       @default("Pending")
+  pickupDate  DateTime
+  notes       String       @default("")
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  customer    Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  noteEntries Note[]       @relation("OrderNotes")
+  orderChicks OrderChick[]
+
+  @@index([userId])
+}
+
+model OrderChick {
+  orderId    String
+  chickId    String
+  assignedAt DateTime @default(now())
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  chick      Chick    @relation(fields: [chickId], references: [id], onDelete: Cascade)
+
+  @@id([orderId, chickId])
+  @@index([chickId])
 }
 
 model Trait {
   id          String   @id @default(cuid())
-  name        String   @unique
-  category    String
-  description String
+  userId      String
+  name        String
+  category    String   @default("")
+  description String   @default("")
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   birds       Bird[]
+
+  @@index([userId])
+  @@unique([userId, name])
 }
 
 model Note {
-  id         String         @id @default(cuid())
-  entityType NoteEntityType
-  entityId   String
-  content    String
-  createdAt  DateTime       @default(now())
-  updatedAt  DateTime       @updatedAt
+  id            String           @id @default(cuid())
+  userId        String
+  entityType    NoteEntityType
+  entityId      String
+  content       String
+  birdId        String?
+  chickId       String?
+  pairingId     String?
+  hatchGroupId  String?
+  flockId       String?
+  customerId    String?
+  orderId       String?
+  reservationId String?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bird          Bird?            @relation("BirdNotes", fields: [birdId], references: [id], onDelete: SetNull)
+  chick         Chick?           @relation("ChickNotes", fields: [chickId], references: [id], onDelete: SetNull)
+  pairing       Pairing?         @relation("PairingNotes", fields: [pairingId], references: [id], onDelete: SetNull)
+  hatchGroup    HatchGroup?      @relation("HatchGroupNotes", fields: [hatchGroupId], references: [id], onDelete: SetNull)
+  flock         Flock?           @relation("FlockNotes", fields: [flockId], references: [id], onDelete: SetNull)
+  customer      Customer?        @relation("CustomerNotes", fields: [customerId], references: [id], onDelete: SetNull)
+  order         Order?           @relation("OrderNotes", fields: [orderId], references: [id], onDelete: SetNull)
+  reservation   Reservation?     @relation("ReservationNotes", fields: [reservationId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([birdId])
+  @@index([chickId])
+  @@index([pairingId])
+  @@index([hatchGroupId])
+  @@index([flockId])
+  @@index([customerId])
+  @@index([orderId])
+  @@index([reservationId])
 }
 
 model Photo {
-  id         String          @id @default(cuid())
-  entityType PhotoEntityType
-  entityId   String
-  url        String
-  caption    String
-  createdAt  DateTime        @default(now())
-  updatedAt  DateTime        @updatedAt
+  id           String          @id @default(cuid())
+  userId       String
+  entityType   PhotoEntityType
+  entityId     String
+  url          String
+  caption      String
+  birdId       String?
+  chickId      String?
+  pairingId    String?
+  hatchGroupId String?
+  flockId      String?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bird         Bird?           @relation("BirdPhotos", fields: [birdId], references: [id], onDelete: SetNull)
+  chick        Chick?          @relation("ChickPhotos", fields: [chickId], references: [id], onDelete: SetNull)
+  pairing      Pairing?        @relation("PairingPhotos", fields: [pairingId], references: [id], onDelete: SetNull)
+  hatchGroup   HatchGroup?     @relation("HatchGroupPhotos", fields: [hatchGroupId], references: [id], onDelete: SetNull)
+  flock        Flock?          @relation("FlockPhotos", fields: [flockId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([birdId])
+  @@index([chickId])
+  @@index([pairingId])
+  @@index([hatchGroupId])
+  @@index([flockId])
 }

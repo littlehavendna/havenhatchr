@@ -12,10 +12,16 @@ type BirdRow = {
   breed: string;
   variety: string;
   color: string;
+  genetics: string;
   flockId: string;
   flockName: string;
   status: BirdStatus;
   notes: string;
+  photoUrl: string;
+  visualTraits: string[];
+  carriedTraits: string[];
+  genotypeNotes: string;
+  projectTags: string[];
   createdAt: string;
 };
 
@@ -138,12 +144,12 @@ export default function BirdsPage() {
           name: form.name.trim(),
           bandNumber: form.bandNumber.trim(),
           sex: form.sex,
-          breed: form.breed.trim() || selectedFlock?.breed || "Unspecified",
-          variety: form.variety.trim() || selectedFlock?.variety || "Unspecified",
-          color: form.color.trim() || "Unspecified",
+          breed: form.breed.trim() || selectedFlock?.breed || "",
+          variety: form.variety.trim() || selectedFlock?.variety || "",
+          color: form.color.trim(),
           flockId: form.flockId,
           status: form.status,
-          notes: form.notes.trim() || "-",
+          notes: form.notes.trim(),
         }),
       });
 
@@ -236,9 +242,15 @@ export default function BirdsPage() {
                       {bird.bandNumber}
                     </td>
                     <td className="px-5 py-4 text-sm text-foreground sm:px-6">{bird.sex}</td>
-                    <td className="px-5 py-4 text-sm text-foreground sm:px-6">{bird.breed}</td>
-                    <td className="px-5 py-4 text-sm text-foreground sm:px-6">{bird.variety}</td>
-                    <td className="px-5 py-4 text-sm text-foreground sm:px-6">{bird.color}</td>
+                    <td className="px-5 py-4 text-sm text-foreground sm:px-6">
+                      {bird.breed || "-"}
+                    </td>
+                    <td className="px-5 py-4 text-sm text-foreground sm:px-6">
+                      {bird.variety || "-"}
+                    </td>
+                    <td className="px-5 py-4 text-sm text-foreground sm:px-6">
+                      {bird.color || "-"}
+                    </td>
                     <td className="px-5 py-4 text-sm text-foreground sm:px-6">
                       {bird.flockName || "Unassigned"}
                     </td>

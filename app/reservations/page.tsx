@@ -23,17 +23,14 @@ type CustomerOption = {
   name: string;
 };
 
-type FlockOption = {
-  id: string;
-  name: string;
-  breed: string;
-  variety: string;
-};
-
 type HatchGroupOption = {
   id: string;
   name: string;
+  pairingName: string;
+  breed: string;
+  variety: string;
   producedTraitsSummary: string;
+  availableChickCount: number;
 };
 
 type ChickOption = {
@@ -45,6 +42,7 @@ type ChickOption = {
   variety: string;
   hatchGroupId: string | null;
   hatchGroupName: string | null;
+  sex: string;
   color: string;
   status: string;
 };
@@ -52,7 +50,6 @@ type ChickOption = {
 type ReservationsResponse = {
   reservations: ReservationRow[];
   customers: CustomerOption[];
-  flocks: FlockOption[];
   hatchGroups: HatchGroupOption[];
   chicks: ChickOption[];
 };
@@ -159,47 +156,40 @@ export default function ReservationsPage() {
     return reservations
       .filter((reservation) => ["Waiting", "Matched"].includes(reservation.status))
       .map((reservation) => {
-        const suggestedChick = chicks.find((chick) => {
-          if (chick.status !== "Available") {
-            return false;
-          }
-
-          const requestedBreed = reservation.requestedBreed.toLowerCase();
-          const requestedVariety = reservation.requestedVariety.toLowerCase();
-          const requestedColor = reservation.requestedColor.toLowerCase();
-
-          return (
-            chick.breed.toLowerCase().includes(requestedBreed) ||
-            chick.variety.toLowerCase().includes(requestedVariety) ||
-            chick.color.toLowerCase().includes(requestedColor)
-          );
-        });
+        const suggestedChick = [...chicks]
+          .filter((chick) => chick.status === "Available")
+          .map((chick) => ({
+            chick,
+            score: scoreChickMatch(reservation, chick),
+          }))
+          .filter((candidate) => candidate.score > 0)
+          .sort((left, right) => right.score - left.score)[0]?.chick;
 
         if (suggestedChick) {
           return {
             id: reservation.id,
             customerName: reservation.customerName,
             summary: buildReservationSummary(reservation),
-            suggestion: `${suggestedChick.bandNumber} · ${suggestedChick.color} from ${suggestedChick.flockName}`,
+            suggestion: buildChickSuggestion(suggestedChick),
             source: "Available Chick",
           };
         }
 
-        const suggestedHatchGroup = hatchGroups.find((group) => {
-          return (
-            group.name.toLowerCase().includes(reservation.requestedBreed.toLowerCase()) ||
-            group.name.toLowerCase().includes(reservation.requestedVariety.toLowerCase()) ||
-            group.producedTraitsSummary
-              .toLowerCase()
-              .includes(reservation.requestedColor.toLowerCase())
-          );
-        });
+        const suggestedHatchGroup = [...hatchGroups]
+          .map((group) => ({
+            group,
+            score: scoreHatchGroupMatch(reservation, group),
+          }))
+          .filter((candidate) => candidate.score > 0)
+          .sort((left, right) => right.score - left.score)[0]?.group;
 
         return {
           id: reservation.id,
           customerName: reservation.customerName,
           summary: buildReservationSummary(reservation),
-          suggestion: suggestedHatchGroup?.name ?? "No current match suggestion",
+          suggestion: suggestedHatchGroup
+            ? buildHatchGroupSuggestion(suggestedHatchGroup)
+            : "No current match suggestion",
           source: suggestedHatchGroup ? "Hatch Group" : "Backlog",
         };
       });
@@ -242,13 +232,13 @@ export default function ReservationsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           customerId: form.customerId,
-          requestedSex: form.requestedSex.trim() || "No Preference",
+          requestedSex: form.requestedSex.trim(),
           requestedBreed: form.requestedBreed.trim(),
-          requestedVariety: form.requestedVariety.trim() || "Any Variety",
-          requestedColor: form.requestedColor.trim() || "Any Color",
+          requestedVariety: form.requestedVariety.trim(),
+          requestedColor: form.requestedColor.trim(),
           quantity: Number(form.quantity),
           status: form.status,
-          notes: form.notes.trim() || "-",
+          notes: form.notes.trim(),
         }),
       });
 
@@ -393,15 +383,17 @@ export default function ReservationsPage() {
                     <td className="px-6 py-4 text-sm font-semibold text-foreground">
                       {reservation.customerName}
                     </td>
-                    <td className="px-6 py-4 text-sm text-foreground">{reservation.requestedSex}</td>
+                    <td className="px-6 py-4 text-sm text-foreground">
+                      {reservation.requestedSex || "-"}
+                    </td>
                     <td className="px-6 py-4 text-sm text-foreground">
                       {reservation.requestedBreed}
                     </td>
                     <td className="px-6 py-4 text-sm text-foreground">
-                      {reservation.requestedVariety}
+                      {reservation.requestedVariety || "-"}
                     </td>
                     <td className="px-6 py-4 text-sm text-foreground">
-                      {reservation.requestedColor}
+                      {reservation.requestedColor || "-"}
                     </td>
                     <td className="px-6 py-4 text-sm text-foreground">{reservation.quantity}</td>
                     <td className="px-6 py-4 text-sm text-foreground">
@@ -410,7 +402,7 @@ export default function ReservationsPage() {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-sm leading-7 text-[color:var(--muted)]">
-                      {reservation.notes}
+                      {reservation.notes || "-"}
                     </td>
                   </tr>
                 ))}
@@ -445,7 +437,7 @@ export default function ReservationsPage() {
               Match Suggestions
             </p>
             <h2 className="text-xl font-semibold tracking-tight">
-              Quick placeholder matches from current availability
+              Quick matches from current availability
             </h2>
           </div>
 
@@ -635,7 +627,106 @@ export default function ReservationsPage() {
 }
 
 function buildReservationSummary(reservation: ReservationRow) {
-  return `${reservation.quantity} ${reservation.requestedVariety} ${reservation.requestedBreed} for ${reservation.requestedSex}, color preference ${reservation.requestedColor}`;
+  const parts = [
+    `${reservation.quantity} ${reservation.requestedBreed}`,
+    reservation.requestedVariety ? reservation.requestedVariety : null,
+    reservation.requestedSex ? `for ${reservation.requestedSex}` : null,
+    reservation.requestedColor ? `color preference ${reservation.requestedColor}` : null,
+  ].filter(Boolean);
+
+  return parts.join(", ");
+}
+
+function buildChickSuggestion(chick: ChickOption) {
+  const identity = chick.bandNumber || "Unbanded chick";
+  const details = [chick.color || null, chick.sex || null].filter(Boolean).join(" · ");
+
+  return `${identity}${details ? ` · ${details}` : ""} from ${chick.flockName}`;
+}
+
+function buildHatchGroupSuggestion(group: HatchGroupOption) {
+  const context = [group.breed || null, group.variety || null].filter(Boolean).join(" · ");
+  const availabilityLabel =
+    group.availableChickCount > 0 ? `${group.availableChickCount} chicks available` : "upcoming";
+
+  return `${group.name}${context ? ` · ${context}` : ""} (${availabilityLabel})`;
+}
+
+function scoreChickMatch(reservation: ReservationRow, chick: ChickOption) {
+  let score = 0;
+
+  if (matchesRequestValue(reservation.requestedBreed, chick.breed)) {
+    score += 5;
+  }
+
+  if (matchesRequestValue(reservation.requestedVariety, chick.variety)) {
+    score += 4;
+  }
+
+  if (matchesRequestValue(reservation.requestedColor, chick.color)) {
+    score += 3;
+  }
+
+  if (matchesSexPreference(reservation.requestedSex, chick.sex)) {
+    score += 2;
+  }
+
+  return score;
+}
+
+function scoreHatchGroupMatch(reservation: ReservationRow, group: HatchGroupOption) {
+  let score = 0;
+
+  if (matchesRequestValue(reservation.requestedBreed, group.breed)) {
+    score += 5;
+  }
+
+  if (matchesRequestValue(reservation.requestedVariety, group.variety)) {
+    score += 4;
+  }
+
+  if (
+    matchesRequestValue(reservation.requestedColor, group.producedTraitsSummary) ||
+    matchesRequestValue(reservation.requestedColor, group.name)
+  ) {
+    score += 2;
+  }
+
+  if (group.availableChickCount > 0) {
+    score += 1;
+  }
+
+  return score;
+}
+
+function matchesRequestValue(requested: string, actual: string) {
+  const requestedValue = requested.trim().toLowerCase();
+  const actualValue = actual.trim().toLowerCase();
+
+  if (!requestedValue || !actualValue) {
+    return false;
+  }
+
+  return actualValue.includes(requestedValue) || requestedValue.includes(actualValue);
+}
+
+function matchesSexPreference(requestedSex: string, chickSex: string) {
+  const requested = requestedSex.trim().toLowerCase();
+  const actual = chickSex.trim().toLowerCase();
+
+  if (!requested) {
+    return false;
+  }
+
+  if (requested.includes("no preference") || requested.includes("straight run")) {
+    return true;
+  }
+
+  if (!actual) {
+    return false;
+  }
+
+  return actual.includes(requested) || requested.includes(actual);
 }
 
 function MetricCard({ label, value }: { label: string; value: string }) {

@@ -136,8 +136,8 @@ export default function HatchGroupsPage() {
           producedTraitsSummary:
             selectedPairing && selectedPairing.targetTraits.length > 0
               ? `Expected traits: ${selectedPairing.targetTraits.join(", ")}`
-              : "Traits still being evaluated.",
-          notes: form.notes.trim() || "-",
+              : "",
+          notes: form.notes.trim(),
         }),
       });
 
@@ -161,8 +161,8 @@ export default function HatchGroupsPage() {
     hatchDate: formatDate(group.hatchDate),
     eggsSet: String(group.eggsSet),
     eggsHatched: String(group.eggsHatched),
-    producedTraits: group.producedTraitsSummary,
-    notes: group.notes,
+    producedTraits: group.producedTraitsSummary || "-",
+    notes: group.notes || "-",
   }));
 
   return (

@@ -17,6 +17,7 @@ type ChickRow = {
   color: string;
   observedTraits: string[];
   notes: string;
+  photoUrl: string;
   createdAt: string;
 };
 
@@ -165,9 +166,9 @@ export default function ChicksPage() {
           hatchGroupId: form.hatchGroupId || undefined,
           status: form.status,
           sex: form.sex,
-          color: form.color.trim() || "Unspecified",
+          color: form.color.trim(),
           observedTraits: splitTraits(form.observedTraits),
-          notes: form.notes.trim() || "-",
+          notes: form.notes.trim(),
         }),
       });
 
@@ -190,10 +191,10 @@ export default function ChicksPage() {
     flock: chick.flockName || "Unassigned",
     hatchGroup: chick.hatchGroupName || "-",
     sex: chick.sex,
-    color: chick.color,
+    color: chick.color || "-",
     observedTraits: chick.observedTraits.join(", ") || "-",
     status: chick.status,
-    notes: chick.notes,
+    notes: chick.notes || "-",
   }));
 
   return (

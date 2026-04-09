@@ -133,11 +133,11 @@ export default function PairingsPage() {
           name: form.name.trim(),
           sireId: form.sireId,
           damId: form.damId,
-          goals: form.goals.trim() || "-",
+          goals: form.goals.trim(),
           targetTraits: splitTags(form.targetTraits),
           avoidTraits: splitTags(form.avoidTraits),
-          projectGoal: form.projectGoal.trim() || "-",
-          notes: form.notes.trim() || "-",
+          projectGoal: form.projectGoal.trim(),
+          notes: form.notes.trim(),
           active: form.active,
         }),
       });
@@ -159,12 +159,12 @@ export default function PairingsPage() {
     name: pairing.name,
     sire: pairing.sireName,
     dam: pairing.damName,
-    goals: pairing.goals,
+    goals: pairing.goals || "-",
     targetTraits: pairing.targetTraits.join(", ") || "-",
     avoidTraits: pairing.avoidTraits.join(", ") || "-",
     projectGoal: pairing.projectGoal || "-",
     status: pairing.active ? "Active" : "Inactive",
-    notes: pairing.notes,
+    notes: pairing.notes || "-",
   }));
 
   return (

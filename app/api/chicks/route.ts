@@ -1,24 +1,35 @@
 import { NextResponse } from "next/server";
+import { getCurrentUserId } from "@/lib/auth";
 import { createChick, getChicksData } from "@/lib/db";
 
 export async function GET() {
-  const data = await getChicksData();
+  const userId = await getCurrentUserId();
+  if (!userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const data = await getChicksData(userId);
   return NextResponse.json(data);
 }
 
 export async function POST(request: Request) {
+  const userId = await getCurrentUserId();
+  if (!userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const body = await request.json();
 
-  const chick = await createChick({
+  const chick = await createChick(userId, {
     bandNumber: body.bandNumber,
     hatchDate: body.hatchDate,
     flockId: body.flockId,
     hatchGroupId: body.hatchGroupId,
     status: body.status,
     sex: body.sex,
-    color: body.color || "Unspecified",
+    color: body.color || "",
     observedTraits: body.observedTraits || [],
-    notes: body.notes || "-",
+    notes: body.notes || "",
   });
 
   return NextResponse.json({ chick });

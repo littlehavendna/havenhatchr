@@ -1,31 +1,68 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { StatCard } from "@/components/stat-card";
-import { birds, pairings, traits } from "@/lib/mock-data";
 import { formatList } from "@/lib/genetics";
+import type { Bird, Pairing, Trait } from "@/lib/types";
+
+type GeneticsResponse = {
+  birds: Bird[];
+  pairings: Pairing[];
+  traits: Trait[];
+};
 
 export default function GeneticsPage() {
   const router = useRouter();
+  const [birds, setBirds] = useState<Bird[]>([]);
+  const [pairings, setPairings] = useState<Pairing[]>([]);
+  const [traits, setTraits] = useState<Trait[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [requestError, setRequestError] = useState("");
   const [traitFilter, setTraitFilter] = useState("All Traits");
   const [projectTagFilter, setProjectTagFilter] = useState("All Project Tags");
   const [breedFilter, setBreedFilter] = useState("All Breeds");
   const [sexFilter, setSexFilter] = useState("All Sexes");
   const [search, setSearch] = useState("");
 
+  useEffect(() => {
+    void loadGenetics();
+  }, []);
+
+  async function loadGenetics() {
+    try {
+      setRequestError("");
+      const response = await fetch("/api/genetics", { cache: "no-store" });
+
+      if (!response.ok) {
+        throw new Error("Failed to load genetics overview.");
+      }
+
+      const data = (await response.json()) as GeneticsResponse;
+      setBirds(data.birds);
+      setPairings(data.pairings);
+      setTraits(data.traits);
+    } catch (error) {
+      setRequestError(
+        error instanceof Error ? error.message : "Failed to load genetics overview.",
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
   const allTraitOptions = useMemo(
     () => ["All Traits", ...new Set(traits.map((trait) => trait.name))],
-    [],
+    [traits],
   );
   const projectTagOptions = useMemo(
     () => ["All Project Tags", ...new Set(birds.flatMap((bird) => bird.projectTags))],
-    [],
+    [birds],
   );
   const breedOptions = useMemo(
     () => ["All Breeds", ...new Set(birds.map((bird) => bird.breed))],
-    [],
+    [birds],
   );
   const sexOptions = ["All Sexes", "Male", "Female", "Unknown"];
 
@@ -56,7 +93,7 @@ export default function GeneticsPage() {
         matchesSex
       );
     });
-  }, [breedFilter, projectTagFilter, search, sexFilter, traitFilter]);
+  }, [birds, breedFilter, projectTagFilter, search, sexFilter, traitFilter]);
 
   const trackedTraitsCount = new Set(
     birds.flatMap((bird) => [...bird.visualTraits, ...bird.carriedTraits]),
@@ -86,6 +123,7 @@ export default function GeneticsPage() {
             <p className="mt-2 text-2xl font-semibold tracking-tight">{filteredBirds.length}</p>
           </div>
         </div>
+        {requestError ? <p className="mt-4 text-sm text-[#b34b75]">{requestError}</p> : null}
       </section>
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -214,7 +252,17 @@ export default function GeneticsPage() {
                   </td>
                 </tr>
               ))}
-              {filteredBirds.length === 0 ? (
+              {isLoading ? (
+                <tr>
+                  <td
+                    colSpan={5}
+                    className="px-6 py-8 text-center text-sm text-[color:var(--muted)]"
+                  >
+                    Loading genetics data...
+                  </td>
+                </tr>
+              ) : null}
+              {!isLoading && filteredBirds.length === 0 ? (
                 <tr>
                   <td
                     colSpan={5}

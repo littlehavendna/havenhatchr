@@ -1,5 +1,3 @@
-import { birds, chicks, hatchGroups, pairings } from "@/lib/mock-data";
-
 export function formatList(values: string[]) {
   return values.length > 0 ? values.join(", ") : "-";
 }
@@ -11,7 +9,36 @@ export function splitCommaSeparated(value: string) {
     .filter(Boolean);
 }
 
-export function buildProducedTraitsSummary(pairingId: string) {
+type PairingLike = {
+  id: string;
+  sireId?: string;
+  damId?: string;
+  targetTraits: string[];
+  projectGoal?: string;
+};
+
+type HatchGroupLike = {
+  id: string;
+  pairingId: string;
+};
+
+type ChickLike = {
+  hatchGroupId: string | null;
+  observedTraits: string[];
+};
+
+type BirdLike = {
+  visualTraits: string[];
+  carriedTraits: string[];
+  projectTags: string[];
+};
+
+export function buildProducedTraitsSummary(
+  pairingId: string,
+  pairings: PairingLike[],
+  hatchGroups: HatchGroupLike[],
+  chicks: ChickLike[],
+) {
   const pairing = pairings.find((entry) => entry.id === pairingId);
 
   if (!pairing) {
@@ -23,7 +50,7 @@ export function buildProducedTraitsSummary(pairingId: string) {
     .map((group) => group.id);
 
   const observedTraits = chicks
-    .filter((chick) => hatchGroupIds.includes(chick.hatchGroupId))
+    .filter((chick) => chick.hatchGroupId && hatchGroupIds.includes(chick.hatchGroupId))
     .flatMap((chick) => chick.observedTraits);
 
   const traitPool = Array.from(
@@ -33,18 +60,24 @@ export function buildProducedTraitsSummary(pairingId: string) {
   return traitPool.length > 0 ? traitPool.join(", ") : "Traits still being evaluated.";
 }
 
-export function getBirdRelatedPairings(birdId: string) {
+export function getBirdRelatedPairings<T extends PairingLike>(birdId: string, pairings: T[]) {
   return pairings.filter((pairing) => pairing.sireId === birdId || pairing.damId === birdId);
 }
 
-export function getBirdOffspringSummary(birdId: string) {
-  const relatedPairings = getBirdRelatedPairings(birdId);
+export function getBirdOffspringSummary(
+  birdId: string,
+  relatedPairings: Array<{ id: string }>,
+  hatchGroups: HatchGroupLike[],
+  chicks: ChickLike[],
+) {
   const relatedPairingIds = relatedPairings.map((pairing) => pairing.id);
   const relatedHatchGroups = hatchGroups.filter((group) =>
     relatedPairingIds.includes(group.pairingId),
   );
   const relatedHatchGroupIds = relatedHatchGroups.map((group) => group.id);
-  const offspring = chicks.filter((chick) => relatedHatchGroupIds.includes(chick.hatchGroupId));
+  const offspring = chicks.filter(
+    (chick) => chick.hatchGroupId && relatedHatchGroupIds.includes(chick.hatchGroupId),
+  );
   const topObservedTraits = Array.from(
     new Set(offspring.flatMap((chick) => chick.observedTraits)),
   ).slice(0, 4);
@@ -57,7 +90,7 @@ export function getBirdOffspringSummary(birdId: string) {
   };
 }
 
-export function getMostCommonTrackedTraits(limit = 4) {
+export function getMostCommonTrackedTraits(birds: BirdLike[], limit = 4) {
   const counts = new Map<string, number>();
 
   birds.forEach((bird) => {
@@ -72,13 +105,13 @@ export function getMostCommonTrackedTraits(limit = 4) {
     .map(([trait, count]) => ({ trait, count }));
 }
 
-export function getRecentProjectTags(limit = 5) {
+export function getRecentProjectTags(birds: BirdLike[], limit = 5) {
   return Array.from(new Set([...birds].reverse().flatMap((bird) => bird.projectTags))).slice(
     0,
     limit,
   );
 }
 
-export function getPairingsWithActiveGoals(limit = 4) {
-  return pairings.filter((pairing) => pairing.projectGoal.trim()).slice(0, limit);
+export function getPairingsWithActiveGoals<T extends PairingLike>(pairings: T[], limit = 4) {
+  return pairings.filter((pairing) => pairing.projectGoal?.trim()).slice(0, limit);
 }

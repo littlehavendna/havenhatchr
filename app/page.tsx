@@ -41,15 +41,15 @@ export default function Home() {
             <a href="#features" className="transition hover:text-foreground">
               Features
             </a>
-            <a href="#pricing" className="transition hover:text-foreground">
+            <Link href="/pricing" className="transition hover:text-foreground">
               Pricing
-            </a>
-            <Link href="/dashboard" className="transition hover:text-foreground">
+            </Link>
+            <Link href="/login" className="transition hover:text-foreground">
               Login
             </Link>
           </nav>
           <Link
-            href="/dashboard"
+            href="/login"
             className="rounded-full bg-[color:var(--accent)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#4f3fa0]"
           >
             Login
@@ -74,7 +74,7 @@ export default function Home() {
               </p>
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                 <Link
-                  href="/dashboard"
+                  href="/signup"
                   className="inline-flex items-center justify-center rounded-full bg-[color:var(--accent)] px-7 py-3.5 text-base font-semibold text-white transition hover:bg-[#4f3fa0]"
                 >
                   Get Started
@@ -275,7 +275,7 @@ export default function Home() {
                 software.
               </p>
               <Link
-                href="/dashboard"
+                href="/login"
                 className="mt-8 inline-flex items-center justify-center rounded-full bg-[color:var(--accent)] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#4f3fa0]"
               >
                 Open HavenHatchr
@@ -296,7 +296,7 @@ export default function Home() {
                 </h2>
                 <p className="mt-4 max-w-2xl text-base leading-8 text-[color:var(--muted)]">
                   Start with one clean workspace for flocks, chicks, band
-                  numbers, hatch groups, and customer reservations.
+                  numbers, hatch groups, and customer reservations with a 14 day free trial.
                 </p>
               </div>
 
@@ -304,17 +304,17 @@ export default function Home() {
                 <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)]">
                   Starter
                 </p>
-                <p className="mt-3 text-4xl font-semibold tracking-tight">$19</p>
-                <p className="mt-1 text-sm text-[color:var(--muted)]">per month</p>
+                <p className="mt-3 text-4xl font-semibold tracking-tight">14 days free</p>
+                <p className="mt-1 text-sm text-[color:var(--muted)]">$10/month after trial</p>
                 <p className="mt-4 text-sm leading-7 text-[color:var(--muted)]">
-                  For breeders who want records, hatch planning, and reservation
-                  tracking all in one place.
+                  For breeders who want records, hatch planning, reservation
+                  tracking, and billing that stays simple. No commitment. Cancel anytime.
                 </p>
                 <Link
-                  href="/dashboard"
+                  href="/pricing"
                   className="mt-6 inline-flex w-full items-center justify-center rounded-full bg-[color:var(--accent)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#4f3fa0]"
                 >
-                  Get Started
+                  View Pricing
                 </Link>
               </div>
             </div>
