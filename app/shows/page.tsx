@@ -276,6 +276,8 @@ export default function ShowsPage() {
   const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<TabKey>("overview");
+  const [editingShowId, setEditingShowId] = useState("");
+  const [editingEntryId, setEditingEntryId] = useState("");
   const [showForm, setShowForm] = useState({
     showName: "",
     location: "",
@@ -337,11 +339,15 @@ export default function ShowsPage() {
       const response = await fetch("/api/shows", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "createShow", ...showForm }),
+        body: JSON.stringify({
+          action: editingShowId ? "updateShow" : "createShow",
+          showId: editingShowId,
+          ...showForm,
+        }),
       });
       const payload = (await response.json()) as { error?: string };
       if (!response.ok) {
-        throw new Error(payload.error || "Failed to create show.");
+        throw new Error(payload.error || "Failed to save show.");
       }
 
       setShowForm({
@@ -353,9 +359,10 @@ export default function ShowsPage() {
         specialShowDivision: "",
         notes: "",
       });
+      setEditingShowId("");
       await loadShows();
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "Failed to create show.");
+      setError(submitError instanceof Error ? submitError.message : "Failed to save show.");
     } finally {
       setIsSaving(false);
     }
@@ -368,7 +375,11 @@ export default function ShowsPage() {
       const response = await fetch("/api/shows", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "createEntry", ...entryForm }),
+        body: JSON.stringify({
+          action: editingEntryId ? "updateEntry" : "createEntry",
+          entryId: editingEntryId,
+          ...entryForm,
+        }),
       });
       const payload = (await response.json()) as { error?: string };
       if (!response.ok) {
@@ -376,12 +387,96 @@ export default function ShowsPage() {
       }
 
       setEntryForm(emptyEntryForm);
+      setEditingEntryId("");
       await loadShows();
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Failed to save show result.");
     } finally {
       setIsSaving(false);
     }
+  }
+
+  function beginShowEdit(show: ShowSummary) {
+    setEditingShowId(show.id);
+    setShowForm({
+      showName: show.showName,
+      location: show.location,
+      date: show.date,
+      standardsProfile: show.standardsProfile,
+      awardTemplateName: show.awardTemplateName,
+      specialShowDivision: show.specialShowDivision,
+      notes: show.notes,
+    });
+    setActiveTab("overview");
+    setError("");
+  }
+
+  function cancelShowEdit() {
+    setEditingShowId("");
+    setShowForm({
+      showName: "",
+      location: "",
+      date: "",
+      standardsProfile: "Open Poultry",
+      awardTemplateName: "Default Poultry Awards",
+      specialShowDivision: "",
+      notes: "",
+    });
+  }
+
+  function beginEntryEdit(entry: ShowEntry) {
+    setEditingEntryId(entry.id);
+    setEntryForm({
+      showId: entry.showId,
+      birdId: entry.birdId,
+      entryType: entry.entryType,
+      species: entry.species,
+      sizeClass: entry.sizeClass,
+      sexClass: entry.sexClass,
+      ageClass: entry.ageClass,
+      breed: entry.breed,
+      variety: entry.variety,
+      apaClass: entry.apaClass,
+      varietyClassification: entry.varietyClassification,
+      division: entry.division,
+      specialShowDivision: entry.specialShowDivision,
+      entryClass: entry.entryClass,
+      specialEntryType: entry.specialEntryType,
+      awardTemplateKey: entry.awardTemplateKey,
+      breedClubAward: entry.breedClubAward,
+      showString: entry.showString,
+      result: entry.result,
+      placement: entry.placement,
+      pointsEarned: entry.pointsEarned,
+      judgeName: entry.judgeName,
+      judgeNumber: entry.judgeNumber,
+      judgeComments: entry.judgeComments,
+      customAwardText: entry.customAwardText,
+      numberInClass: entry.numberInClass,
+      numberOfExhibitors: entry.numberOfExhibitors,
+      isWin: entry.isWin,
+      bestOfBreed: entry.awards.includes("Best of Breed"),
+      reserveOfBreed: entry.awards.includes("Reserve of Breed"),
+      bestOfVariety: entry.awards.includes("Best of Variety"),
+      reserveOfVariety: entry.awards.includes("Reserve of Variety"),
+      bestAmerican: entry.awards.includes("Best American"),
+      bestAsiatic: entry.awards.includes("Best Asiatic"),
+      bestMediterranean: entry.awards.includes("Best Mediterranean"),
+      bestContinental: entry.awards.includes("Best Continental"),
+      bestEnglish: entry.awards.includes("Best English"),
+      bestGame: entry.awards.includes("Best Game"),
+      bestAllOtherStandardBreeds: entry.awards.includes("Best All Other Standard Breeds"),
+      bestBantam: entry.awards.includes("Best Bantam"),
+      bestInShow: entry.awards.includes("Best in Show"),
+      reserveInShow: entry.awards.includes("Reserve in Show"),
+    });
+    setActiveTab("overview");
+    setError("");
+  }
+
+  function cancelEntryEdit() {
+    setEditingEntryId("");
+    setEntryForm(emptyEntryForm);
   }
 
   const stats = [
@@ -474,7 +569,7 @@ export default function ShowsPage() {
           <div className="grid gap-6 xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
             <section className="soft-shadow rounded-[28px] border border-[color:var(--line)] bg-white/88 p-5 sm:p-6">
               <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[color:var(--muted)]">
-                Add Show
+                {editingShowId ? "Edit Show" : "Add Show"}
               </p>
               <form onSubmit={submitShow} className="mt-5 grid gap-4">
                 <Field label="Show Name">
@@ -572,12 +667,21 @@ export default function ShowsPage() {
                   />
                 </Field>
                 <div className="flex justify-end">
+                  {editingShowId ? (
+                    <button
+                      type="button"
+                      onClick={cancelShowEdit}
+                      className="mr-3 inline-flex items-center justify-center rounded-full border border-[color:var(--line)] bg-white px-5 py-3 text-sm font-semibold text-foreground transition hover:bg-[#f8f7fe]"
+                    >
+                      Cancel
+                    </button>
+                  ) : null}
                   <button
                     type="submit"
                     disabled={isSaving}
                     className="inline-flex items-center justify-center rounded-full bg-[color:var(--accent)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#4f3fa0] disabled:cursor-not-allowed disabled:opacity-70"
                   >
-                    {isSaving ? "Saving..." : "Add Show"}
+                    {isSaving ? "Saving..." : editingShowId ? "Update Show" : "Add Show"}
                   </button>
                 </div>
               </form>
@@ -587,7 +691,7 @@ export default function ShowsPage() {
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[color:var(--muted)]">
-                    Enter Result
+                    {editingEntryId ? "Edit Entry" : "Enter Result"}
                   </p>
                   <h2 className="mt-2 text-xl font-semibold tracking-tight">
                     Poultry entry and award record
@@ -966,12 +1070,21 @@ export default function ShowsPage() {
                 </div>
 
                 <div className="flex justify-end">
+                  {editingEntryId ? (
+                    <button
+                      type="button"
+                      onClick={cancelEntryEdit}
+                      className="mr-3 inline-flex items-center justify-center rounded-full border border-[color:var(--line)] bg-white px-5 py-3 text-sm font-semibold text-foreground transition hover:bg-[#f8f7fe]"
+                    >
+                      Cancel
+                    </button>
+                  ) : null}
                   <button
                     type="submit"
                     disabled={isSaving}
                     className="inline-flex items-center justify-center rounded-full bg-[color:var(--accent)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#4f3fa0] disabled:cursor-not-allowed disabled:opacity-70"
                   >
-                    {isSaving ? "Saving..." : "Save Entry Result"}
+                    {isSaving ? "Saving..." : editingEntryId ? "Update Entry" : "Save Entry Result"}
                   </button>
                 </div>
               </form>
@@ -979,8 +1092,8 @@ export default function ShowsPage() {
           </div>
 
           <div className="grid gap-6 xl:grid-cols-2">
-            <ShowSection title="Upcoming Shows" shows={data?.upcomingShows ?? []} />
-            <ShowSection title="Past Shows" shows={data?.pastShows ?? []} />
+            <ShowSection title="Upcoming Shows" shows={data?.upcomingShows ?? []} onEdit={beginShowEdit} />
+            <ShowSection title="Past Shows" shows={data?.pastShows ?? []} onEdit={beginShowEdit} />
           </div>
 
           <section className="soft-shadow rounded-[28px] border border-[color:var(--line)] bg-white/88 p-5 sm:p-6">
@@ -1002,7 +1115,8 @@ export default function ShowsPage() {
                 data?.entries.map((entry) => (
                   <article
                     key={entry.id}
-                    className="rounded-[24px] border border-[color:var(--line)] bg-[#fcfbff] p-4"
+                    onClick={() => beginEntryEdit(entry)}
+                    className="cursor-pointer rounded-[24px] border border-[color:var(--line)] bg-[#fcfbff] p-4 transition hover:border-[color:var(--teal)]"
                   >
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                       <div className="min-w-0">
@@ -1056,6 +1170,16 @@ export default function ShowsPage() {
                         <p>
                           {entry.numberInClass} in class | {entry.numberOfExhibitors} exhibitors
                         </p>
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            beginEntryEdit(entry);
+                          }}
+                          className="inline-flex rounded-full border border-[color:var(--line)] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--muted)] transition hover:bg-[#f8f7fe]"
+                        >
+                          Edit Entry
+                        </button>
                       </div>
                     </div>
                   </article>
@@ -1252,7 +1376,15 @@ export default function ShowsPage() {
   );
 }
 
-function ShowSection({ title, shows }: { title: string; shows: ShowSummary[] }) {
+function ShowSection({
+  title,
+  shows,
+  onEdit,
+}: {
+  title: string;
+  shows: ShowSummary[];
+  onEdit: (show: ShowSummary) => void;
+}) {
   return (
     <section className="soft-shadow rounded-[28px] border border-[color:var(--line)] bg-white/88 p-5 sm:p-6">
       <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[color:var(--muted)]">
@@ -1263,7 +1395,8 @@ function ShowSection({ title, shows }: { title: string; shows: ShowSummary[] }) 
           shows.map((show) => (
             <article
               key={show.id}
-              className="rounded-[24px] border border-[color:var(--line)] bg-[#fcfbff] p-4"
+              onClick={() => onEdit(show)}
+              className="cursor-pointer rounded-[24px] border border-[color:var(--line)] bg-[#fcfbff] p-4 transition hover:border-[color:var(--teal)]"
             >
               <div className="flex items-start justify-between gap-4">
                 <div>
@@ -1282,7 +1415,19 @@ function ShowSection({ title, shows }: { title: string; shows: ShowSummary[] }) 
                     <p className="mt-2 text-sm leading-7 text-[color:var(--muted)]">{show.notes}</p>
                   ) : null}
                 </div>
-                <Tag tone="accent">{show.entryCount} entries</Tag>
+                <div className="flex flex-col items-end gap-2">
+                  <Tag tone="accent">{show.entryCount} entries</Tag>
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onEdit(show);
+                    }}
+                    className="inline-flex rounded-full border border-[color:var(--line)] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--muted)] transition hover:bg-[#f8f7fe]"
+                  >
+                    Edit Show
+                  </button>
+                </div>
               </div>
             </article>
           ))

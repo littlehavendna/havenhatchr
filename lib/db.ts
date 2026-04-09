@@ -1719,6 +1719,35 @@ export async function createShow(
   });
 }
 
+export async function updateShow(
+  userId: string,
+  showId: string,
+  data: {
+    showName: string;
+    location: string;
+    date: string;
+    standardsProfile: string;
+    awardTemplateName: string;
+    specialShowDivision: string;
+    notes: string;
+  },
+) {
+  await requireOwnedShow(userId, showId);
+
+  return prisma.show.update({
+    where: { id: showId },
+    data: {
+      showName: data.showName,
+      location: data.location,
+      date: new Date(`${data.date}T00:00:00`),
+      standardsProfile: data.standardsProfile,
+      awardTemplateName: data.awardTemplateName,
+      specialShowDivision: data.specialShowDivision,
+      notes: data.notes,
+    },
+  });
+}
+
 export async function createShowEntry(
   userId: string,
   data: {
@@ -1788,6 +1817,93 @@ export async function createShowEntry(
   return prisma.showEntry.create({
     data: {
       userId,
+      ...data,
+      breed,
+      variety,
+      awardTemplateKey: data.awardTemplateKey || show.awardTemplateName,
+      specialShowDivision: data.specialShowDivision || show.specialShowDivision,
+      showString,
+    },
+  });
+}
+
+export async function updateShowEntry(
+  userId: string,
+  entryId: string,
+  data: {
+    showId: string;
+    birdId: string;
+    entryType: string;
+    species: string;
+    sizeClass: string;
+    sexClass: string;
+    ageClass: string;
+    breed: string;
+    variety: string;
+    apaClass: string;
+    varietyClassification: string;
+    division: string;
+    specialShowDivision: string;
+    entryClass: string;
+    specialEntryType: string;
+    awardTemplateKey: string;
+    breedClubAward: string;
+    showString: string;
+    result: string;
+    placement: string;
+    pointsEarned: number;
+    judgeName: string;
+    judgeNumber: string;
+    judgeComments: string;
+    customAwardText: string;
+    numberInClass: number;
+    numberOfExhibitors: number;
+    bestOfBreed: boolean;
+    reserveOfBreed: boolean;
+    bestOfVariety: boolean;
+    reserveOfVariety: boolean;
+    bestAmerican: boolean;
+    bestAsiatic: boolean;
+    bestMediterranean: boolean;
+    bestContinental: boolean;
+    bestEnglish: boolean;
+    bestGame: boolean;
+    bestAllOtherStandardBreeds: boolean;
+    bestBantam: boolean;
+    bestInShow: boolean;
+    reserveInShow: boolean;
+    isWin: boolean;
+  },
+) {
+  const existingEntry = await prisma.showEntry.findFirst({
+    where: { id: entryId, userId },
+  });
+
+  if (!existingEntry) {
+    throw new Error("Show entry not found.");
+  }
+
+  const show = await requireOwnedShow(userId, data.showId);
+  const bird = await requireOwnedBird(userId, data.birdId);
+
+  const breed = data.breed || bird.breed;
+  const variety = data.variety || bird.variety;
+  const showString =
+    data.showString ||
+    buildShowStringLabel({
+      showString: "",
+      sizeClass: data.sizeClass,
+      breed,
+      variety,
+      sexClass: data.sexClass,
+      ageClass: data.ageClass,
+      specialEntryType: data.specialEntryType,
+      entryClass: data.entryClass,
+    });
+
+  return prisma.showEntry.update({
+    where: { id: entryId },
+    data: {
       ...data,
       breed,
       variety,
