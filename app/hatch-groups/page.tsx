@@ -7,7 +7,7 @@ import { HATCH_BREED_OPTIONS, deriveIncubationDates, getHatchBreedRule } from "@
 type HatchGroupRow = {
   id: string;
   name: string;
-  pairingId: string;
+  pairingId: string | null;
   pairingName: string;
   breedDesignation: string;
   setDate: string;
@@ -144,7 +144,7 @@ export default function HatchGroupsPage() {
     setForm({
       id: group.id,
       name: group.name,
-      pairingId: group.pairingId,
+      pairingId: group.pairingId ?? "",
       breedDesignation: group.breedDesignation,
       setDate: group.setDate,
       lockdownDate: group.lockdownDate,
@@ -171,7 +171,6 @@ export default function HatchGroupsPage() {
 
     const nextErrors: Partial<Record<keyof HatchGroupForm, string>> = {};
     if (!form.name.trim()) nextErrors.name = "Hatch Group Name is required.";
-    if (!form.pairingId) nextErrors.pairingId = "Pairing is required.";
     if (!form.breedDesignation) nextErrors.breedDesignation = "Breed designation is required.";
     if (!form.setDate) nextErrors.setDate = "Set Date is required.";
     if (!form.lockdownDate) nextErrors.lockdownDate = "Lockdown Date is required.";
@@ -252,7 +251,7 @@ export default function HatchGroupsPage() {
               <h2 className="text-lg font-semibold tracking-tight">Hatch Groups</h2>
               <p className="mt-1 text-sm text-[color:var(--muted)]">
                 Track incubation by designation, auto-calculate lockdown and hatch timing, and
-                still adjust hatch dates as needed.
+                still adjust hatch dates as needed. Pairing is optional for mixed-flock groups.
               </p>
             </div>
             <button
@@ -314,7 +313,7 @@ export default function HatchGroupsPage() {
                   {isEditing ? "Edit Hatch Group" : "Add Hatch Group"}
                 </h3>
                 <p className="mt-1 text-sm text-[color:var(--muted)]">
-                  Choose the designation first, then the set date to auto-calculate lockdown and hatch timing.
+                  Choose the designation first, then the set date to auto-calculate lockdown and hatch timing. Pairing is optional.
                 </p>
               </div>
               <button
@@ -342,14 +341,13 @@ export default function HatchGroupsPage() {
               />
               <FormField
                 label="Pairing"
-                error={errors.pairingId}
                 input={
                   <select
                     value={form.pairingId}
                     onChange={(event) => updateField("pairingId", event.target.value)}
-                    className={inputClassName(errors.pairingId)}
+                    className={inputClassName()}
                   >
-                    <option value="">Select pairing</option>
+                    <option value="">No specific pairing</option>
                     {pairings.map((pairing) => (
                       <option key={pairing.id} value={pairing.id}>
                         {pairing.name}

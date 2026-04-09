@@ -5,9 +5,10 @@ import { useRouter } from "next/navigation";
 
 type TopbarProps = {
   onMenuClick: () => void;
+  onFeedbackClick: () => void;
 };
 
-export function Topbar({ onMenuClick }: TopbarProps) {
+export function Topbar({ onMenuClick, onFeedbackClick }: TopbarProps) {
   const router = useRouter();
   const [user, setUser] = useState<{
     name: string;
@@ -98,6 +99,13 @@ export function Topbar({ onMenuClick }: TopbarProps) {
           <div className="flex h-11 w-11 items-center justify-center rounded-full border border-[color:var(--line)] bg-white/80 text-sm font-semibold text-[color:var(--accent)]">
             {initials}
           </div>
+          <button
+            type="button"
+            onClick={onFeedbackClick}
+            className="rounded-full border border-[color:var(--line)] bg-white/80 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)] transition hover:bg-white"
+          >
+            Feedback
+          </button>
           <button
             type="button"
             onClick={handleLogout}

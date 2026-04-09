@@ -637,6 +637,72 @@ export async function getSupportData(search = "") {
   };
 }
 
+export async function getFeedbackData(filters?: {
+  type?: "Bug" | "FeatureRequest" | "GeneralFeedback" | "All";
+  status?: "Open" | "InProgress" | "Resolved" | "All";
+}) {
+  const type = filters?.type && filters.type !== "All" ? filters.type : undefined;
+  const status = filters?.status && filters.status !== "All" ? filters.status : undefined;
+
+  const feedback = await prisma.feedback.findMany({
+    where: {
+      ...(type ? { type } : {}),
+      ...(status ? { status } : {}),
+    },
+    include: {
+      user: {
+        select: {
+          email: true,
+          name: true,
+        },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return feedback.map((entry) => ({
+    id: entry.id,
+    userId: entry.userId,
+    userEmail: entry.user.email,
+    userName: entry.user.name,
+    type: entry.type,
+    message: entry.message,
+    page: entry.page,
+    status: entry.status,
+    createdAt: formatDateTime(entry.createdAt),
+  }));
+}
+
+export async function updateFeedbackStatus(
+  actorUserId: string,
+  feedbackId: string,
+  status: "Open" | "InProgress" | "Resolved",
+) {
+  const feedback = await prisma.feedback.update({
+    where: { id: feedbackId },
+    data: { status },
+    include: {
+      user: {
+        select: {
+          email: true,
+        },
+      },
+    },
+  });
+
+  await logAuditAction({
+    actorUserId,
+    subjectUserId: feedback.userId,
+    action: "admin.feedback_status_updated",
+    entityType: "feedback",
+    entityId: feedback.id,
+    summary: `Updated feedback from ${feedback.user.email} to ${status}.`,
+    metadata: { status },
+  });
+
+  return feedback;
+}
+
 function makeDemoId(prefix: string) {
   return `${prefix}_${randomUUID().replace(/-/g, "").slice(0, 12)}`;
 }
@@ -741,7 +807,7 @@ export async function loadDemoDataForUser(actorUserId: string, userId: string) {
           data: {
             ...hatchGroup,
             id: hatchGroupIdMap.get(hatchGroup.id)!,
-            pairingId: pairingIdMap.get(hatchGroup.pairingId)!,
+            pairingId: hatchGroup.pairingId ? pairingIdMap.get(hatchGroup.pairingId)! : null,
             userId,
             setDate: new Date(`${hatchGroup.setDate}T00:00:00`),
             lockdownDate: new Date(`${hatchGroup.lockdownDate}T00:00:00`),

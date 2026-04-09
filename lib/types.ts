@@ -12,6 +12,17 @@ export type NoteEntityType =
   | "reservation";
 export type PhotoEntityType = "bird" | "chick" | "flock" | "hatchGroup";
 export type DnaTestStatus = "Pending" | "Completed" | "Cancelled";
+export type TaskStatus = "Open" | "InProgress" | "Completed";
+export type TaskPriority = "Low" | "Medium" | "High";
+export type TaskRelatedEntityType =
+  | "Bird"
+  | "Chick"
+  | "HatchGroup"
+  | "Customer"
+  | "Order"
+  | "Reservation"
+  | "Show"
+  | "Other";
 
 export interface User {
   id: string;
@@ -88,7 +99,7 @@ export interface Pairing {
 export interface HatchGroup {
   id: string;
   name: string;
-  pairingId: string;
+  pairingId: string | null;
   breedDesignation: string;
   setDate: string;
   lockdownDate: string;
@@ -175,5 +186,39 @@ export interface Photo {
   entityId: string;
   url: string;
   caption: string;
+  createdAt: string;
+}
+
+export interface Task {
+  id: string;
+  title: string;
+  description: string;
+  status: TaskStatus;
+  priority: TaskPriority;
+  dueDate: string;
+  relatedEntityType: TaskRelatedEntityType;
+  relatedEntityId: string;
+  notes: string;
+  createdAt: string;
+}
+
+export interface Show {
+  id: string;
+  showName: string;
+  location: string;
+  date: string;
+  notes: string;
+  createdAt: string;
+}
+
+export interface ShowEntry {
+  id: string;
+  showId: string;
+  birdId: string;
+  entryClass: string;
+  result: string;
+  judgeNotes: string;
+  placement: string;
+  isWin: boolean;
   createdAt: string;
 }

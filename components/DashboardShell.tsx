@@ -4,6 +4,7 @@ import { ReactNode, useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { OnboardingWalkthrough } from "@/components/onboarding-walkthrough";
 import { PaywallScreen } from "@/components/paywall-screen";
+import { FeedbackModal } from "@/components/feedback-modal";
 import { Sidebar } from "@/components/sidebar";
 import { Topbar } from "@/components/topbar";
 
@@ -16,6 +17,7 @@ const PUBLIC_SHELLLESS_ROUTES = new Set(["/", "/login", "/signup", "/pricing"]);
 export function DashboardShell({ children }: DashboardShellProps) {
   const pathname = usePathname();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
   const [billingState, setBillingState] = useState<{
     hasAppAccess: boolean;
     isBetaUser: boolean;
@@ -78,7 +80,10 @@ export function DashboardShell({ children }: DashboardShellProps) {
       <div className="mx-auto flex min-h-screen w-full max-w-[1600px]">
         <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
         <div className="flex min-h-screen min-w-0 flex-1 flex-col">
-          <Topbar onMenuClick={() => setIsSidebarOpen(true)} />
+          <Topbar
+            onMenuClick={() => setIsSidebarOpen(true)}
+            onFeedbackClick={() => setIsFeedbackOpen(true)}
+          />
           <main className="mobile-safe-pb flex-1 px-3 pb-6 pt-3 sm:px-5 sm:pt-4 lg:px-8">
             {isBillingLoading ? (
               <section className="soft-shadow rounded-[28px] border border-[color:var(--line)] bg-white/88 p-6">
@@ -95,6 +100,11 @@ export function DashboardShell({ children }: DashboardShellProps) {
         </div>
       </div>
       <OnboardingWalkthrough pathname={pathname} isEnabled={showWalkthrough} />
+      <FeedbackModal
+        isOpen={isFeedbackOpen}
+        pathname={pathname}
+        onClose={() => setIsFeedbackOpen(false)}
+      />
     </div>
   );
 }

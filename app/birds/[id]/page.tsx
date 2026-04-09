@@ -46,7 +46,7 @@ type BirdProfileResponse = {
   relatedHatchGroups: Array<{
     id: string;
     name: string;
-    pairingId: string;
+    pairingId: string | null;
     setDate: string;
     hatchDate: string;
     eggsSet: number;
@@ -70,6 +70,29 @@ type BirdProfileResponse = {
     photoUrl: string;
     createdAt: string;
   }>;
+  showHistory: Array<{
+    id: string;
+    showId: string;
+    showName: string;
+    showDate: string;
+    location: string;
+    species: string;
+    sizeClass: string;
+    sexClass: string;
+    ageClass: string;
+    breed: string;
+    variety: string;
+    division: string;
+    entryClass: string;
+    specialEntryType: string;
+    placement: string;
+    result: string;
+    awards: string[];
+    judgeComments: string;
+    judgeName: string;
+    pointsEarned: number;
+  }>;
+  bestAwardsSummary: string[];
   performanceSnapshot: {
     relatedHatchGroupsCount: number;
     estimatedOffspringCount: number;
@@ -149,6 +172,8 @@ export default function BirdProfilePage() {
   const relatedPairings = profile?.relatedPairings ?? [];
   const relatedHatchGroups = profile?.relatedHatchGroups ?? [];
   const offspring = profile?.offspring ?? [];
+  const showHistory = profile?.showHistory ?? [];
+  const bestAwardsSummary = profile?.bestAwardsSummary ?? [];
   const performanceSnapshot = profile?.performanceSnapshot ?? {
     relatedHatchGroupsCount: 0,
     estimatedOffspringCount: 0,
@@ -338,6 +363,43 @@ export default function BirdProfilePage() {
                   <GeneticsCard label="Related Hatch Groups Count" value={String(performanceSnapshot.relatedHatchGroupsCount)} />
                   <GeneticsCard label="Estimated Offspring Count" value={String(performanceSnapshot.estimatedOffspringCount)} />
                   <GeneticsCard label="Average Hatch Rate" value={`${performanceSnapshot.averageHatchRate}%`} />
+                </div>
+              </section>
+            ) : null}
+            {showHistory.length > 0 ? (
+              <section className="rounded-[28px] border border-[color:var(--line)] bg-white p-5">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[color:var(--muted)]">Show History</p>
+                    <h2 className="mt-2 text-xl font-semibold tracking-tight">Poultry show record</h2>
+                  </div>
+                  <span className="rounded-full bg-[#edf7f8] px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--teal)]">{showHistory.length} entries</span>
+                </div>
+                {bestAwardsSummary.length > 0 ? (
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {bestAwardsSummary.slice(0, 6).map((award) => (
+                      <span key={award} className="rounded-full bg-[#f5f3fd] px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--accent)]">{award}</span>
+                    ))}
+                  </div>
+                ) : null}
+                <div className="mt-4 space-y-3">
+                  {showHistory.map((entry) => (
+                    <article key={entry.id} className="rounded-[22px] border border-[color:var(--line)] bg-[#fcfbff] p-4">
+                      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                        <div>
+                          <p className="text-base font-semibold tracking-tight">{entry.showName}</p>
+                          <p className="mt-1 text-sm text-[color:var(--muted)]">{formatDate(entry.showDate)} Â· {entry.sizeClass || "Open"} Â· {[entry.breed, entry.variety, entry.sexClass, entry.ageClass].filter(Boolean).join(" Â· ")}</p>
+                          <p className="mt-2 text-sm text-[color:var(--muted)]">{[entry.entryClass, entry.specialEntryType, entry.placement].filter(Boolean).join(" Â· ") || "Entry recorded"}</p>
+                          {entry.awards.length > 0 ? <p className="mt-2 text-sm text-[color:var(--accent)]">{entry.awards.join(", ")}</p> : null}
+                          {entry.judgeComments ? <p className="mt-2 text-sm leading-7 text-[color:var(--muted)]">{entry.judgeComments}</p> : null}
+                        </div>
+                        <div className="text-sm text-[color:var(--muted)] md:text-right">
+                          <p>{entry.judgeName || "Judge not recorded"}</p>
+                          <p className="mt-1">{entry.pointsEarned} points</p>
+                        </div>
+                      </div>
+                    </article>
+                  ))}
                 </div>
               </section>
             ) : null}

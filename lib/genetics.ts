@@ -19,7 +19,7 @@ type PairingLike = {
 
 type HatchGroupLike = {
   id: string;
-  pairingId: string;
+  pairingId: string | null;
 };
 
 type ChickLike = {
@@ -72,7 +72,7 @@ export function getBirdOffspringSummary(
 ) {
   const relatedPairingIds = relatedPairings.map((pairing) => pairing.id);
   const relatedHatchGroups = hatchGroups.filter((group) =>
-    relatedPairingIds.includes(group.pairingId),
+    group.pairingId ? relatedPairingIds.includes(group.pairingId) : false,
   );
   const relatedHatchGroupIds = relatedHatchGroups.map((group) => group.id);
   const offspring = chicks.filter(

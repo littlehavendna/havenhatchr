@@ -109,6 +109,9 @@ async function main() {
   await prisma.aiUsageLog.deleteMany();
   await prisma.usageEvent.deleteMany();
   await prisma.auditLog.deleteMany();
+  await prisma.showEntry.deleteMany();
+  await prisma.show.deleteMany();
+  await prisma.task.deleteMany();
   await prisma.systemSetting.deleteMany();
   await prisma.featureFlag.deleteMany();
   await prisma.photo.deleteMany();

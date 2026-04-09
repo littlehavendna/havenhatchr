@@ -10,6 +10,8 @@ const links = [
   { href: "/birds", label: "Birds" },
   { href: "/chicks", label: "Chicks" },
   { href: "/hatch-groups", label: "Hatch Groups" },
+  { href: "/tasks", label: "Tasks" },
+  { href: "/shows", label: "Shows" },
   { href: "/customers", label: "Customers" },
   { href: "/pairings", label: "Pairings" },
   { href: "/traits", label: "Traits" },
@@ -18,6 +20,7 @@ const links = [
   { href: "/ai", label: "AI Tools" },
   { href: "/reservations", label: "Reservations" },
   { href: "/orders", label: "Orders" },
+  { href: "/storefront", label: "Storefront" },
   { href: "/settings", label: "Settings" },
 ];
 

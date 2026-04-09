@@ -1,5 +1,10 @@
 import { deriveIncubationDates, HATCH_BREED_OPTIONS } from "@/lib/hatch-groups";
 import { prisma } from "@/lib/prisma";
+import {
+  SHOW_AWARD_TEMPLATES,
+  SHOW_STANDARDS_PROFILES,
+  SHOW_STANDARDS_SUPPORT,
+} from "@/lib/show-standards";
 
 function formatDateOnly(value: Date) {
   return value.toISOString().slice(0, 10);
@@ -7,6 +12,15 @@ function formatDateOnly(value: Date) {
 
 function formatDateTime(value: Date) {
   return value.toISOString();
+}
+
+function parseDateOnly(value: string) {
+  return new Date(`${value}T00:00:00Z`);
+}
+
+function getDayDifference(from: string, to: string) {
+  const msPerDay = 1000 * 60 * 60 * 24;
+  return Math.round((parseDateOnly(to).getTime() - parseDateOnly(from).getTime()) / msPerDay);
 }
 
 async function requireOwnedFlock(userId: string, flockId: string) {
@@ -96,6 +110,18 @@ async function requireOwnedBird(userId: string, birdId: string) {
   return bird;
 }
 
+async function requireOwnedShow(userId: string, showId: string) {
+  const show = await prisma.show.findFirst({
+    where: { id: showId, userId },
+  });
+
+  if (!show) {
+    throw new Error("Show not found.");
+  }
+
+  return show;
+}
+
 function mapTrait(trait: { id: string; name: string; category: string; description: string }) {
   return {
     id: trait.id,
@@ -103,6 +129,86 @@ function mapTrait(trait: { id: string; name: string; category: string; descripti
     category: trait.category,
     description: trait.description,
   };
+}
+
+const showAwardFieldLabels = [
+  ["bestOfBreed", "Best of Breed"],
+  ["reserveOfBreed", "Reserve of Breed"],
+  ["bestOfVariety", "Best of Variety"],
+  ["reserveOfVariety", "Reserve of Variety"],
+  ["bestAmerican", "Best American"],
+  ["bestAsiatic", "Best Asiatic"],
+  ["bestMediterranean", "Best Mediterranean"],
+  ["bestContinental", "Best Continental"],
+  ["bestEnglish", "Best English"],
+  ["bestGame", "Best Game"],
+  ["bestAllOtherStandardBreeds", "Best All Other Standard Breeds"],
+  ["bestBantam", "Best Bantam"],
+  ["bestInShow", "Best in Show"],
+  ["reserveInShow", "Reserve in Show"],
+] as const;
+
+function getShowEntryAwards(
+  entry: {
+    customAwardText: string;
+  } & Record<(typeof showAwardFieldLabels)[number][0], boolean>,
+) {
+  const awards: string[] = showAwardFieldLabels
+    .filter(([field]) => entry[field])
+    .map(([, label]) => label);
+
+  if (entry.customAwardText) {
+    awards.push(entry.customAwardText);
+  }
+
+  return awards;
+}
+
+function buildShowStringLabel(entry: {
+  showString: string;
+  sizeClass: string;
+  breed: string;
+  variety: string;
+  sexClass: string;
+  ageClass: string;
+  specialEntryType: string;
+  entryClass: string;
+}) {
+  if (entry.showString) {
+    return entry.showString;
+  }
+
+  return [
+    entry.sizeClass,
+    entry.breed,
+    entry.variety,
+    entry.sexClass,
+    entry.ageClass,
+    entry.specialEntryType,
+    entry.entryClass,
+  ]
+    .filter(Boolean)
+    .join(" / ");
+}
+
+function incrementCount(map: Map<string, number>, key: string) {
+  if (!key) {
+    return;
+  }
+
+  map.set(key, (map.get(key) ?? 0) + 1);
+}
+
+function mapCountList(map: Map<string, number>, labelKey: string) {
+  return Array.from(map.entries())
+    .map(([label, count]) => ({ [labelKey]: label, count }))
+    .sort((left, right) => {
+      if (right.count === left.count) {
+        return String(left[labelKey]).localeCompare(String(right[labelKey]));
+      }
+
+      return right.count - left.count;
+    });
 }
 
 export async function getCustomersData(userId: string) {
@@ -336,6 +442,13 @@ export async function getBirdProfileData(userId: string, birdId: string) {
         where: { userId },
         orderBy: { createdAt: "desc" },
       },
+      showEntries: {
+        where: { userId },
+        include: {
+          show: true,
+        },
+        orderBy: [{ show: { date: "desc" } }, { createdAt: "desc" }],
+      },
       sirePairings: {
         where: { userId },
         include: {
@@ -399,6 +512,35 @@ export async function getBirdProfileData(userId: string, birdId: string) {
   );
   const averageHatchRate =
     totalEggsSet > 0 ? Math.round((totalEggsHatched / totalEggsSet) * 100) : 0;
+  const showHistory = bird.showEntries.map((entry) => ({
+    id: entry.id,
+    showId: entry.showId,
+    showName: entry.show.showName,
+    showDate: formatDateOnly(entry.show.date),
+    location: entry.show.location,
+    species: entry.species,
+    sizeClass: entry.sizeClass,
+    sexClass: entry.sexClass,
+    ageClass: entry.ageClass,
+    breed: entry.breed,
+    variety: entry.variety,
+    division: entry.division,
+    entryClass: entry.entryClass,
+    specialEntryType: entry.specialEntryType,
+    placement: entry.placement,
+    result: entry.result,
+    awards: getShowEntryAwards(entry),
+    judgeComments: entry.judgeComments,
+    judgeName: entry.judgeName,
+    pointsEarned: entry.pointsEarned,
+  }));
+  const bestAwardsSummary = Array.from(
+    new Map(
+      showHistory
+        .flatMap((entry) => entry.awards)
+        .map((award) => [award, award]),
+    ).values(),
+  );
 
   return {
     bird: {
@@ -486,6 +628,8 @@ export async function getBirdProfileData(userId: string, birdId: string) {
       photoUrl: chick.photoUrl,
       createdAt: formatDateTime(chick.createdAt),
     })),
+    showHistory,
+    bestAwardsSummary,
     performanceSnapshot: {
       relatedHatchGroupsCount: relatedHatchGroups.length,
       estimatedOffspringCount: offspring.length,
@@ -587,11 +731,11 @@ export async function getHatchGroupsData(userId: string) {
   ]);
 
   return {
-    hatchGroups: groups.map((group) => ({
-      id: group.id,
-      name: group.name,
-      pairingId: group.pairingId,
-      breedDesignation: group.breedDesignation,
+      hatchGroups: groups.map((group) => ({
+        id: group.id,
+        name: group.name,
+        pairingId: group.pairingId,
+        breedDesignation: group.breedDesignation,
       setDate: formatDateOnly(group.setDate),
       lockdownDate: formatDateOnly(group.lockdownDate),
       hatchDate: formatDateOnly(group.hatchDate),
@@ -600,8 +744,8 @@ export async function getHatchGroupsData(userId: string) {
       producedTraitsSummary: group.producedTraitsSummary,
       notes: group.notes,
       createdAt: formatDateTime(group.createdAt),
-      pairingName: group.pairing.name,
-    })),
+        pairingName: group.pairing?.name ?? "Mixed flock / not set",
+      })),
     pairings: pairings.map((pairing) => ({
       id: pairing.id,
       name: pairing.name,
@@ -615,7 +759,7 @@ export async function createHatchGroup(
   userId: string,
   data: {
     name: string;
-    pairingId: string;
+    pairingId?: string;
     breedDesignation: string;
     setDate: string;
     lockdownDate?: string;
@@ -626,13 +770,16 @@ export async function createHatchGroup(
     notes: string;
   },
 ) {
-  await requireOwnedPairing(userId, data.pairingId);
+  if (data.pairingId) {
+    await requireOwnedPairing(userId, data.pairingId);
+  }
   const derivedDates = deriveIncubationDates(data.setDate, data.breedDesignation);
 
   return prisma.hatchGroup.create({
     data: {
       userId,
       ...data,
+      pairingId: data.pairingId || null,
       setDate: new Date(`${data.setDate}T00:00:00`),
       lockdownDate: new Date(`${(data.lockdownDate || derivedDates.lockdownDate)}T00:00:00`),
       hatchDate: new Date(`${data.hatchDate}T00:00:00`),
@@ -645,7 +792,7 @@ export async function updateHatchGroup(
   hatchGroupId: string,
   data: {
     name: string;
-    pairingId: string;
+    pairingId?: string;
     breedDesignation: string;
     setDate: string;
     lockdownDate?: string;
@@ -657,13 +804,16 @@ export async function updateHatchGroup(
   },
 ) {
   await requireOwnedHatchGroup(userId, hatchGroupId);
-  await requireOwnedPairing(userId, data.pairingId);
+  if (data.pairingId) {
+    await requireOwnedPairing(userId, data.pairingId);
+  }
   const derivedDates = deriveIncubationDates(data.setDate, data.breedDesignation);
 
   return prisma.hatchGroup.update({
     where: { id: hatchGroupId },
     data: {
       ...data,
+      pairingId: data.pairingId || null,
       setDate: new Date(`${data.setDate}T00:00:00`),
       lockdownDate: new Date(`${(data.lockdownDate || derivedDates.lockdownDate)}T00:00:00`),
       hatchDate: new Date(`${data.hatchDate}T00:00:00`),
@@ -769,9 +919,9 @@ export async function getChickProfileData(userId: string, chickId: string) {
       photoUrl: chick.photoUrl,
       dnaStatus: chick.dnaTestRequests[0]?.status ?? "None",
       createdAt: formatDateTime(chick.createdAt),
-      pairingName: chick.hatchGroup?.pairing.name ?? "",
-      sireName: chick.hatchGroup?.pairing.sire.name ?? "",
-      damName: chick.hatchGroup?.pairing.dam.name ?? "",
+      pairingName: chick.hatchGroup?.pairing?.name ?? "",
+      sireName: chick.hatchGroup?.pairing?.sire.name ?? "",
+      damName: chick.hatchGroup?.pairing?.dam.name ?? "",
       producedTraitsSummary: chick.hatchGroup?.producedTraitsSummary ?? "",
     },
     notes: chick.noteEntries.map((note) => ({
@@ -905,9 +1055,9 @@ export async function getReservationsData(userId: string) {
     hatchGroups: hatchGroups.map((group) => ({
       id: group.id,
       name: group.name,
-      pairingName: group.pairing.name,
-      breed: group.pairing.sire.breed || group.pairing.dam.breed || "",
-      variety: group.pairing.sire.variety || group.pairing.dam.variety || "",
+      pairingName: group.pairing?.name ?? "Mixed flock / not set",
+      breed: group.pairing?.sire.breed || group.pairing?.dam.breed || "",
+      variety: group.pairing?.sire.variety || group.pairing?.dam.variety || "",
       producedTraitsSummary: group.producedTraitsSummary || "",
       availableChickCount: group.chicks.length,
     })),
@@ -1068,6 +1218,626 @@ export async function createOrder(
   });
 }
 
+export async function createFeedback(
+  userId: string,
+  data: {
+    type: "Bug" | "FeatureRequest" | "GeneralFeedback";
+    message: string;
+    page: string;
+  },
+) {
+  return prisma.feedback.create({
+    data: {
+      userId,
+      type: data.type,
+      message: data.message,
+      page: data.page,
+      status: "Open",
+    },
+  });
+}
+
+export async function getTasksData(userId: string) {
+  const [hatchGroups, orders, reservations, tasks] = await Promise.all([
+    prisma.hatchGroup.findMany({
+      where: { userId },
+      include: { pairing: true },
+      orderBy: { lockdownDate: "asc" },
+    }),
+    prisma.order.findMany({
+      where: { userId },
+      include: { customer: true, orderChicks: true },
+      orderBy: { pickupDate: "asc" },
+    }),
+    prisma.reservation.findMany({
+      where: {
+        userId,
+        status: {
+          in: ["Waiting", "Matched"],
+        },
+      },
+      include: { customer: true },
+      orderBy: { createdAt: "asc" },
+    }),
+    prisma.task.findMany({
+      where: { userId },
+      orderBy: [{ status: "asc" }, { dueDate: "asc" }, { createdAt: "desc" }],
+    }),
+  ]);
+
+  const today = formatDateOnly(new Date());
+
+  const alerts = [
+    ...hatchGroups.flatMap((group) => {
+      const lockdownDate = formatDateOnly(group.lockdownDate);
+      const hatchDate = formatDateOnly(group.hatchDate);
+      const daysUntilLockdown = getDayDifference(today, lockdownDate);
+      const daysUntilHatch = getDayDifference(today, hatchDate);
+      const items: Array<{
+        id: string;
+        title: string;
+        detail: string;
+        category: string;
+        dueDate: string;
+        priority: "Today" | "Upcoming" | "Watch";
+        href: string;
+      }> = [];
+
+      if (daysUntilLockdown <= 3) {
+        items.push({
+          id: `lockdown-${group.id}`,
+          title: `Move ${group.name} to lockdown`,
+          detail:
+            group.pairing?.name
+              ? `${group.pairing.name} hatch group reaches lockdown soon.`
+              : "Mixed-flock hatch group reaches lockdown soon.",
+          category: "Hatch Workflow",
+          dueDate: lockdownDate,
+          priority: daysUntilLockdown <= 0 ? "Today" : "Upcoming",
+          href: "/hatch-groups",
+        });
+      }
+
+      if (daysUntilHatch <= 2) {
+        items.push({
+          id: `hatch-${group.id}`,
+          title: `Prepare for ${group.name} hatch`,
+          detail: "Brooder space, notes, and chick intake should be ready before hatch day.",
+          category: "Hatch Workflow",
+          dueDate: hatchDate,
+          priority: daysUntilHatch <= 0 ? "Today" : "Upcoming",
+          href: "/hatch-groups",
+        });
+      }
+
+      return items;
+    }),
+    ...orders.flatMap((order) => {
+      const pickupDate = formatDateOnly(order.pickupDate);
+      const daysUntilPickup = getDayDifference(today, pickupDate);
+
+      if (daysUntilPickup > 3) {
+        return [];
+      }
+
+      return [
+        {
+          id: `pickup-${order.id}`,
+          title: `Prepare pickup for ${order.customer.name}`,
+          detail: `${order.orderChicks.length} chicks assigned to this order.`,
+          category: "Order Follow-Up",
+          dueDate: pickupDate,
+          priority: daysUntilPickup <= 0 ? "Today" : "Upcoming",
+          href: "/orders",
+        },
+      ];
+    }),
+    ...reservations.flatMap((reservation) => {
+      const createdDate = formatDateOnly(reservation.createdAt);
+      const ageInDays = getDayDifference(createdDate, today);
+
+      if (ageInDays < 7) {
+        return [];
+      }
+
+      return [
+        {
+          id: `reservation-${reservation.id}`,
+          title: `Review reservation for ${reservation.customer.name}`,
+          detail: `Open ${reservation.status.toLowerCase()} reservation waiting ${ageInDays} days.`,
+          category: "Customer Follow-Up",
+          dueDate: createdDate,
+          priority: ageInDays >= 14 ? "Today" : "Watch",
+          href: "/reservations",
+        },
+      ];
+    }),
+  ].sort((left, right) => left.dueDate.localeCompare(right.dueDate));
+
+  const dueToday = alerts.filter((task) => task.priority === "Today").length;
+  const upcoming = alerts.filter((task) => task.priority === "Upcoming").length;
+  const watchList = alerts.filter((task) => task.priority === "Watch").length;
+
+  return {
+    stats: {
+      dueToday,
+      upcoming,
+      watchList,
+      openTasks: tasks.filter((task) => task.status !== "Completed").length,
+      completedTasks: tasks.filter((task) => task.status === "Completed").length,
+    },
+    alerts,
+    tasks: tasks.map((task) => ({
+      id: task.id,
+      title: task.title,
+      description: task.description,
+      status: task.status,
+      priority: task.priority,
+      dueDate: formatDateOnly(task.dueDate),
+      relatedEntityType: task.relatedEntityType,
+      relatedEntityId: task.relatedEntityId,
+      notes: task.notes,
+      createdAt: formatDateTime(task.createdAt),
+    })),
+  };
+}
+
+export async function createTask(
+  userId: string,
+  data: {
+    title: string;
+    description: string;
+    status: "Open" | "InProgress" | "Completed";
+    priority: "Low" | "Medium" | "High";
+    dueDate: string;
+    relatedEntityType:
+      | "Bird"
+      | "Chick"
+      | "HatchGroup"
+      | "Customer"
+      | "Order"
+      | "Reservation"
+      | "Show"
+      | "Other";
+    relatedEntityId: string;
+    notes: string;
+  },
+) {
+  return prisma.task.create({
+    data: {
+      userId,
+      ...data,
+      dueDate: new Date(`${data.dueDate}T00:00:00`),
+    },
+  });
+}
+
+export async function updateTaskStatus(
+  userId: string,
+  taskId: string,
+  status: "Open" | "InProgress" | "Completed",
+) {
+  const task = await prisma.task.findFirst({
+    where: { id: taskId, userId },
+  });
+
+  if (!task) {
+    throw new Error("Task not found.");
+  }
+
+  return prisma.task.update({
+    where: { id: taskId },
+    data: { status },
+  });
+}
+
+export async function getShowsData(userId: string) {
+  const [shows, birds, entries] = await Promise.all([
+    prisma.show.findMany({
+      where: { userId },
+      include: {
+        entries: {
+          include: {
+            bird: true,
+          },
+          orderBy: { createdAt: "desc" },
+        },
+      },
+      orderBy: { date: "asc" },
+    }),
+    prisma.bird.findMany({
+      where: { userId },
+      orderBy: { name: "asc" },
+    }),
+    prisma.showEntry.findMany({
+      where: { userId },
+      include: {
+        show: true,
+        bird: true,
+      },
+      orderBy: { createdAt: "desc" },
+    }),
+  ]);
+
+  const today = formatDateOnly(new Date());
+  const mappedEntries = entries.map((entry) => {
+    const awards = getShowEntryAwards(entry);
+    const showString = buildShowStringLabel(entry);
+
+    return {
+      id: entry.id,
+      showId: entry.showId,
+      showName: entry.show.showName,
+      showDate: formatDateOnly(entry.show.date),
+      location: entry.show.location,
+      standardsProfile: entry.show.standardsProfile,
+      awardTemplateName: entry.show.awardTemplateName,
+      birdId: entry.birdId,
+      birdName: entry.bird.name,
+      bandNumber: entry.bird.bandNumber,
+      entryType: entry.entryType,
+      species: entry.species,
+      sizeClass: entry.sizeClass,
+      sexClass: entry.sexClass,
+      ageClass: entry.ageClass,
+      breed: entry.breed,
+      variety: entry.variety,
+      apaClass: entry.apaClass,
+      varietyClassification: entry.varietyClassification,
+      division: entry.division,
+      specialShowDivision: entry.specialShowDivision || entry.show.specialShowDivision,
+      entryClass: entry.entryClass,
+      specialEntryType: entry.specialEntryType,
+      awardTemplateKey: entry.awardTemplateKey || entry.show.awardTemplateName,
+      breedClubAward: entry.breedClubAward,
+      showString,
+      result: entry.result,
+      placement: entry.placement,
+      awards,
+      customAwardText: entry.customAwardText,
+      pointsEarned: entry.pointsEarned,
+      judgeName: entry.judgeName,
+      judgeNumber: entry.judgeNumber,
+      judgeComments: entry.judgeComments,
+      numberInClass: entry.numberInClass,
+      numberOfExhibitors: entry.numberOfExhibitors,
+      isWin: entry.isWin,
+      createdAt: formatDateTime(entry.createdAt),
+    };
+  });
+  const showStringGroups = Array.from(
+    mappedEntries.reduce((groups, entry) => {
+      const key = [
+        entry.sizeClass || "Open",
+        entry.breed || "Breed not set",
+        entry.variety || "Variety not set",
+        entry.sexClass || "Sex class not set",
+        entry.ageClass || "Age class not set",
+      ].join(" | ");
+
+      const current = groups.get(key) ?? {
+        id: key,
+        sizeClass: entry.sizeClass || "Open",
+        breed: entry.breed || "Breed not set",
+        variety: entry.variety || "Variety not set",
+        sexClass: entry.sexClass || "Sex class not set",
+        ageClass: entry.ageClass || "Age class not set",
+        entries: [] as typeof mappedEntries,
+      };
+
+      current.entries.push(entry);
+      groups.set(key, current);
+      return groups;
+    }, new Map<string, {
+      id: string;
+      sizeClass: string;
+      breed: string;
+      variety: string;
+      sexClass: string;
+      ageClass: string;
+      entries: typeof mappedEntries;
+    }>()),
+  )
+    .map(([, group]) => ({
+      ...group,
+      entries: [...group.entries].sort((left, right) => {
+        if (left.showDate === right.showDate) {
+          return left.birdName.localeCompare(right.birdName);
+        }
+
+        return right.showDate.localeCompare(left.showDate);
+      }),
+    }))
+    .sort((left, right) => {
+      const sizeCompare = left.sizeClass.localeCompare(right.sizeClass);
+      if (sizeCompare !== 0) return sizeCompare;
+      const breedCompare = left.breed.localeCompare(right.breed);
+      if (breedCompare !== 0) return breedCompare;
+      const varietyCompare = left.variety.localeCompare(right.variety);
+      if (varietyCompare !== 0) return varietyCompare;
+      const sexCompare = left.sexClass.localeCompare(right.sexClass);
+      if (sexCompare !== 0) return sexCompare;
+      return left.ageClass.localeCompare(right.ageClass);
+    });
+
+  const entriesByBreed = new Map<string, number>();
+  const entriesByVariety = new Map<string, number>();
+  const entriesByClass = new Map<string, number>();
+  const winsByBird = new Map<string, number>();
+  const winsByBreed = new Map<string, number>();
+  const varietyPerformance = new Map<string, { wins: number; points: number }>();
+
+  for (const entry of mappedEntries) {
+    incrementCount(entriesByBreed, entry.breed || "Breed not set");
+    incrementCount(entriesByVariety, entry.variety || "Variety not set");
+    incrementCount(entriesByClass, entry.showString || entry.entryClass || "Class not set");
+
+    if (entry.isWin || entry.awards.length > 0 || Boolean(entry.placement)) {
+      incrementCount(winsByBird, entry.birdName);
+      incrementCount(winsByBreed, entry.breed || "Breed not set");
+      const varietyKey = entry.variety || "Variety not set";
+      const current = varietyPerformance.get(varietyKey) ?? { wins: 0, points: 0 };
+      current.wins += 1;
+      current.points += entry.pointsEarned;
+      varietyPerformance.set(varietyKey, current);
+    }
+  }
+
+  return {
+    upcomingShows: shows
+      .filter((show) => formatDateOnly(show.date) >= today)
+      .map((show) => ({
+        id: show.id,
+        showName: show.showName,
+        location: show.location,
+        date: formatDateOnly(show.date),
+        standardsProfile: show.standardsProfile,
+        awardTemplateName: show.awardTemplateName,
+        specialShowDivision: show.specialShowDivision,
+        notes: show.notes,
+        entryCount: show.entries.length,
+      })),
+    pastShows: shows
+      .filter((show) => formatDateOnly(show.date) < today)
+      .map((show) => ({
+        id: show.id,
+        showName: show.showName,
+        location: show.location,
+        date: formatDateOnly(show.date),
+        standardsProfile: show.standardsProfile,
+        awardTemplateName: show.awardTemplateName,
+        specialShowDivision: show.specialShowDivision,
+        notes: show.notes,
+        entryCount: show.entries.length,
+      })),
+    entries: mappedEntries,
+    showStringGroups,
+    report: {
+      entriesByBreed: mapCountList(entriesByBreed, "breed"),
+      entriesByVariety: mapCountList(entriesByVariety, "variety"),
+      entriesByClass: mapCountList(entriesByClass, "entryClass"),
+      winsByBird: mapCountList(winsByBird, "birdName"),
+      winsByBreed: mapCountList(winsByBreed, "breed"),
+      topPerformingVarieties: Array.from(varietyPerformance.entries())
+        .map(([variety, stats]) => ({
+          variety,
+          wins: stats.wins,
+          points: stats.points,
+        }))
+        .sort((left, right) => {
+          if (right.wins === left.wins) {
+            if (right.points === left.points) {
+              return left.variety.localeCompare(right.variety);
+            }
+
+            return right.points - left.points;
+          }
+
+          return right.wins - left.wins;
+        }),
+      bestBirdsOverTime: mappedEntries
+        .filter((entry) => entry.isWin || entry.awards.length > 0 || entry.pointsEarned > 0)
+        .sort((left, right) => right.showDate.localeCompare(left.showDate))
+        .slice(0, 8)
+        .map((entry) => ({
+          birdName: entry.birdName,
+          bandNumber: entry.bandNumber,
+          showName: entry.showName,
+          showDate: entry.showDate,
+          placement: entry.placement,
+          awards: entry.awards,
+          pointsEarned: entry.pointsEarned,
+        })),
+      recentJudgeComments: mappedEntries
+        .filter((entry) => entry.judgeComments)
+        .sort((left, right) => right.showDate.localeCompare(left.showDate))
+        .slice(0, 8)
+        .map((entry) => ({
+          id: entry.id,
+          birdName: entry.birdName,
+          showName: entry.showName,
+          showDate: entry.showDate,
+          judgeName: entry.judgeName,
+          judgeComments: entry.judgeComments,
+        })),
+    },
+    birds: birds.map((bird) => ({
+      id: bird.id,
+      name: bird.name,
+      bandNumber: bird.bandNumber,
+      breed: bird.breed,
+      variety: bird.variety,
+      sex: bird.sex,
+    })),
+    shows: shows.map((show) => ({
+      id: show.id,
+      showName: show.showName,
+      date: formatDateOnly(show.date),
+      standardsProfile: show.standardsProfile,
+      awardTemplateName: show.awardTemplateName,
+      specialShowDivision: show.specialShowDivision,
+    })),
+    standardsSupport: {
+      profiles: [...SHOW_STANDARDS_PROFILES],
+      awardTemplates: [...SHOW_AWARD_TEMPLATES],
+      species: SHOW_STANDARDS_SUPPORT.map((profile) => ({
+        species: profile.species,
+        sizeClasses: [...profile.sizeClasses],
+        sexClasses: [...profile.sexClasses],
+        ageClasses: [...profile.ageClasses],
+        apaClasses: [...profile.apaClasses],
+        specialShowDivisions: [...profile.specialShowDivisions],
+        awardTemplates: [...profile.awardTemplates],
+      })),
+    },
+  };
+}
+
+export async function createShow(
+  userId: string,
+  data: {
+    showName: string;
+    location: string;
+    date: string;
+    standardsProfile: string;
+    awardTemplateName: string;
+    specialShowDivision: string;
+    notes: string;
+  },
+) {
+  return prisma.show.create({
+    data: {
+      userId,
+      showName: data.showName,
+      location: data.location,
+      date: new Date(`${data.date}T00:00:00`),
+      standardsProfile: data.standardsProfile,
+      awardTemplateName: data.awardTemplateName,
+      specialShowDivision: data.specialShowDivision,
+      notes: data.notes,
+    },
+  });
+}
+
+export async function createShowEntry(
+  userId: string,
+  data: {
+    showId: string;
+    birdId: string;
+    entryType: string;
+    species: string;
+    sizeClass: string;
+    sexClass: string;
+    ageClass: string;
+    breed: string;
+    variety: string;
+    apaClass: string;
+    varietyClassification: string;
+    division: string;
+    specialShowDivision: string;
+    entryClass: string;
+    specialEntryType: string;
+    awardTemplateKey: string;
+    breedClubAward: string;
+    showString: string;
+    result: string;
+    placement: string;
+    pointsEarned: number;
+    judgeName: string;
+    judgeNumber: string;
+    judgeComments: string;
+    customAwardText: string;
+    numberInClass: number;
+    numberOfExhibitors: number;
+    bestOfBreed: boolean;
+    reserveOfBreed: boolean;
+    bestOfVariety: boolean;
+    reserveOfVariety: boolean;
+    bestAmerican: boolean;
+    bestAsiatic: boolean;
+    bestMediterranean: boolean;
+    bestContinental: boolean;
+    bestEnglish: boolean;
+    bestGame: boolean;
+    bestAllOtherStandardBreeds: boolean;
+    bestBantam: boolean;
+    bestInShow: boolean;
+    reserveInShow: boolean;
+    isWin: boolean;
+  },
+) {
+  const show = await requireOwnedShow(userId, data.showId);
+  const bird = await requireOwnedBird(userId, data.birdId);
+
+  const breed = data.breed || bird.breed;
+  const variety = data.variety || bird.variety;
+  const sizeClass = data.sizeClass;
+  const showString =
+    data.showString ||
+    buildShowStringLabel({
+      showString: "",
+      sizeClass,
+      breed,
+      variety,
+      sexClass: data.sexClass,
+      ageClass: data.ageClass,
+      specialEntryType: data.specialEntryType,
+      entryClass: data.entryClass,
+    });
+
+  return prisma.showEntry.create({
+    data: {
+      userId,
+      ...data,
+      breed,
+      variety,
+      awardTemplateKey: data.awardTemplateKey || show.awardTemplateName,
+      specialShowDivision: data.specialShowDivision || show.specialShowDivision,
+      showString,
+    },
+  });
+}
+
+export async function getStorefrontData(userId: string) {
+  const [chicks, birds] = await Promise.all([
+    prisma.chick.findMany({
+      where: { userId, status: "Available" },
+      include: { flock: true, hatchGroup: true },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.bird.findMany({
+      where: { userId, status: "Active" },
+      include: { flock: true },
+      orderBy: { createdAt: "desc" },
+      take: 12,
+    }),
+  ]);
+
+  return {
+    chicks: chicks.map((chick) => ({
+      id: chick.id,
+      type: "Chick",
+      title: chick.bandNumber,
+      subtitle: chick.flock.name,
+      price: "Set later",
+      shortDescription: [chick.flock.breed, chick.flock.variety, chick.color].filter(Boolean).join(" · ") || "Available chick",
+      status: chick.status,
+      hatchDate: formatDateOnly(chick.hatchDate),
+      hatchGroupName: chick.hatchGroup?.name ?? "",
+    })),
+    birds: birds.map((bird) => ({
+      id: bird.id,
+      type: "Bird",
+      title: bird.name,
+      subtitle: bird.bandNumber,
+      price: "Set later",
+      shortDescription: [bird.breed, bird.variety, bird.color].filter(Boolean).join(" · ") || "Active breeder listing foundation",
+      status: bird.status,
+      flockName: bird.flock.name,
+    })),
+  };
+}
+
 export async function getDashboardData(userId: string) {
   const [customers, flocks, chicks, reservations, orders, hatchGroups, birds, pairings] =
     await Promise.all([
@@ -1204,7 +1974,7 @@ export async function getDashboardData(userId: string) {
     })),
     recentHatchGroups: hatchGroups.slice(0, 3).map((group) => ({
       name: group.name,
-      pairing: group.pairing.name,
+      pairing: group.pairing?.name ?? "Mixed flock / not set",
       breedDesignation: group.breedDesignation,
       setDate: formatDateOnly(group.setDate),
       lockdownDate: formatDateOnly(group.lockdownDate),

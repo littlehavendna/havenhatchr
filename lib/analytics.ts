@@ -22,7 +22,7 @@ export type AnalyticsChick = {
 export type AnalyticsHatchGroup = {
   id: string;
   name: string;
-  pairingId: string;
+  pairingId: string | null;
   eggsSet: number;
   eggsHatched: number;
   notes: string;
@@ -43,7 +43,7 @@ export type AnalyticsHatchGroup = {
       variety: string;
       name: string;
     };
-  };
+  } | null;
 };
 
 export type AnalyticsPairing = {
@@ -153,7 +153,7 @@ export function getHatchPerformanceRows(data: AnalyticsBaseData) {
   return data.hatchGroups.map((group) => ({
     id: group.id,
     name: group.name,
-    pairing: group.pairing.name,
+    pairing: group.pairing?.name ?? "Mixed flock / not set",
     eggsSet: group.eggsSet,
     eggsHatched: group.eggsHatched,
     hatchRate: calculateHatchRate(group.eggsSet, group.eggsHatched),
@@ -369,7 +369,9 @@ export function getBirdPerformanceSnapshot(
     (pairing) => pairing.sire.id === birdId || pairing.dam.id === birdId,
   );
   const relatedPairingIds = relatedPairings.map((pairing) => pairing.id);
-  const relatedGroups = data.hatchGroups.filter((group) => relatedPairingIds.includes(group.pairingId));
+  const relatedGroups = data.hatchGroups.filter(
+    (group) => group.pairingId && relatedPairingIds.includes(group.pairingId),
+  );
   const relatedGroupIds = relatedGroups.map((group) => group.id);
   const relatedOffspring = data.chicks.filter((chick) => relatedGroupIds.includes(chick.hatchGroupId ?? ""));
   const totalEggsSet = relatedGroups.reduce((sum, group) => sum + group.eggsSet, 0);

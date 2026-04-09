@@ -35,7 +35,7 @@ export async function POST(request: Request) {
 
     const hatchGroup = await createHatchGroup(userId, {
       name: readString(body, "name", { required: true, maxLength: 120 }),
-      pairingId: readString(body, "pairingId", { required: true, maxLength: 40 }),
+      pairingId: readString(body, "pairingId", { maxLength: 40 }) || undefined,
       breedDesignation: readString(body, "breedDesignation", { required: true, maxLength: 40 }),
       setDate: readIsoDateString(body, "setDate", { required: true }),
       lockdownDate: readIsoDateString(body, "lockdownDate", { required: true }),
@@ -78,7 +78,7 @@ export async function PUT(request: Request) {
       readString(body, "id", { required: true, maxLength: 40 }),
       {
         name: readString(body, "name", { required: true, maxLength: 120 }),
-        pairingId: readString(body, "pairingId", { required: true, maxLength: 40 }),
+        pairingId: readString(body, "pairingId", { maxLength: 40 }) || undefined,
         breedDesignation: readString(body, "breedDesignation", { required: true, maxLength: 40 }),
         setDate: readIsoDateString(body, "setDate", { required: true }),
         lockdownDate: readIsoDateString(body, "lockdownDate", { required: true }),
