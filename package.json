@@ -11,8 +11,8 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:seed": "tsx prisma/seed.ts",
-    "railway:build": "prisma generate && next build",
-    "railway:start": "prisma migrate deploy && next start"
+    "railway:build": "prisma generate && prisma migrate deploy && next build",
+    "railway:start": "next start -H 0.0.0.0 -p ${PORT:-3000}"
   },
   "dependencies": {
     "@prisma/client": "^6.16.3",
