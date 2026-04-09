@@ -34,6 +34,12 @@ enum ReservationStatus {
   Cancelled
 }
 
+enum DnaTestStatus {
+  Pending
+  Completed
+  Cancelled
+}
+
 enum NoteEntityType {
   bird
   flock
@@ -93,6 +99,8 @@ model User {
   updatedSystemSettings SystemSetting[]
   usageEvents           UsageEvent[]
   aiUsageLogs           AiUsageLog[]
+  dnaTestRequests       DnaTestRequest[]
+  operationalEvents     OperationalEvent[]
 }
 
 model Session {
@@ -245,9 +253,30 @@ model Chick {
   noteEntries    Note[]      @relation("ChickNotes")
   photoEntries   Photo[]     @relation("ChickPhotos")
   orderItems     OrderChick[]
+  dnaTestRequests DnaTestRequest[]
 
   @@index([userId])
   @@unique([userId, bandNumber])
+}
+
+model DnaTestRequest {
+  id                String        @id @default(cuid())
+  userId            String
+  chickId           String
+  bandNumber        String
+  testType          String
+  status            DnaTestStatus @default(Pending)
+  externalOrderId   String?       @default("")
+  resultSummary     String?       @default("")
+  completedAt       DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chick             Chick         @relation(fields: [chickId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([chickId])
+  @@index([status])
 }
 
 model Reservation {
@@ -454,5 +483,26 @@ model AiUsageLog {
 
   @@index([userId])
   @@index([tool])
+  @@index([createdAt])
+}
+
+model OperationalEvent {
+  id        String   @id @default(cuid())
+  userId    String?
+  level     String
+  source    String
+  eventType String
+  message   String
+  route     String   @default("")
+  requestId String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([level])
+  @@index([source])
+  @@index([eventType])
+  @@index([requestId])
   @@index([createdAt])
 }

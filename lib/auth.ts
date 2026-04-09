@@ -50,6 +50,8 @@ export async function createSession(userId: string) {
     secure: process.env.NODE_ENV === "production",
     path: "/",
     expires: expiresAt,
+    maxAge: SESSION_TTL_MS / 1000,
+    priority: "high",
   });
 
   return token;
@@ -71,6 +73,8 @@ export async function destroySession() {
     secure: process.env.NODE_ENV === "production",
     path: "/",
     expires: new Date(0),
+    maxAge: 0,
+    priority: "high",
   });
 }
 
@@ -100,6 +104,8 @@ export async function getCurrentSession() {
       secure: process.env.NODE_ENV === "production",
       path: "/",
       expires: new Date(0),
+      maxAge: 0,
+      priority: "high",
     });
 
     return null;

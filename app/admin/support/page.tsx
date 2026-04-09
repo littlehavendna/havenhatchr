@@ -18,6 +18,16 @@ type SupportData = {
     createdAt: string | null;
   }>;
   recentUsage: Array<{ id: string; eventType: string; route: string; createdAt: string | null }>;
+  recentOperationalEvents: Array<{
+    id: string;
+    level: string;
+    source: string;
+    eventType: string;
+    message: string;
+    route: string;
+    requestId: string | null;
+    createdAt: string | null;
+  }>;
   placeholderImpersonation: string;
 };
 
@@ -138,6 +148,34 @@ export default function AdminSupportPage() {
           </div>
         </Section>
       </div>
+
+      <Section title="Recent Operational Events">
+        <div className="space-y-3">
+          {(data?.recentOperationalEvents ?? []).map((entry) => (
+            <div
+              key={entry.id}
+              className="rounded-[20px] border border-[color:var(--line)] bg-[#f7f5ff] p-4"
+            >
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-sm font-semibold">{entry.eventType}</span>
+                <span className="rounded-full bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[color:var(--accent)]">
+                  {entry.level}
+                </span>
+                <span className="rounded-full bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[color:var(--muted)]">
+                  {entry.source}
+                </span>
+              </div>
+              <p className="mt-2 text-sm leading-7 text-[color:var(--muted)]">{entry.message}</p>
+              <p className="mt-2 text-xs uppercase tracking-[0.16em] text-[color:var(--muted)]">
+                {entry.route || "No route"} {entry.requestId ? `· ${entry.requestId}` : ""}
+              </p>
+              <p className="mt-2 text-xs uppercase tracking-[0.16em] text-[color:var(--muted)]">
+                {entry.createdAt ? formatDate(entry.createdAt) : "-"}
+              </p>
+            </div>
+          ))}
+        </div>
+      </Section>
 
       <Section title="Support Notes">
         <div className="rounded-[20px] border border-[color:var(--line)] bg-[#edf7f8] p-4 text-sm text-[color:var(--muted)]">

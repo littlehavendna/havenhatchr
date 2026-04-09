@@ -15,6 +15,7 @@ import {
   reservations as demoReservations,
   traits as demoTraits,
 } from "@/lib/mock-data";
+import { reportOperationalEvent } from "@/lib/monitoring";
 import { prisma } from "@/lib/prisma";
 
 function formatDateTime(value: Date | null) {
@@ -34,6 +35,19 @@ export async function logAuditAction(input: {
   summary: string;
   metadata?: Prisma.InputJsonValue;
 }) {
+  await reportOperationalEvent({
+    level: "info",
+    source: "audit",
+    eventType: input.action,
+    message: input.summary,
+    userId: input.actorUserId ?? input.subjectUserId ?? null,
+    metadata: {
+      entityType: input.entityType,
+      entityId: input.entityId ?? null,
+    },
+    persist: false,
+  });
+
   await prisma.auditLog.create({
     data: {
       actorUserId: input.actorUserId ?? null,
@@ -53,6 +67,17 @@ export async function logUsageEvent(input: {
   route?: string;
   metadata?: Prisma.InputJsonValue;
 }) {
+  await reportOperationalEvent({
+    level: "info",
+    source: "usage",
+    eventType: input.eventType,
+    message: input.eventType,
+    route: input.route ?? "",
+    userId: input.userId ?? null,
+    metadata: input.metadata,
+    persist: false,
+  });
+
   await prisma.usageEvent.create({
     data: {
       userId: input.userId ?? null,
@@ -70,6 +95,20 @@ export async function logAiUsage(input: {
   inputSummary?: string;
   outputSummary?: string;
 }) {
+  await reportOperationalEvent({
+    level: "info",
+    source: "ai",
+    eventType: input.tool,
+    message: `${input.tool}:${input.action}`,
+    userId: input.userId ?? null,
+    metadata: {
+      action: input.action,
+      inputSummary: input.inputSummary ?? "",
+      outputSummary: input.outputSummary ?? "",
+    },
+    persist: false,
+  });
+
   await prisma.aiUsageLog.create({
     data: {
       userId: input.userId ?? null,
@@ -79,6 +118,34 @@ export async function logAiUsage(input: {
       outputSummary: input.outputSummary ?? "",
     },
   });
+}
+
+export async function trackFirstRunMilestone(
+  userId: string,
+  milestone:
+    | "first_flock_created"
+    | "first_bird_created"
+    | "first_chick_created"
+    | "first_pairing_created"
+    | "first_reservation_created",
+) {
+  const counts = {
+    first_flock_created: () => prisma.flock.count({ where: { userId } }),
+    first_bird_created: () => prisma.bird.count({ where: { userId } }),
+    first_chick_created: () => prisma.chick.count({ where: { userId } }),
+    first_pairing_created: () => prisma.pairing.count({ where: { userId } }),
+    first_reservation_created: () => prisma.reservation.count({ where: { userId } }),
+  };
+
+  const count = await counts[milestone]();
+
+  if (count === 1) {
+    await logUsageEvent({
+      userId,
+      eventType: `beta.${milestone}`,
+      metadata: { milestone },
+    });
+  }
 }
 
 function serializeUser(
@@ -222,6 +289,10 @@ export async function updateAdminUserAccess(
 
   if (!existingUser) {
     throw new Error("User not found.");
+  }
+
+  if (actorUserId === userId && (data.isAdmin === false || data.disableAccount === true)) {
+    throw new Error("You cannot remove your own admin access or disable your own account.");
   }
 
   const updatedUser = await prisma.user.update({
@@ -507,7 +578,7 @@ export async function updateFeatureFlag(
 
 export async function getSupportData(search = "") {
   const query = search.trim();
-  const [users, auditLogs, usageEvents] = await Promise.all([
+  const [users, auditLogs, usageEvents, operationalEvents] = await Promise.all([
     prisma.user.findMany({
       where: query
         ? {
@@ -529,6 +600,10 @@ export async function getSupportData(search = "") {
       orderBy: { createdAt: "desc" },
       take: 20,
     }),
+    prisma.operationalEvent.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 20,
+    }),
   ]);
 
   return {
@@ -545,6 +620,16 @@ export async function getSupportData(search = "") {
       id: entry.id,
       eventType: entry.eventType,
       route: entry.route,
+      createdAt: formatDateTime(entry.createdAt),
+    })),
+    recentOperationalEvents: operationalEvents.map((entry) => ({
+      id: entry.id,
+      level: entry.level,
+      source: entry.source,
+      eventType: entry.eventType,
+      message: entry.message,
+      route: entry.route,
+      requestId: entry.requestId,
       createdAt: formatDateTime(entry.createdAt),
     })),
     placeholderImpersonation:

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { FormEvent, type ReactNode, useEffect, useState } from "react";
 import { DataTable } from "@/components/data-table";
 import type { BirdSex, ChickStatus } from "@/lib/types";
@@ -18,6 +19,7 @@ type ChickRow = {
   observedTraits: string[];
   notes: string;
   photoUrl: string;
+  dnaStatus: "None" | "Pending" | "Completed" | "Cancelled";
   createdAt: string;
 };
 
@@ -49,6 +51,12 @@ type FormState = {
   notes: string;
 };
 
+type DnaRequestForm = {
+  chickId: string;
+  bandNumber: string;
+  testType: string;
+};
+
 const emptyForm: FormState = {
   bandNumber: "",
   hatchDate: "",
@@ -70,6 +78,7 @@ const statusOptions: Array<ChickStatus | "All Statuses"> = [
 ];
 
 const sexOptions: BirdSex[] = ["Male", "Female", "Unknown"];
+const dnaTestOptions = ["Sexing", "Color", "Trait Panel"];
 
 export default function ChicksPage() {
   const [chicks, setChicks] = useState<ChickRow[]>([]);
@@ -83,8 +92,15 @@ export default function ChicksPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [form, setForm] = useState<FormState>(emptyForm);
+  const [dnaForm, setDnaForm] = useState<DnaRequestForm>({
+    chickId: "",
+    bandNumber: "",
+    testType: "Sexing",
+  });
   const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({});
   const [requestError, setRequestError] = useState("");
+  const [isDnaModalOpen, setIsDnaModalOpen] = useState(false);
+  const [isRequestingDna, setIsRequestingDna] = useState(false);
 
   useEffect(() => {
     void loadChicks();
@@ -131,6 +147,25 @@ export default function ChicksPage() {
     setErrors({});
     setForm(emptyForm);
     setRequestError("");
+  }
+
+  function openDnaModal(chick: ChickRow) {
+    setDnaForm({
+      chickId: chick.id,
+      bandNumber: chick.bandNumber,
+      testType: "Sexing",
+    });
+    setRequestError("");
+    setIsDnaModalOpen(true);
+  }
+
+  function closeDnaModal() {
+    setIsDnaModalOpen(false);
+    setDnaForm({
+      chickId: "",
+      bandNumber: "",
+      testType: "Sexing",
+    });
   }
 
   function updateField<K extends keyof FormState>(key: K, value: FormState[K]) {
@@ -185,6 +220,36 @@ export default function ChicksPage() {
     }
   }
 
+  async function handleDnaRequest(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    try {
+      setIsRequestingDna(true);
+      setRequestError("");
+
+      const response = await fetch("/api/dna-tests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chickId: dnaForm.chickId,
+          testType: dnaForm.testType,
+        }),
+      });
+
+      const payload = (await response.json().catch(() => ({}))) as { error?: string };
+      if (!response.ok) {
+        throw new Error(payload.error || "Unable to request DNA test.");
+      }
+
+      await loadChicks();
+      closeDnaModal();
+    } catch (error) {
+      setRequestError(error instanceof Error ? error.message : "Unable to request DNA test.");
+    } finally {
+      setIsRequestingDna(false);
+    }
+  }
+
   const rows = filteredChicks.map((chick) => ({
     bandNumber: chick.bandNumber,
     hatchDate: formatDate(chick.hatchDate),
@@ -194,6 +259,7 @@ export default function ChicksPage() {
     color: chick.color || "-",
     observedTraits: chick.observedTraits.join(", ") || "-",
     status: chick.status,
+    dnaStatus: chick.dnaStatus,
     notes: chick.notes || "-",
   }));
 
@@ -273,6 +339,7 @@ export default function ChicksPage() {
             { key: "color", label: "Color" },
             { key: "observedTraits", label: "Observed Traits" },
             { key: "status", label: "Status" },
+            { key: "dnaStatus", label: "DNA Status" },
             { key: "notes", label: "Notes" },
           ]}
           rows={rows}
@@ -287,6 +354,74 @@ export default function ChicksPage() {
             onAction: search || statusFilter !== "All Statuses" ? undefined : openModal,
           }}
         />
+
+        <section className="soft-shadow overflow-hidden rounded-[28px] border border-[color:var(--line)] bg-[color:var(--panel-strong)]">
+          <div className="border-b border-[color:var(--line)] px-5 py-5 sm:px-6">
+            <h2 className="text-lg font-semibold tracking-tight">DNA Requests</h2>
+            <p className="mt-1 text-sm text-[color:var(--muted)]">
+              Start simple DNA requests from any chick and keep the workflow ready for future Little Haven DNA integration.
+            </p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-left">
+              <thead className="bg-[#f5f3fd]">
+                <tr>
+                  {["Band Number", "Flock", "DNA Status", "Profile", "Action"].map((label) => (
+                    <th
+                      key={label}
+                      className="px-5 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-[color:var(--muted)] sm:px-6"
+                    >
+                      {label}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {filteredChicks.map((chick) => (
+                  <tr
+                    key={chick.id}
+                    className="border-t border-[color:var(--line)] transition hover:bg-[#f8f7fe]"
+                  >
+                    <td className="px-5 py-4 text-sm font-semibold text-foreground sm:px-6">
+                      {chick.bandNumber}
+                    </td>
+                    <td className="px-5 py-4 text-sm text-foreground sm:px-6">{chick.flockName}</td>
+                    <td className="px-5 py-4 text-sm text-foreground sm:px-6">
+                      <span className={dnaStatusClassName(chick.dnaStatus)}>{chick.dnaStatus}</span>
+                    </td>
+                    <td className="px-5 py-4 text-sm text-foreground sm:px-6">
+                      <Link
+                        href={`/chicks/${chick.id}`}
+                        className="inline-flex rounded-full border border-[color:var(--line)] bg-white px-4 py-2 text-sm font-semibold text-[color:var(--accent)] transition hover:bg-[#f8f7fe]"
+                      >
+                        Open Profile
+                      </Link>
+                    </td>
+                    <td className="px-5 py-4 text-sm text-foreground sm:px-6">
+                      <button
+                        type="button"
+                        onClick={() => openDnaModal(chick)}
+                        className="inline-flex rounded-full border border-[color:var(--line)] bg-white px-4 py-2 text-sm font-semibold text-[color:var(--accent)] transition hover:bg-[#f8f7fe]"
+                      >
+                        Request DNA Test
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {!isLoading && filteredChicks.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={5}
+                      className="px-5 py-8 text-center text-sm text-[color:var(--muted)] sm:px-6"
+                    >
+                      Add a chick first, then request DNA testing directly from here.
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+        </section>
       </div>
 
       {isModalOpen ? (
@@ -467,6 +602,67 @@ export default function ChicksPage() {
           </div>
         </div>
       ) : null}
+
+      {isDnaModalOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#221c3f]/40 px-4 backdrop-blur-sm">
+          <div className="soft-shadow w-full max-w-xl rounded-[30px] border border-[color:var(--line)] bg-white p-6 sm:p-7">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-2xl font-semibold tracking-tight">Request DNA Test</h3>
+                <p className="mt-1 text-sm text-[color:var(--muted)]">
+                  Create a pending DNA request for this chick and keep the record ready for future external lab integration.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeDnaModal}
+                className="rounded-2xl border border-[color:var(--line)] px-3 py-2 text-sm text-[color:var(--muted)] transition hover:bg-[#f8f7fe]"
+              >
+                Cancel
+              </button>
+            </div>
+
+            <form onSubmit={handleDnaRequest} className="mt-6 space-y-4">
+              <FormField
+                label="Band Number"
+                input={
+                  <input
+                    type="text"
+                    value={dnaForm.bandNumber}
+                    readOnly
+                    className={`${inputClassName()} bg-[#f7f5ff] text-[color:var(--muted)]`}
+                  />
+                }
+              />
+              <FormField
+                label="Test Selection"
+                input={
+                  <select
+                    value={dnaForm.testType}
+                    onChange={(event) =>
+                      setDnaForm((current) => ({ ...current, testType: event.target.value }))
+                    }
+                    className={inputClassName()}
+                  >
+                    {dnaTestOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                }
+              />
+              <button
+                type="submit"
+                disabled={isRequestingDna}
+                className="inline-flex w-full items-center justify-center rounded-full bg-[color:var(--accent)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#4f3fa0] disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {isRequestingDna ? "Requesting..." : "Confirm DNA Request"}
+              </button>
+            </form>
+          </div>
+        </div>
+      ) : null}
     </>
   );
 }
@@ -516,4 +712,20 @@ function splitTraits(value: string) {
     .split(",")
     .map((item) => item.trim())
     .filter(Boolean);
+}
+
+function dnaStatusClassName(status: "None" | "Pending" | "Completed" | "Cancelled") {
+  if (status === "Completed") {
+    return "rounded-full bg-[#edf7f8] px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--teal)]";
+  }
+
+  if (status === "Pending") {
+    return "rounded-full bg-[#ece7fb] px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--accent)]";
+  }
+
+  if (status === "Cancelled") {
+    return "rounded-full bg-[#f9e7ef] px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[#b34b75]";
+  }
+
+  return "rounded-full bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--muted)] border border-[color:var(--line)]";
 }

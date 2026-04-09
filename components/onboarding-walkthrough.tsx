@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 type OnboardingWalkthroughProps = {
@@ -94,6 +95,7 @@ export function OnboardingWalkthrough({
   pathname,
   isEnabled,
 }: OnboardingWalkthroughProps) {
+  const router = useRouter();
   const [stepIndex, setStepIndex] = useState(0);
   const [isVisible, setIsVisible] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -113,6 +115,16 @@ export function OnboardingWalkthrough({
     () => walkthroughSteps.find((entry) => pathname === entry.href)?.title ?? null,
     [pathname],
   );
+
+  useEffect(() => {
+    if (!isVisible || !step) {
+      return;
+    }
+
+    if (pathname !== step.href) {
+      router.push(step.href);
+    }
+  }, [isVisible, pathname, router, step]);
 
   async function updateTutorial(action: "complete" | "skip") {
     setIsSubmitting(true);
@@ -134,15 +146,15 @@ export function OnboardingWalkthrough({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#20193a]/45 px-4 backdrop-blur-sm">
-      <div className="soft-shadow w-full max-w-3xl rounded-[30px] border border-[color:var(--line)] bg-white p-6 sm:p-8">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+    <div className="pointer-events-none fixed inset-y-0 right-0 z-50 flex w-full items-start justify-end px-4 py-24 sm:px-6 lg:px-8">
+      <div className="pointer-events-auto soft-shadow w-full max-w-sm rounded-[28px] border border-[color:var(--line)] bg-white/96 p-5 backdrop-blur-sm">
+        <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[color:var(--muted)]">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--muted)]">
               Guided Walkthrough
             </p>
-            <h2 className="mt-2 text-2xl font-semibold tracking-tight">
-              Learn the breeder workflow in a few quick steps
+            <h2 className="mt-2 text-xl font-semibold tracking-tight">
+              Learn the workflow as you click through
             </h2>
           </div>
           <span className="rounded-full border border-[color:var(--line)] bg-[#fcfbff] px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--accent)]">
@@ -150,51 +162,51 @@ export function OnboardingWalkthrough({
           </span>
         </div>
 
-        <div className="mt-6 rounded-[24px] border border-[color:var(--line)] bg-[#fcfbff] p-5">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="mt-5 rounded-[24px] border border-[color:var(--line)] bg-[#fcfbff] p-4">
+          <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)]">
                 {step.title}
               </p>
-              <p className="mt-3 text-base leading-7 text-[color:var(--muted)]">{step.summary}</p>
+              <p className="mt-3 text-sm leading-7 text-[color:var(--muted)]">{step.summary}</p>
               <p className="mt-3 text-sm font-medium leading-7 text-foreground">{step.benefit}</p>
             </div>
             <Link
               href={step.href}
-              className="inline-flex items-center justify-center rounded-full border border-[color:var(--line)] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-foreground transition hover:bg-[#f8f7fe]"
+              className="inline-flex shrink-0 items-center justify-center rounded-full border border-[color:var(--line)] bg-white px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-foreground transition hover:bg-[#f8f7fe]"
             >
-              Open Section
+              Open
             </Link>
           </div>
           {activeSection === step.title ? (
             <p className="mt-4 text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--teal)]">
-              You are currently viewing this section
+              Auto-opened on this section
             </p>
           ) : null}
         </div>
 
-        <div className="mt-6 h-2 overflow-hidden rounded-full bg-[#efeaf8]">
+        <div className="mt-5 h-2 overflow-hidden rounded-full bg-[#efeaf8]">
           <div
             className="h-full rounded-full bg-[color:var(--accent)] transition-all"
             style={{ width: `${((stepIndex + 1) / walkthroughSteps.length) * 100}%` }}
           />
         </div>
 
-        <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-5 flex flex-col gap-3">
           <button
             type="button"
             onClick={() => updateTutorial("skip")}
             disabled={isSubmitting}
-            className="text-sm font-semibold text-[color:var(--muted)] transition hover:text-foreground disabled:opacity-70"
+            className="text-left text-sm font-semibold text-[color:var(--muted)] transition hover:text-foreground disabled:opacity-70"
           >
             Skip Tutorial
           </button>
-          <div className="flex flex-col gap-3 sm:flex-row">
+          <div className="flex gap-3">
             <button
               type="button"
               onClick={() => setStepIndex((current) => Math.max(current - 1, 0))}
               disabled={stepIndex === 0 || isSubmitting}
-              className="inline-flex items-center justify-center rounded-full border border-[color:var(--line)] bg-white px-5 py-3 text-sm font-semibold text-foreground transition hover:bg-[#f8f7fe] disabled:cursor-not-allowed disabled:opacity-70"
+              className="inline-flex flex-1 items-center justify-center rounded-full border border-[color:var(--line)] bg-white px-4 py-3 text-sm font-semibold text-foreground transition hover:bg-[#f8f7fe] disabled:cursor-not-allowed disabled:opacity-70"
             >
               Back
             </button>
@@ -203,7 +215,7 @@ export function OnboardingWalkthrough({
                 type="button"
                 onClick={() => updateTutorial("complete")}
                 disabled={isSubmitting}
-                className="inline-flex items-center justify-center rounded-full bg-[color:var(--accent)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#4f3fa0] disabled:cursor-not-allowed disabled:opacity-70"
+                className="inline-flex flex-1 items-center justify-center rounded-full bg-[color:var(--accent)] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#4f3fa0] disabled:cursor-not-allowed disabled:opacity-70"
               >
                 {isSubmitting ? "Finishing..." : "Finish"}
               </button>
@@ -212,7 +224,7 @@ export function OnboardingWalkthrough({
                 type="button"
                 onClick={() => setStepIndex((current) => Math.min(current + 1, walkthroughSteps.length - 1))}
                 disabled={isSubmitting}
-                className="inline-flex items-center justify-center rounded-full bg-[color:var(--accent)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#4f3fa0] disabled:cursor-not-allowed disabled:opacity-70"
+                className="inline-flex flex-1 items-center justify-center rounded-full bg-[color:var(--accent)] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#4f3fa0] disabled:cursor-not-allowed disabled:opacity-70"
               >
                 Next
               </button>

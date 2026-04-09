@@ -1,4 +1,20 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+
+export const metadata: Metadata = {
+  title: "Pricing",
+  description:
+    "Start HavenHatchr with a 14 day free trial, then continue for $10 per month. Cancel anytime.",
+  alternates: {
+    canonical: "/pricing",
+  },
+  openGraph: {
+    title: "HavenHatchr Pricing",
+    description:
+      "14 day free trial, then $10 per month for a breeder workspace covering flocks, chicks, reservations, orders, genetics, and analytics.",
+    url: "/pricing",
+  },
+};
 
 export default function PricingPage() {
   return (

@@ -59,6 +59,18 @@ async function requireOwnedHatchGroup(userId: string, hatchGroupId: string) {
   return hatchGroup;
 }
 
+async function requireOwnedChick(userId: string, chickId: string) {
+  const chick = await prisma.chick.findFirst({
+    where: { id: chickId, userId },
+  });
+
+  if (!chick) {
+    throw new Error("Chick not found.");
+  }
+
+  return chick;
+}
+
 async function requireOwnedCustomer(userId: string, customerId: string) {
   const customer = await prisma.customer.findFirst({
     where: { id: customerId, userId },
@@ -625,6 +637,10 @@ export async function getChicksData(userId: string) {
       include: {
         flock: true,
         hatchGroup: true,
+        dnaTestRequests: {
+          orderBy: { createdAt: "desc" },
+          take: 1,
+        },
       },
       orderBy: { createdAt: "desc" },
     }),
@@ -651,6 +667,7 @@ export async function getChicksData(userId: string) {
       observedTraits: chick.observedTraits,
       notes: chick.notes,
       photoUrl: chick.photoUrl,
+      dnaStatus: chick.dnaTestRequests[0]?.status ?? "None",
       createdAt: formatDateTime(chick.createdAt),
       flockName: chick.flock.name,
       hatchGroupName: chick.hatchGroup?.name ?? "-",
@@ -658,6 +675,110 @@ export async function getChicksData(userId: string) {
     flocks: flocks.map((flock) => ({ id: flock.id, name: flock.name })),
     hatchGroups: hatchGroups.map((group) => ({ id: group.id, name: group.name })),
   };
+}
+
+export async function getChickProfileData(userId: string, chickId: string) {
+  const chick = await prisma.chick.findFirst({
+    where: { id: chickId, userId },
+    include: {
+      flock: true,
+      hatchGroup: {
+        include: {
+          pairing: {
+            include: {
+              sire: true,
+              dam: true,
+            },
+          },
+        },
+      },
+      noteEntries: {
+        where: { userId },
+        orderBy: { createdAt: "desc" },
+      },
+      photoEntries: {
+        where: { userId },
+        orderBy: { createdAt: "desc" },
+      },
+      dnaTestRequests: {
+        where: { userId },
+        orderBy: { createdAt: "desc" },
+      },
+    },
+  });
+
+  if (!chick) {
+    return null;
+  }
+
+  return {
+    chick: {
+      id: chick.id,
+      bandNumber: chick.bandNumber,
+      hatchDate: formatDateOnly(chick.hatchDate),
+      flockId: chick.flockId,
+      flockName: chick.flock.name,
+      hatchGroupId: chick.hatchGroupId,
+      hatchGroupName: chick.hatchGroup?.name ?? "",
+      status: chick.status,
+      sex: chick.sex,
+      color: chick.color,
+      observedTraits: chick.observedTraits,
+      notes: chick.notes,
+      photoUrl: chick.photoUrl,
+      dnaStatus: chick.dnaTestRequests[0]?.status ?? "None",
+      createdAt: formatDateTime(chick.createdAt),
+      pairingName: chick.hatchGroup?.pairing.name ?? "",
+      sireName: chick.hatchGroup?.pairing.sire.name ?? "",
+      damName: chick.hatchGroup?.pairing.dam.name ?? "",
+      producedTraitsSummary: chick.hatchGroup?.producedTraitsSummary ?? "",
+    },
+    notes: chick.noteEntries.map((note) => ({
+      id: note.id,
+      entityType: note.entityType,
+      entityId: note.entityId,
+      content: note.content,
+      createdAt: formatDateTime(note.createdAt),
+    })),
+    photos: chick.photoEntries.map((photo) => ({
+      id: photo.id,
+      entityType: photo.entityType,
+      entityId: photo.entityId,
+      url: photo.url,
+      caption: photo.caption,
+      createdAt: formatDateTime(photo.createdAt),
+    })),
+    dnaTests: chick.dnaTestRequests.map((request) => ({
+      id: request.id,
+      bandNumber: request.bandNumber,
+      testType: request.testType,
+      status: request.status,
+      externalOrderId: request.externalOrderId || "",
+      resultSummary: request.resultSummary || "",
+      completedAt: request.completedAt ? formatDateTime(request.completedAt) : null,
+      createdAt: formatDateTime(request.createdAt),
+    })),
+  };
+}
+
+export async function createDnaTestRequest(
+  userId: string,
+  data: {
+    chickId: string;
+    testType: string;
+  },
+) {
+  const chick = await requireOwnedChick(userId, data.chickId);
+
+  return prisma.dnaTestRequest.create({
+    data: {
+      userId,
+      chickId: chick.id,
+      bandNumber: chick.bandNumber,
+      testType: data.testType,
+      status: "Pending",
+    },
+  });
 }
 
 export async function createChick(

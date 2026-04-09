@@ -1,9 +1,22 @@
 import { NextResponse } from "next/server";
+import { logAuditAction, logUsageEvent } from "@/lib/admin";
 import { getCurrentUser } from "@/lib/auth";
 import { getAppUrl, getStripe } from "@/lib/billing";
+import {
+  getClientErrorMessage,
+  getErrorStatus,
+  logServerError,
+  validateAuthenticatedMutation,
+} from "@/lib/security";
 
 export async function POST(request: Request) {
   try {
+    validateAuthenticatedMutation(request, {
+      rateLimitKey: "billing:portal",
+      limit: 15,
+      windowMs: 1000 * 60 * 10,
+    });
+
     const user = await getCurrentUser();
 
     if (!user) {
@@ -22,15 +35,38 @@ export async function POST(request: Request) {
     }
 
     const stripe = getStripe();
-    const appUrl = getAppUrl(request.headers.get("origin"));
+    const appUrl = getAppUrl();
     const session = await stripe.billingPortal.sessions.create({
       customer: user.stripeCustomerId,
       return_url: `${appUrl}/settings`,
     });
 
+    await logUsageEvent({
+      userId: user.id,
+      eventType: "billing.portal_opened",
+      route: "/api/billing/portal",
+    });
+    await logAuditAction({
+      actorUserId: user.id,
+      subjectUserId: user.id,
+      action: "billing.portal_opened",
+      entityType: "user",
+      entityId: user.id,
+      summary: "Opened Stripe customer portal.",
+      metadata: { stripeCustomerId: user.stripeCustomerId },
+    });
+
     return NextResponse.json({ url: session.url });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unable to open billing portal.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const status = getErrorStatus(error);
+
+    if (status >= 500) {
+      logServerError("billing.portal", error);
+    }
+
+    return NextResponse.json(
+      { error: getClientErrorMessage(error, "Unable to open billing portal.") },
+      { status },
+    );
   }
 }

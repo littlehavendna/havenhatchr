@@ -11,6 +11,7 @@ export type NoteEntityType =
   | "order"
   | "reservation";
 export type PhotoEntityType = "bird" | "chick" | "flock" | "hatchGroup";
+export type DnaTestStatus = "Pending" | "Completed" | "Cancelled";
 
 export interface User {
   id: string;
@@ -109,7 +110,22 @@ export interface Chick {
   observedTraits: string[];
   notes: string;
   photoUrl: string;
+  dnaStatus?: "None" | DnaTestStatus;
   createdAt: string;
+}
+
+export interface DnaTestRequest {
+  id: string;
+  userId: string;
+  chickId: string;
+  bandNumber: string;
+  testType: string;
+  status: DnaTestStatus;
+  externalOrderId?: string;
+  resultSummary?: string;
+  completedAt?: string | null;
+  createdAt: string;
+  updatedAt?: string;
 }
 
 export interface Reservation {

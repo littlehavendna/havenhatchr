@@ -1,6 +1,7 @@
 import "server-only";
 
 import Stripe from "stripe";
+import { getAppOrigin, getRequiredEnv } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
 
 type BillingUser = {
@@ -19,38 +20,22 @@ function getCurrentPeriodEndDate(subscription: Stripe.Subscription) {
 }
 
 export function getStripe() {
-  const secretKey = process.env.STRIPE_SECRET_KEY;
-
-  if (!secretKey) {
-    throw new Error("STRIPE_SECRET_KEY is not configured.");
-  }
+  const secretKey = getRequiredEnv("STRIPE_SECRET_KEY");
 
   stripeClient ??= new Stripe(secretKey);
   return stripeClient;
 }
 
 export function getStripePriceId() {
-  const priceId = process.env.STRIPE_PRICE_ID;
-
-  if (!priceId) {
-    throw new Error("STRIPE_PRICE_ID is not configured.");
-  }
-
-  return priceId;
+  return getRequiredEnv("STRIPE_PRICE_ID");
 }
 
 export function getStripeWebhookSecret() {
-  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-
-  if (!webhookSecret) {
-    throw new Error("STRIPE_WEBHOOK_SECRET is not configured.");
-  }
-
-  return webhookSecret;
+  return getRequiredEnv("STRIPE_WEBHOOK_SECRET");
 }
 
-export function getAppUrl(origin?: string | null) {
-  return origin || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+export function getAppUrl() {
+  return getAppOrigin();
 }
 
 export function isSubscriptionActive(status: string) {

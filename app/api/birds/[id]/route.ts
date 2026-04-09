@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUserId } from "@/lib/auth";
 import { createBirdNote, getBirdProfileData } from "@/lib/db";
+import { readJsonObject, readString, validateAuthenticatedMutation } from "@/lib/security";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -28,13 +29,10 @@ export async function POST(request: Request, context: RouteContext) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  validateAuthenticatedMutation(request);
   const { id } = await context.params;
-  const body = (await request.json()) as { content?: string };
-  const content = body.content?.trim();
-
-  if (!content) {
-    return NextResponse.json({ error: "Note content is required." }, { status: 400 });
-  }
+  const body = await readJsonObject(request);
+  const content = readString(body, "content", { required: true, maxLength: 2000 });
 
   const note = await createBirdNote(userId, id, content);
 

@@ -1,4 +1,20 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+
+export const metadata: Metadata = {
+  title: "Breeder Software for Flocks, Hatch Groups, and Chick Tracking",
+  description:
+    "HavenHatchr helps poultry breeders manage flocks, birds, hatch groups, reservations, genetics, and customer records in one organized workspace.",
+  alternates: {
+    canonical: "/",
+  },
+  openGraph: {
+    title: "HavenHatchr",
+    description:
+      "Organize your flock, track every chick, and manage breeder operations from one calm, modern workspace.",
+    url: "/",
+  },
+};
 
 const features = [
   {

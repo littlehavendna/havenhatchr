@@ -59,6 +59,8 @@ STRIPE_SECRET_KEY="sk_test_..."
 STRIPE_PRICE_ID="price_..."
 STRIPE_WEBHOOK_SECRET="whsec_..."
 NEXT_PUBLIC_APP_URL="http://localhost:3000"
+MONITORING_PROVIDER=""
+SENTRY_DSN=""
 ```
 
 For Railway, use the PostgreSQL connection string exposed by the Railway database service.
@@ -69,6 +71,14 @@ Required environment variables:
 - `STRIPE_PRICE_ID`
 - `STRIPE_WEBHOOK_SECRET`
 - `NEXT_PUBLIC_APP_URL`
+- `MONITORING_PROVIDER` optional
+- `SENTRY_DSN` optional
+
+Security-sensitive environment notes:
+- `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` must stay server-only
+- `NEXT_PUBLIC_APP_URL` should be the canonical public app URL used for metadata, sitemap, billing redirects, and canonical tags
+- local development can use Stripe test keys and a local webhook secret from the Stripe CLI
+- `MONITORING_PROVIDER` and `SENTRY_DSN` are optional placeholders for a future provider-backed error monitoring integration
 
 ## Local Development Setup
 1. Install dependencies:
@@ -143,6 +153,16 @@ Final Railway deploy flow:
 
 Do not use `prisma migrate dev` or `prisma db push` in production.
 
+Stripe webhook production notes:
+- endpoint URL: `https://your-domain.com/api/stripe/webhook`
+- required events:
+  - `checkout.session.completed`
+  - `customer.subscription.created`
+  - `customer.subscription.updated`
+  - `customer.subscription.deleted`
+  - `invoice.payment_failed`
+- production must use the matching `STRIPE_WEBHOOK_SECRET` for that endpoint
+
 ## Prisma Workflow
 Use these commands for the following situations:
 
@@ -204,6 +224,95 @@ Included now:
 Not included yet:
 - real AI API integrations
 - Stripe Connect or usage-based billing
+
+## Security And SEO Foundations
+The current app now includes a production-focused baseline for both private app security and public page SEO.
+
+Security protections now in place:
+- auth-protected app routes through `proxy.ts`
+- admin-only protection through route/layout checks plus admin-scoped APIs
+- user-scoped Prisma reads and writes through `lib/db.ts`
+- same-origin mutation enforcement for authenticated and sensitive POST/PATCH flows
+- starter rate limiting for login, signup, billing, and admin mutation routes
+- hardened session cookies with `httpOnly`, `sameSite=lax`, `secure` in production, `priority=high`, and explicit expiry
+- Stripe webhook signature verification using the raw request body
+- stronger default security headers including CSP, `X-Content-Type-Options`, `Referrer-Policy`, clickjacking protection, permissions policy, COOP, CORP, and HSTS in production
+- safer production error responses that avoid leaking stack traces or secrets
+- audit logging for important billing/admin actions
+
+Current Content Security Policy:
+- default source is `'self'`
+- Stripe domains are explicitly allowed where needed for billing redirects and hosted checkout/portal flows
+- inline scripts/styles remain allowed only where needed for current Next.js behavior and styling
+- future tightening should be done carefully against real production behavior
+
+Current SEO behavior:
+- public indexable pages:
+  - `/`
+  - `/pricing`
+- public utility pages marked `noindex`:
+  - `/login`
+  - `/signup`
+- protected/private pages marked `noindex` through response headers:
+  - app routes such as dashboard, settings, analytics, genetics, AI, breeder records, billing-protected pages, and admin
+- `robots.txt` and `sitemap.xml` only expose the intended public marketing URLs
+- canonical metadata is set for public pages through Next.js metadata APIs
+
+Known future hardening:
+- replace the in-memory rate limiter with a shared/distributed store for multi-instance production use
+- add stronger automated validation and security tests around auth, admin, and billing flows
+- add centralized structured logging and alerting
+- consider nonce-based CSP tightening after validating the current Next.js runtime requirements
+- review and harden any future file upload flows before enabling them in production
+
+Release checklist:
+- see [docs/security-checklist.md](/C:/Users/Jordi/havenhatchr/docs/security-checklist.md)
+
+## Monitoring And Observability
+HavenHatchr now includes a lightweight observability foundation intended for beta support and future provider-backed monitoring.
+
+Current monitoring approach:
+- structured server-side operational logging through [lib/monitoring.ts](/C:/Users/Jordi/havenhatchr/lib/monitoring.ts)
+- request correlation IDs added in [proxy.ts](/C:/Users/Jordi/havenhatchr/proxy.ts) and forwarded through app requests
+- persisted operational event storage in Prisma through `OperationalEvent`
+- safe client error capture via [app/api/monitoring/client-error/route.ts](/C:/Users/Jordi/havenhatchr/app/api/monitoring/client-error/route.ts)
+- graceful UI error boundaries in [app/error.tsx](/C:/Users/Jordi/havenhatchr/app/error.tsx) and [app/global-error.tsx](/C:/Users/Jordi/havenhatchr/app/global-error.tsx)
+
+Provider integration:
+- no external monitoring dependency is required yet
+- `MONITORING_PROVIDER=sentry` and `SENTRY_DSN` are reserved for a future real provider integration
+- the current abstraction is designed so provider calls can be added in one place without rewriting route logic
+
+Health route:
+- [app/api/health/route.ts](/C:/Users/Jordi/havenhatchr/app/api/health/route.ts)
+- returns a safe readiness response and checks database connectivity
+- intended for Railway or operational checks, not public marketing use
+
+Logging approach:
+- auth, billing, admin, webhook, onboarding, AI workspace, and DNA request flows emit structured events
+- operational events avoid logging passwords, tokens, secrets, webhook signatures, cookies, and similar sensitive values
+- important admin and billing actions continue to be audit logged in Prisma
+
+Tracked beta usage events:
+- `beta.completed_signup`
+- `beta.first_flock_created`
+- `beta.first_bird_created`
+- `beta.first_chick_created`
+- `beta.first_pairing_created`
+- `beta.first_reservation_created`
+- `beta.opened_ai_tools`
+- `beta.started_checkout`
+- `beta.completed_tutorial`
+- `beta.skipped_tutorial`
+
+Current admin-side operational review:
+- [app/admin/support/page.tsx](/C:/Users/Jordi/havenhatchr/app/admin/support/page.tsx) now includes recent operational events alongside account diagnostics, audit history, and recent usage
+
+Future observability work recommended:
+- add a real monitoring provider such as Sentry or OpenTelemetry export
+- move structured logs into centralized aggregation instead of relying only on app logs and Prisma persistence
+- add background job monitoring and alerting if asynchronous workflows grow
+- add latency metrics and error-rate dashboards for critical API routes
 
 ## Troubleshooting
 Common issues and checks:

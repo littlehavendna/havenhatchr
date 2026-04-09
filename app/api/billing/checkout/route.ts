@@ -1,10 +1,23 @@
 import { NextResponse } from "next/server";
+import { logAuditAction, logUsageEvent } from "@/lib/admin";
 import { getCurrentUser } from "@/lib/auth";
 import { getAppUrl, getStripe, getStripePriceId } from "@/lib/billing";
 import { prisma } from "@/lib/prisma";
+import {
+  getClientErrorMessage,
+  getErrorStatus,
+  logServerError,
+  validateAuthenticatedMutation,
+} from "@/lib/security";
 
 export async function POST(request: Request) {
   try {
+    validateAuthenticatedMutation(request, {
+      rateLimitKey: "billing:checkout",
+      limit: 10,
+      windowMs: 1000 * 60 * 10,
+    });
+
     const user = await getCurrentUser();
 
     if (!user) {
@@ -37,7 +50,7 @@ export async function POST(request: Request) {
       });
     }
 
-    const appUrl = getAppUrl(request.headers.get("origin"));
+    const appUrl = getAppUrl();
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer: stripeCustomerId,
@@ -59,11 +72,37 @@ export async function POST(request: Request) {
       allow_promotion_codes: true,
     });
 
+    await logUsageEvent({
+      userId: user.id,
+      eventType: "billing.checkout_started",
+      route: "/api/billing/checkout",
+    });
+    await logUsageEvent({
+      userId: user.id,
+      eventType: "beta.started_checkout",
+      route: "/api/billing/checkout",
+    });
+    await logAuditAction({
+      actorUserId: user.id,
+      subjectUserId: user.id,
+      action: "billing.checkout_started",
+      entityType: "user",
+      entityId: user.id,
+      summary: "Started a Stripe checkout session.",
+      metadata: { stripeCustomerId },
+    });
+
     return NextResponse.json({ url: session.url });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Unable to start the free trial.";
+    const status = getErrorStatus(error);
 
-    return NextResponse.json({ error: message }, { status: 500 });
+    if (status >= 500) {
+      logServerError("billing.checkout", error);
+    }
+
+    return NextResponse.json(
+      { error: getClientErrorMessage(error, "Unable to start the free trial.") },
+      { status },
+    );
   }
 }
