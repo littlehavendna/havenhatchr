@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { DashboardShell } from "@/components/DashboardShell";
 import { getAppBaseUrl } from "@/lib/env";
@@ -29,6 +29,14 @@ export const metadata: Metadata = {
     description:
       "Breeder software for flocks, birds, hatch groups, reservations, genetics, and customer tracking.",
   },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  viewportFit: "cover",
+  themeColor: "#f5f4fb",
 };
 
 export default function RootLayout({

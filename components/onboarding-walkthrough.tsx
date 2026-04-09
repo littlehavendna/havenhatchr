@@ -24,12 +24,6 @@ const walkthroughSteps: WalkthroughStep[] = [
     benefit: "Use it to spot what needs attention and see how your operation is moving.",
   },
   {
-    title: "Customers",
-    href: "/customers",
-    summary: "Store buyer details, notes, and relationship history in one place.",
-    benefit: "Keeping customers organized makes reservations, orders, and follow-up much easier.",
-  },
-  {
     title: "Flocks",
     href: "/flocks",
     summary: "Flocks group your breeders and chicks into practical working units.",
@@ -42,10 +36,10 @@ const walkthroughSteps: WalkthroughStep[] = [
     benefit: "Once birds are in place, pairings, genetics, and performance tracking become much more useful.",
   },
   {
-    title: "Pairings",
-    href: "/pairings",
-    summary: "Pairings connect sire and dam records with goals and genetics planning.",
-    benefit: "This is where you define breeding direction before eggs and chicks arrive.",
+    title: "Chicks",
+    href: "/chicks",
+    summary: "Log new chicks, their status, sex, color, and observed traits.",
+    benefit: "Clear chick records make inventory, sales, and performance review much easier.",
   },
   {
     title: "Hatch Groups",
@@ -54,10 +48,16 @@ const walkthroughSteps: WalkthroughStep[] = [
     benefit: "This turns breeder plans into measurable hatch performance.",
   },
   {
-    title: "Chicks",
-    href: "/chicks",
-    summary: "Log new chicks, their status, sex, color, and observed traits.",
-    benefit: "Clear chick records make inventory, sales, and performance review much easier.",
+    title: "Customers",
+    href: "/customers",
+    summary: "Store buyer details, notes, and relationship history in one place.",
+    benefit: "Keeping customers organized makes reservations, orders, and follow-up much easier.",
+  },
+  {
+    title: "Pairings",
+    href: "/pairings",
+    summary: "Pairings connect sire and dam records with goals and genetics planning.",
+    benefit: "This is where you define breeding direction before eggs and chicks arrive.",
   },
   {
     title: "Reservations",
@@ -146,26 +146,26 @@ export function OnboardingWalkthrough({
   }
 
   return (
-    <div className="pointer-events-none fixed inset-y-0 right-0 z-50 flex w-full items-start justify-end px-4 py-24 sm:px-6 lg:px-8">
-      <div className="pointer-events-auto soft-shadow w-full max-w-sm rounded-[28px] border border-[color:var(--line)] bg-white/96 p-5 backdrop-blur-sm">
+    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-50 flex w-full items-end justify-center px-3 pb-3 sm:inset-y-0 sm:right-0 sm:justify-end sm:px-6 sm:py-24 lg:px-8">
+      <div className="pointer-events-auto soft-shadow mobile-safe-pb w-full max-w-sm rounded-[28px] border-2 border-[color:var(--teal)] bg-white/96 p-4 shadow-[0_24px_60px_rgba(18,102,97,0.18)] backdrop-blur-sm sm:p-5">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--muted)]">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[color:var(--teal)]">
               Guided Walkthrough
             </p>
             <h2 className="mt-2 text-xl font-semibold tracking-tight">
               Learn the workflow as you click through
             </h2>
           </div>
-          <span className="rounded-full border border-[color:var(--line)] bg-[#fcfbff] px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--accent)]">
+          <span className="rounded-full border border-[color:var(--teal)] bg-[color:var(--teal-soft)] px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--teal)]">
             {stepIndex + 1} of {walkthroughSteps.length}
           </span>
         </div>
 
-        <div className="mt-5 rounded-[24px] border border-[color:var(--line)] bg-[#fcfbff] p-4">
+        <div className="mt-5 rounded-[24px] border-2 border-[color:var(--teal)] bg-[linear-gradient(180deg,rgba(215,241,239,0.72),rgba(255,255,255,0.98))] p-4">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)]">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--teal)]">
                 {step.title}
               </p>
               <p className="mt-3 text-sm leading-7 text-[color:var(--muted)]">{step.summary}</p>
@@ -173,7 +173,7 @@ export function OnboardingWalkthrough({
             </div>
             <Link
               href={step.href}
-              className="inline-flex shrink-0 items-center justify-center rounded-full border border-[color:var(--line)] bg-white px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-foreground transition hover:bg-[#f8f7fe]"
+              className="inline-flex shrink-0 items-center justify-center rounded-full border border-[color:var(--teal)] bg-white px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-[color:var(--teal)] transition hover:bg-[color:var(--teal-soft)]"
             >
               Open
             </Link>
@@ -185,9 +185,9 @@ export function OnboardingWalkthrough({
           ) : null}
         </div>
 
-        <div className="mt-5 h-2 overflow-hidden rounded-full bg-[#efeaf8]">
+        <div className="mt-5 h-2 overflow-hidden rounded-full bg-[color:var(--teal-soft)]">
           <div
-            className="h-full rounded-full bg-[color:var(--accent)] transition-all"
+            className="h-full rounded-full bg-[color:var(--teal)] transition-all"
             style={{ width: `${((stepIndex + 1) / walkthroughSteps.length) * 100}%` }}
           />
         </div>
@@ -204,31 +204,31 @@ export function OnboardingWalkthrough({
           <div className="flex gap-3">
             <button
               type="button"
-              onClick={() => setStepIndex((current) => Math.max(current - 1, 0))}
-              disabled={stepIndex === 0 || isSubmitting}
-              className="inline-flex flex-1 items-center justify-center rounded-full border border-[color:var(--line)] bg-white px-4 py-3 text-sm font-semibold text-foreground transition hover:bg-[#f8f7fe] disabled:cursor-not-allowed disabled:opacity-70"
+            onClick={() => setStepIndex((current) => Math.max(current - 1, 0))}
+            disabled={stepIndex === 0 || isSubmitting}
+            className="inline-flex flex-1 items-center justify-center rounded-full border border-[color:var(--teal)] bg-white px-4 py-3 text-sm font-semibold text-[color:var(--teal)] transition hover:bg-[color:var(--teal-soft)] disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            Back
+          </button>
+          {isLastStep ? (
+            <button
+              type="button"
+              onClick={() => updateTutorial("complete")}
+              disabled={isSubmitting}
+              className="inline-flex flex-1 items-center justify-center rounded-full bg-[color:var(--teal)] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#2f8c87] disabled:cursor-not-allowed disabled:opacity-70"
             >
-              Back
+              {isSubmitting ? "Finishing..." : "Finish"}
             </button>
-            {isLastStep ? (
-              <button
-                type="button"
-                onClick={() => updateTutorial("complete")}
-                disabled={isSubmitting}
-                className="inline-flex flex-1 items-center justify-center rounded-full bg-[color:var(--accent)] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#4f3fa0] disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                {isSubmitting ? "Finishing..." : "Finish"}
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setStepIndex((current) => Math.min(current + 1, walkthroughSteps.length - 1))}
-                disabled={isSubmitting}
-                className="inline-flex flex-1 items-center justify-center rounded-full bg-[color:var(--accent)] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#4f3fa0] disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                Next
-              </button>
-            )}
+          ) : (
+            <button
+              type="button"
+              onClick={() => setStepIndex((current) => Math.min(current + 1, walkthroughSteps.length - 1))}
+              disabled={isSubmitting}
+              className="inline-flex flex-1 items-center justify-center rounded-full bg-[color:var(--teal)] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#2f8c87] disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              Next
+            </button>
+          )}
           </div>
         </div>
       </div>

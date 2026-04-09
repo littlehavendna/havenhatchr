@@ -2,13 +2,16 @@
 
 import { FormEvent, type ReactNode, useEffect, useState } from "react";
 import { DataTable } from "@/components/data-table";
+import { HATCH_BREED_OPTIONS, deriveIncubationDates, getHatchBreedRule } from "@/lib/hatch-groups";
 
 type HatchGroupRow = {
   id: string;
   name: string;
   pairingId: string;
   pairingName: string;
+  breedDesignation: string;
   setDate: string;
+  lockdownDate: string;
   hatchDate: string;
   eggsSet: number;
   eggsHatched: number;
@@ -23,15 +26,26 @@ type PairingOption = {
   targetTraits: string[];
 };
 
+type BreedOption = {
+  value: string;
+  label: string;
+  incubationDays: number;
+  lockdownOffsetDays: number;
+};
+
 type HatchGroupsResponse = {
   hatchGroups: HatchGroupRow[];
   pairings: PairingOption[];
+  breedOptions?: BreedOption[];
 };
 
 type HatchGroupForm = {
+  id?: string;
   name: string;
   pairingId: string;
+  breedDesignation: string;
   setDate: string;
+  lockdownDate: string;
   hatchDate: string;
   eggsSet: string;
   eggsHatched: string;
@@ -41,7 +55,9 @@ type HatchGroupForm = {
 const emptyForm: HatchGroupForm = {
   name: "",
   pairingId: "",
+  breedDesignation: "Chicken",
   setDate: "",
+  lockdownDate: "",
   hatchDate: "",
   eggsSet: "",
   eggsHatched: "",
@@ -51,10 +67,12 @@ const emptyForm: HatchGroupForm = {
 export default function HatchGroupsPage() {
   const [hatchGroups, setHatchGroups] = useState<HatchGroupRow[]>([]);
   const [pairings, setPairings] = useState<PairingOption[]>([]);
+  const [breedOptions, setBreedOptions] = useState<BreedOption[]>([...HATCH_BREED_OPTIONS]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [form, setForm] = useState<HatchGroupForm>(emptyForm);
+  const [isEditing, setIsEditing] = useState(false);
   const [errors, setErrors] = useState<Partial<Record<keyof HatchGroupForm, string>>>({});
   const [requestError, setRequestError] = useState("");
 
@@ -74,10 +92,9 @@ export default function HatchGroupsPage() {
       const data = (await response.json()) as HatchGroupsResponse;
       setHatchGroups(data.hatchGroups);
       setPairings(data.pairings);
+      setBreedOptions(data.breedOptions?.length ? data.breedOptions : [...HATCH_BREED_OPTIONS]);
     } catch (error) {
-      setRequestError(
-        error instanceof Error ? error.message : "Failed to load hatch groups.",
-      );
+      setRequestError(error instanceof Error ? error.message : "Failed to load hatch groups.");
     } finally {
       setIsLoading(false);
     }
@@ -89,8 +106,53 @@ export default function HatchGroupsPage() {
     setRequestError("");
   }
 
-  function openModal() {
+  function syncFromSetDate(setDate: string, designation: string) {
+    const derived = deriveIncubationDates(setDate, designation);
+    setForm((current) => ({
+      ...current,
+      setDate,
+      hatchDate: derived.hatchDate,
+      lockdownDate: derived.lockdownDate,
+    }));
+  }
+
+  function syncFromHatchDate(hatchDate: string, designation: string) {
+    const rule = getHatchBreedRule(designation);
+    const lockdownDate = hatchDate
+      ? new Date(new Date(`${hatchDate}T00:00:00`).getTime() - rule.lockdownOffsetDays * 86400000)
+          .toISOString()
+          .slice(0, 10)
+      : "";
+
+    setForm((current) => ({
+      ...current,
+      hatchDate,
+      lockdownDate,
+    }));
+  }
+
+  function openCreateModal() {
+    setIsEditing(false);
     setForm(emptyForm);
+    setErrors({});
+    setRequestError("");
+    setIsOpen(true);
+  }
+
+  function openEditModal(group: HatchGroupRow) {
+    setIsEditing(true);
+    setForm({
+      id: group.id,
+      name: group.name,
+      pairingId: group.pairingId,
+      breedDesignation: group.breedDesignation,
+      setDate: group.setDate,
+      lockdownDate: group.lockdownDate,
+      hatchDate: group.hatchDate,
+      eggsSet: String(group.eggsSet),
+      eggsHatched: String(group.eggsHatched),
+      notes: group.notes,
+    });
     setErrors({});
     setRequestError("");
     setIsOpen(true);
@@ -101,6 +163,7 @@ export default function HatchGroupsPage() {
     setErrors({});
     setRequestError("");
     setIsOpen(false);
+    setIsEditing(false);
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -109,7 +172,9 @@ export default function HatchGroupsPage() {
     const nextErrors: Partial<Record<keyof HatchGroupForm, string>> = {};
     if (!form.name.trim()) nextErrors.name = "Hatch Group Name is required.";
     if (!form.pairingId) nextErrors.pairingId = "Pairing is required.";
+    if (!form.breedDesignation) nextErrors.breedDesignation = "Breed designation is required.";
     if (!form.setDate) nextErrors.setDate = "Set Date is required.";
+    if (!form.lockdownDate) nextErrors.lockdownDate = "Lockdown Date is required.";
     if (!form.hatchDate) nextErrors.hatchDate = "Hatch Date is required.";
 
     if (Object.keys(nextErrors).length > 0) {
@@ -118,18 +183,22 @@ export default function HatchGroupsPage() {
     }
 
     const selectedPairing = pairings.find((pairing) => pairing.id === form.pairingId);
+    const method = isEditing ? "PUT" : "POST";
 
     try {
       setIsSaving(true);
       setRequestError("");
 
       const response = await fetch("/api/hatch-groups", {
-        method: "POST",
+        method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          id: form.id,
           name: form.name.trim(),
           pairingId: form.pairingId,
+          breedDesignation: form.breedDesignation,
           setDate: form.setDate,
+          lockdownDate: form.lockdownDate,
           hatchDate: form.hatchDate,
           eggsSet: Number(form.eggsSet) || 0,
           eggsHatched: Number(form.eggsHatched) || 0,
@@ -142,22 +211,31 @@ export default function HatchGroupsPage() {
       });
 
       if (!response.ok) {
-        throw new Error("Failed to save hatch group.");
+        throw new Error(isEditing ? "Failed to update hatch group." : "Failed to save hatch group.");
       }
 
       await loadHatchGroups();
       closeModal();
     } catch (error) {
-      setRequestError(error instanceof Error ? error.message : "Failed to save hatch group.");
+      setRequestError(
+        error instanceof Error
+          ? error.message
+          : isEditing
+            ? "Failed to update hatch group."
+            : "Failed to save hatch group.",
+      );
     } finally {
       setIsSaving(false);
     }
   }
 
   const rows = hatchGroups.map((group) => ({
+    id: group.id,
     name: group.name,
+    designation: group.breedDesignation,
     pairing: group.pairingName,
     setDate: formatDate(group.setDate),
+    lockdownDate: formatDate(group.lockdownDate),
     hatchDate: formatDate(group.hatchDate),
     eggsSet: String(group.eggsSet),
     eggsHatched: String(group.eggsHatched),
@@ -173,13 +251,13 @@ export default function HatchGroupsPage() {
             <div>
               <h2 className="text-lg font-semibold tracking-tight">Hatch Groups</h2>
               <p className="mt-1 text-sm text-[color:var(--muted)]">
-                Track incubator groups, hatch timing, outcomes, and simple produced-trait
-                summaries tied to breeder pairings.
+                Track incubation by designation, auto-calculate lockdown and hatch timing, and
+                still adjust hatch dates as needed.
               </p>
             </div>
             <button
               type="button"
-              onClick={openModal}
+              onClick={openCreateModal}
               className="inline-flex items-center justify-center rounded-full bg-[color:var(--accent)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#4f3fa0]"
             >
               Add Hatch Group
@@ -193,37 +271,50 @@ export default function HatchGroupsPage() {
           description={
             isLoading
               ? "Loading hatch groups..."
-              : "Hatch batches organized for incubator planning, genetics review, and future analytics."
+              : "Hatch batches organized by designation, hatch timing, and incubation milestones."
           }
           columns={[
             { key: "name", label: "Hatch Group Name" },
+            { key: "designation", label: "Designation" },
             { key: "pairing", label: "Pairing" },
             { key: "setDate", label: "Set Date" },
+            { key: "lockdownDate", label: "Lockdown Date" },
             { key: "hatchDate", label: "Hatch Date" },
             { key: "eggsSet", label: "Eggs Set" },
             { key: "eggsHatched", label: "Eggs Hatched" },
-            { key: "producedTraits", label: "Produced Traits" },
-            { key: "notes", label: "Notes" },
           ]}
           rows={rows}
+          renderActions={(row) => (
+            <button
+              type="button"
+              onClick={() =>
+                openEditModal(hatchGroups.find((group) => group.id === row.id) as HatchGroupRow)
+              }
+              className="inline-flex items-center justify-center rounded-full border border-[color:var(--teal)] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--teal)] transition hover:bg-[color:var(--teal-soft)]"
+            >
+              Edit
+            </button>
+          )}
           emptyState={{
             title: "No hatch groups yet",
             description:
-              "Add your first hatch group to track incubator batches, hatch rate, and produced traits.",
+              "Add your first hatch group to track incubation windows, lockdown, hatch rate, and outcomes.",
             actionLabel: "Add your first hatch group",
-            onAction: openModal,
+            onAction: openCreateModal,
           }}
         />
       </div>
 
       {isOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#221c3f]/40 px-4 backdrop-blur-sm">
-          <div className="soft-shadow w-full max-w-2xl rounded-[30px] border border-[color:var(--line)] bg-white p-6 sm:p-7">
+          <div className="soft-shadow max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-[30px] border border-[color:var(--line)] bg-white p-6 sm:p-7">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h3 className="text-2xl font-semibold tracking-tight">Add Hatch Group</h3>
+                <h3 className="text-2xl font-semibold tracking-tight">
+                  {isEditing ? "Edit Hatch Group" : "Add Hatch Group"}
+                </h3>
                 <p className="mt-1 text-sm text-[color:var(--muted)]">
-                  Create a new hatch group and store it in PostgreSQL immediately.
+                  Choose the designation first, then the set date to auto-calculate lockdown and hatch timing.
                 </p>
               </div>
               <button
@@ -268,14 +359,58 @@ export default function HatchGroupsPage() {
                 }
               />
               <FormField
+                label="Breed Designation"
+                error={errors.breedDesignation}
+                input={
+                  <select
+                    value={form.breedDesignation}
+                    onChange={(event) => {
+                      const breedDesignation = event.target.value;
+                      setForm((current) => ({ ...current, breedDesignation }));
+                      if (form.setDate) {
+                        syncFromSetDate(form.setDate, breedDesignation);
+                      }
+                    }}
+                    className={inputClassName(errors.breedDesignation)}
+                  >
+                    {breedOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                }
+              />
+              <FormField
+                label="Incubation"
+                input={
+                  <div className="rounded-2xl border border-[color:var(--line)] bg-[#f8fbfb] px-4 py-3 text-sm text-[color:var(--muted)]">
+                    {getHatchBreedRule(form.breedDesignation).incubationDays} day incubation with lockdown{" "}
+                    {getHatchBreedRule(form.breedDesignation).lockdownOffsetDays} days before hatch
+                  </div>
+                }
+              />
+              <FormField
                 label="Set Date"
                 error={errors.setDate}
                 input={
                   <input
                     type="date"
                     value={form.setDate}
-                    onChange={(event) => updateField("setDate", event.target.value)}
+                    onChange={(event) => syncFromSetDate(event.target.value, form.breedDesignation)}
                     className={inputClassName(errors.setDate)}
+                  />
+                }
+              />
+              <FormField
+                label="Lockdown Date"
+                error={errors.lockdownDate}
+                input={
+                  <input
+                    type="date"
+                    value={form.lockdownDate}
+                    readOnly
+                    className={`${inputClassName(errors.lockdownDate)} bg-[#f8fbfb] text-[color:var(--muted)]`}
                   />
                 }
               />
@@ -286,7 +421,7 @@ export default function HatchGroupsPage() {
                   <input
                     type="date"
                     value={form.hatchDate}
-                    onChange={(event) => updateField("hatchDate", event.target.value)}
+                    onChange={(event) => syncFromHatchDate(event.target.value, form.breedDesignation)}
                     className={inputClassName(errors.hatchDate)}
                   />
                 }
@@ -344,7 +479,7 @@ export default function HatchGroupsPage() {
                   disabled={isSaving}
                   className="inline-flex items-center justify-center rounded-full bg-[color:var(--accent)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#4f3fa0] disabled:cursor-not-allowed disabled:opacity-70"
                 >
-                  {isSaving ? "Saving..." : "Save Hatch Group"}
+                  {isSaving ? (isEditing ? "Updating..." : "Saving...") : isEditing ? "Update Hatch Group" : "Save Hatch Group"}
                 </button>
               </div>
             </form>

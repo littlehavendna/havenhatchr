@@ -737,16 +737,17 @@ export async function loadDemoDataForUser(actorUserId: string, userId: string) {
     }
 
     for (const hatchGroup of demoHatchGroups) {
-      await tx.hatchGroup.create({
-        data: {
-          ...hatchGroup,
-          id: hatchGroupIdMap.get(hatchGroup.id)!,
-          pairingId: pairingIdMap.get(hatchGroup.pairingId)!,
-          userId,
-          setDate: new Date(`${hatchGroup.setDate}T00:00:00`),
-          hatchDate: new Date(`${hatchGroup.hatchDate}T00:00:00`),
-          createdAt: new Date(hatchGroup.createdAt),
-        },
+        await tx.hatchGroup.create({
+          data: {
+            ...hatchGroup,
+            id: hatchGroupIdMap.get(hatchGroup.id)!,
+            pairingId: pairingIdMap.get(hatchGroup.pairingId)!,
+            userId,
+            setDate: new Date(`${hatchGroup.setDate}T00:00:00`),
+            lockdownDate: new Date(`${hatchGroup.lockdownDate}T00:00:00`),
+            hatchDate: new Date(`${hatchGroup.hatchDate}T00:00:00`),
+            createdAt: new Date(hatchGroup.createdAt),
+          },
       });
     }
 

@@ -89,7 +89,9 @@ export interface HatchGroup {
   id: string;
   name: string;
   pairingId: string;
+  breedDesignation: string;
   setDate: string;
+  lockdownDate: string;
   hatchDate: string;
   eggsSet: number;
   eggsHatched: number;

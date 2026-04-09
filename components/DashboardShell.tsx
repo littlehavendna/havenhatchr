@@ -74,12 +74,12 @@ export function DashboardShell({ children }: DashboardShellProps) {
   );
 
   return (
-    <div className="min-h-screen text-foreground">
-      <div className="mx-auto flex min-h-screen max-w-[1600px]">
+    <div className="min-h-screen overflow-x-clip text-foreground">
+      <div className="mx-auto flex min-h-screen w-full max-w-[1600px]">
         <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
         <div className="flex min-h-screen min-w-0 flex-1 flex-col">
           <Topbar onMenuClick={() => setIsSidebarOpen(true)} />
-          <main className="flex-1 px-4 pb-6 pt-4 sm:px-6 lg:px-8">
+          <main className="mobile-safe-pb flex-1 px-3 pb-6 pt-3 sm:px-5 sm:pt-4 lg:px-8">
             {isBillingLoading ? (
               <section className="soft-shadow rounded-[28px] border border-[color:var(--line)] bg-white/88 p-6">
                 <p className="text-sm text-[color:var(--muted)]">Loading account access...</p>

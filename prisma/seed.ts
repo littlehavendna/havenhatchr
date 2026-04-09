@@ -178,6 +178,7 @@ async function main() {
         ...hatchGroup,
         userId,
         setDate: new Date(`${hatchGroup.setDate}T00:00:00`),
+        lockdownDate: new Date(`${hatchGroup.lockdownDate}T00:00:00`),
         hatchDate: new Date(`${hatchGroup.hatchDate}T00:00:00`),
         createdAt: new Date(hatchGroup.createdAt),
       },

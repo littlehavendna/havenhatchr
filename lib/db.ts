@@ -1,3 +1,4 @@
+import { deriveIncubationDates, HATCH_BREED_OPTIONS } from "@/lib/hatch-groups";
 import { prisma } from "@/lib/prisma";
 
 function formatDateOnly(value: Date) {
@@ -460,7 +461,9 @@ export async function getBirdProfileData(userId: string, birdId: string) {
       id: group.id,
       name: group.name,
       pairingId: group.pairingId,
+      breedDesignation: group.breedDesignation,
       setDate: formatDateOnly(group.setDate),
+      lockdownDate: formatDateOnly(group.lockdownDate),
       hatchDate: formatDateOnly(group.hatchDate),
       eggsSet: group.eggsSet,
       eggsHatched: group.eggsHatched,
@@ -588,7 +591,9 @@ export async function getHatchGroupsData(userId: string) {
       id: group.id,
       name: group.name,
       pairingId: group.pairingId,
+      breedDesignation: group.breedDesignation,
       setDate: formatDateOnly(group.setDate),
+      lockdownDate: formatDateOnly(group.lockdownDate),
       hatchDate: formatDateOnly(group.hatchDate),
       eggsSet: group.eggsSet,
       eggsHatched: group.eggsHatched,
@@ -602,6 +607,7 @@ export async function getHatchGroupsData(userId: string) {
       name: pairing.name,
       targetTraits: pairing.targetTraits,
     })),
+    breedOptions: HATCH_BREED_OPTIONS,
   };
 }
 
@@ -610,7 +616,9 @@ export async function createHatchGroup(
   data: {
     name: string;
     pairingId: string;
+    breedDesignation: string;
     setDate: string;
+    lockdownDate?: string;
     hatchDate: string;
     eggsSet: number;
     eggsHatched: number;
@@ -619,12 +627,45 @@ export async function createHatchGroup(
   },
 ) {
   await requireOwnedPairing(userId, data.pairingId);
+  const derivedDates = deriveIncubationDates(data.setDate, data.breedDesignation);
 
   return prisma.hatchGroup.create({
     data: {
       userId,
       ...data,
       setDate: new Date(`${data.setDate}T00:00:00`),
+      lockdownDate: new Date(`${(data.lockdownDate || derivedDates.lockdownDate)}T00:00:00`),
+      hatchDate: new Date(`${data.hatchDate}T00:00:00`),
+    },
+  });
+}
+
+export async function updateHatchGroup(
+  userId: string,
+  hatchGroupId: string,
+  data: {
+    name: string;
+    pairingId: string;
+    breedDesignation: string;
+    setDate: string;
+    lockdownDate?: string;
+    hatchDate: string;
+    eggsSet: number;
+    eggsHatched: number;
+    producedTraitsSummary: string;
+    notes: string;
+  },
+) {
+  await requireOwnedHatchGroup(userId, hatchGroupId);
+  await requireOwnedPairing(userId, data.pairingId);
+  const derivedDates = deriveIncubationDates(data.setDate, data.breedDesignation);
+
+  return prisma.hatchGroup.update({
+    where: { id: hatchGroupId },
+    data: {
+      ...data,
+      setDate: new Date(`${data.setDate}T00:00:00`),
+      lockdownDate: new Date(`${(data.lockdownDate || derivedDates.lockdownDate)}T00:00:00`),
       hatchDate: new Date(`${data.hatchDate}T00:00:00`),
     },
   });
@@ -1164,7 +1205,9 @@ export async function getDashboardData(userId: string) {
     recentHatchGroups: hatchGroups.slice(0, 3).map((group) => ({
       name: group.name,
       pairing: group.pairing.name,
+      breedDesignation: group.breedDesignation,
       setDate: formatDateOnly(group.setDate),
+      lockdownDate: formatDateOnly(group.lockdownDate),
       hatchDate: formatDateOnly(group.hatchDate),
       eggsSet: String(group.eggsSet),
       eggsHatched: String(group.eggsHatched),
@@ -1318,7 +1361,9 @@ export async function getAiToolsData(userId: string) {
       id: group.id,
       name: group.name,
       pairingId: group.pairingId,
+      breedDesignation: group.breedDesignation,
       setDate: formatDateOnly(group.setDate),
+      lockdownDate: formatDateOnly(group.lockdownDate),
       hatchDate: formatDateOnly(group.hatchDate),
       eggsSet: group.eggsSet,
       eggsHatched: group.eggsHatched,

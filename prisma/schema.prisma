@@ -215,7 +215,9 @@ model HatchGroup {
   userId                String
   name                  String
   pairingId             String
+  breedDesignation      String     @default("Chicken")
   setDate               DateTime
+  lockdownDate          DateTime
   hatchDate             DateTime
   eggsSet               Int        @default(0)
   eggsHatched           Int        @default(0)

@@ -6,12 +6,12 @@ import { usePathname } from "next/navigation";
 
 const links = [
   { href: "/dashboard", label: "Dashboard" },
-  { href: "/customers", label: "Customers" },
   { href: "/flocks", label: "Flocks" },
   { href: "/birds", label: "Birds" },
-  { href: "/pairings", label: "Pairings" },
-  { href: "/hatch-groups", label: "Hatch Groups" },
   { href: "/chicks", label: "Chicks" },
+  { href: "/hatch-groups", label: "Hatch Groups" },
+  { href: "/customers", label: "Customers" },
+  { href: "/pairings", label: "Pairings" },
   { href: "/traits", label: "Traits" },
   { href: "/genetics", label: "Genetics" },
   { href: "/analytics", label: "Analytics" },
@@ -52,7 +52,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         }`}
       />
       <aside
-        className={`glass-panel soft-shadow fixed inset-y-4 left-4 z-40 flex w-72 flex-col rounded-[28px] border border-[color:var(--line)] p-4 transition duration-200 md:sticky md:top-4 md:m-4 md:h-[calc(100vh-2rem)] md:translate-x-0 ${
+        className={`glass-panel soft-shadow mobile-safe-pb mobile-safe-pt fixed inset-y-2 left-2 z-40 flex w-[calc(100vw-1rem)] max-w-[22rem] flex-col rounded-[28px] border border-[color:var(--line)] p-4 transition duration-200 md:sticky md:top-4 md:m-4 md:h-[calc(100vh-2rem)] md:w-72 md:max-w-none md:translate-x-0 ${
           isOpen ? "translate-x-0" : "-translate-x-[120%]"
         }`}
       >
@@ -74,7 +74,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           </button>
         </div>
 
-        <nav className="mt-8 flex flex-1 flex-col gap-2">
+        <nav className="mt-6 flex flex-1 flex-col gap-2 overflow-y-auto pr-1">
           {links.map((link) => {
             const active = pathname === link.href;
 
@@ -83,7 +83,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                 key={link.href}
                 href={link.href}
                 onClick={onClose}
-                className={`rounded-2xl px-4 py-3 text-sm font-medium transition ${
+                className={`rounded-2xl px-4 py-3.5 text-sm font-medium transition ${
                   active
                     ? "bg-[color:var(--accent)] text-white shadow-lg shadow-violet-950/12"
                     : "text-[color:var(--muted)] hover:bg-white/70 hover:text-foreground"
@@ -97,7 +97,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             <Link
               href="/admin"
               onClick={onClose}
-              className={`rounded-2xl px-4 py-3 text-sm font-medium transition ${
+              className={`rounded-2xl px-4 py-3.5 text-sm font-medium transition ${
                 pathname.startsWith("/admin")
                   ? "bg-[color:var(--teal)] text-white shadow-lg shadow-teal-950/12"
                   : "text-[color:var(--muted)] hover:bg-white/70 hover:text-foreground"

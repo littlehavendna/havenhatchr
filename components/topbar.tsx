@@ -62,9 +62,9 @@ export function Topbar({ onMenuClick }: TopbarProps) {
   }
 
   return (
-    <header className="px-4 pt-4 sm:px-6 lg:px-8">
-      <div className="glass-panel soft-shadow flex items-center justify-between rounded-[28px] border border-[color:var(--line)] px-4 py-4 sm:px-6">
-        <div className="flex items-center gap-3">
+    <header className="mobile-safe-pt px-3 pt-3 sm:px-5 sm:pt-4 lg:px-8">
+      <div className="glass-panel soft-shadow flex flex-col gap-4 rounded-[28px] border border-[color:var(--line)] px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex min-w-0 items-center gap-3">
           <button
             type="button"
             onClick={onMenuClick}
@@ -73,31 +73,26 @@ export function Topbar({ onMenuClick }: TopbarProps) {
           >
             <MenuIcon />
           </button>
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[color:var(--muted)]">
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[color:var(--muted)] sm:text-xs sm:tracking-[0.24em]">
               Poultry Breeder Management
             </p>
-            <h1 className="mt-1 text-2xl font-semibold tracking-tight">
+            <h1 className="mt-1 truncate text-xl font-semibold tracking-tight sm:text-2xl">
               HavenHatchr
             </h1>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 sm:justify-end">
           {user ? (
-            <div className="hidden rounded-full border border-[color:var(--line)] bg-[color:var(--teal-soft)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--teal)] sm:block">
+            <div className="order-3 w-full rounded-full border border-[color:var(--line)] bg-[color:var(--teal-soft)] px-4 py-2 text-center text-[11px] font-semibold uppercase tracking-[0.18em] text-[color:var(--teal)] sm:order-none sm:w-auto sm:text-xs">
               {user.planBadge}
             </div>
           ) : null}
-          {user?.isBetaUser ? (
-            <div className="hidden rounded-full border border-[color:var(--line)] bg-[#f5f3fd] px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--accent)] lg:block">
-              Founder Access
-            </div>
-          ) : null}
           {user ? (
-            <div className="hidden text-right sm:block">
-              <p className="text-sm font-semibold text-foreground">{user.name}</p>
-              <p className="text-xs text-[color:var(--muted)]">{user.email}</p>
+            <div className="min-w-0 flex-1 text-left sm:max-w-[15rem] sm:text-right">
+              <p className="truncate text-sm font-semibold text-foreground">{user.name}</p>
+              <p className="truncate text-xs text-[color:var(--muted)]">{user.email}</p>
             </div>
           ) : null}
           <div className="flex h-11 w-11 items-center justify-center rounded-full border border-[color:var(--line)] bg-white/80 text-sm font-semibold text-[color:var(--accent)]">
