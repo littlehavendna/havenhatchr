@@ -15,6 +15,14 @@ type CurrentUser = {
   stripeCustomerId: string | null;
 };
 
+async function readJsonSafely<T>(response: Response): Promise<T> {
+  try {
+    return (await response.json()) as T;
+  } catch {
+    return {} as T;
+  }
+}
+
 export default function SettingsPage() {
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -71,7 +79,7 @@ export default function SettingsPage() {
       setRequestError("");
 
       const response = await fetch(path, { method: "POST" });
-      const data = (await response.json()) as { url?: string; error?: string };
+      const data = await readJsonSafely<{ url?: string; error?: string }>(response);
 
       if (!response.ok || !data.url) {
         throw new Error(data.error || "Unable to open billing.");
@@ -90,7 +98,7 @@ export default function SettingsPage() {
       setRequestError("");
 
       const response = await fetch("/api/billing/cancel", { method: "POST" });
-      const data = (await response.json()) as { error?: string };
+      const data = await readJsonSafely<{ error?: string }>(response);
 
       if (!response.ok) {
         throw new Error(data.error || "Unable to schedule cancellation.");

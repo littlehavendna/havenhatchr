@@ -28,8 +28,79 @@ function hashPassword(password: string) {
 async function main() {
   const userId = currentUser.id;
   const chickIds = new Set(chicks.map((chick) => chick.id));
+  const now = new Date();
+  const adminUsers = [
+    {
+      ...currentUser,
+      passwordHash: hashPassword(DEMO_PASSWORD),
+      plan: "starter",
+      subscriptionStatus: "beta",
+      isBetaUser: true,
+      isFounder: true,
+      isAdmin: true,
+      aiAccessEnabled: true,
+      lastLoginAt: new Date("2026-04-08T10:00:00.000Z"),
+      createdAt: new Date(currentUser.createdAt),
+    },
+    {
+      id: "user_trial",
+      name: "Trial Breeder",
+      email: "trial@havenhatchr.com",
+      passwordHash: hashPassword(DEMO_PASSWORD),
+      plan: "starter",
+      subscriptionStatus: "trialing",
+      trialEnd: new Date(now.getTime() + 1000 * 60 * 60 * 24 * 10),
+      currentPeriodEnd: new Date(now.getTime() + 1000 * 60 * 60 * 24 * 10),
+      isBetaUser: false,
+      isFounder: false,
+      isAdmin: false,
+      aiAccessEnabled: true,
+      lastLoginAt: new Date("2026-04-07T14:20:00.000Z"),
+      createdAt: new Date("2026-04-02T12:00:00.000Z"),
+    },
+    {
+      id: "user_paid",
+      name: "Active Subscriber",
+      email: "paid@havenhatchr.com",
+      passwordHash: hashPassword(DEMO_PASSWORD),
+      plan: "starter",
+      subscriptionStatus: "active",
+      trialEnd: new Date("2026-03-20T12:00:00.000Z"),
+      currentPeriodEnd: new Date(now.getTime() + 1000 * 60 * 60 * 24 * 24),
+      stripeCustomerId: "cus_demo_paid",
+      stripeSubscriptionId: "sub_demo_paid",
+      isBetaUser: false,
+      isFounder: false,
+      isAdmin: false,
+      aiAccessEnabled: true,
+      lastLoginAt: new Date("2026-04-08T09:45:00.000Z"),
+      createdAt: new Date("2026-03-10T12:00:00.000Z"),
+    },
+    {
+      id: "user_support",
+      name: "Past Due Breeder",
+      email: "pastdue@havenhatchr.com",
+      passwordHash: hashPassword(DEMO_PASSWORD),
+      plan: "starter",
+      subscriptionStatus: "past_due",
+      stripeCustomerId: "cus_demo_pastdue",
+      stripeSubscriptionId: "sub_demo_pastdue",
+      isBetaUser: false,
+      isFounder: false,
+      isAdmin: false,
+      aiAccessEnabled: false,
+      lastLoginAt: new Date("2026-04-05T08:15:00.000Z"),
+      accountDisabledAt: null,
+      createdAt: new Date("2026-03-22T12:00:00.000Z"),
+    },
+  ];
 
   await prisma.session.deleteMany();
+  await prisma.aiUsageLog.deleteMany();
+  await prisma.usageEvent.deleteMany();
+  await prisma.auditLog.deleteMany();
+  await prisma.systemSetting.deleteMany();
+  await prisma.featureFlag.deleteMany();
   await prisma.photo.deleteMany();
   await prisma.note.deleteMany();
   await prisma.orderChick.deleteMany();
@@ -44,16 +115,9 @@ async function main() {
   await prisma.customer.deleteMany();
   await prisma.user.deleteMany();
 
-  await prisma.user.create({
-    data: {
-      ...currentUser,
-      passwordHash: hashPassword(DEMO_PASSWORD),
-      plan: "starter",
-      subscriptionStatus: "beta",
-      isBetaUser: true,
-      createdAt: new Date(currentUser.createdAt),
-    },
-  });
+  for (const user of adminUsers) {
+    await prisma.user.create({ data: user });
+  }
 
   await prisma.customer.createMany({
     data: customers.map((customer) => ({
@@ -213,8 +277,147 @@ async function main() {
     });
   }
 
+  await prisma.featureFlag.createMany({
+    data: [
+      {
+        name: "Admin Console",
+        key: "admin_console",
+        description: "Controls access to the internal admin operations surfaces.",
+        enabled: true,
+        audience: "admin",
+        rolloutPercent: 100,
+        createdById: userId,
+        updatedById: userId,
+      },
+      {
+        name: "AI Tools",
+        key: "ai_tools",
+        description: "Global switch for breeder-facing AI tool placeholders.",
+        enabled: true,
+        audience: "all",
+        rolloutPercent: 100,
+        createdById: userId,
+        updatedById: userId,
+      },
+      {
+        name: "Founder Banner",
+        key: "founder_badge",
+        description: "Shows the founder or beta-access indicator in the app shell.",
+        enabled: true,
+        audience: "beta",
+        rolloutPercent: 100,
+        createdById: userId,
+        updatedById: userId,
+      },
+    ],
+  });
+
+  await prisma.systemSetting.createMany({
+    data: [
+      {
+        key: "maintenance_mode",
+        label: "Maintenance Mode",
+        description: "Temporarily blocks normal breeder access if enabled.",
+        value: false,
+        updatedById: userId,
+      },
+      {
+        key: "invite_only_mode",
+        label: "Invite Only Mode",
+        description: "Restricts new account creation to invited users only.",
+        value: false,
+        updatedById: userId,
+      },
+      {
+        key: "beta_banner_text",
+        label: "Beta Banner Text",
+        description: "Optional internal banner text shown to founder and beta accounts.",
+        value: "Founder Access enabled",
+        updatedById: userId,
+      },
+      {
+        key: "ai_global_enabled",
+        label: "AI Global Enable",
+        description: "Global switch for placeholder AI surfaces.",
+        value: true,
+        updatedById: userId,
+      },
+    ],
+  });
+
+  await prisma.auditLog.createMany({
+    data: [
+      {
+        actorUserId: userId,
+        subjectUserId: userId,
+        action: "seed.admin_bootstrap",
+        entityType: "user",
+        entityId: userId,
+        summary: "Seeded founder admin account with beta access.",
+      },
+      {
+        actorUserId: userId,
+        subjectUserId: "user_trial",
+        action: "seed.trial_user",
+        entityType: "user",
+        entityId: "user_trial",
+        summary: "Seeded trial user for billing oversight validation.",
+      },
+      {
+        actorUserId: userId,
+        subjectUserId: "user_support",
+        action: "seed.past_due_user",
+        entityType: "user",
+        entityId: "user_support",
+        summary: "Seeded past due account for support diagnostics.",
+      },
+    ],
+  });
+
+  await prisma.usageEvent.createMany({
+    data: [
+      {
+        userId,
+        eventType: "dashboard.view",
+        route: "/dashboard",
+        metadata: { source: "seed" },
+      },
+      {
+        userId: "user_paid",
+        eventType: "orders.create",
+        route: "/orders",
+        metadata: { source: "seed" },
+      },
+      {
+        userId: "user_trial",
+        eventType: "birds.view",
+        route: "/birds",
+        metadata: { source: "seed" },
+      },
+    ],
+  });
+
+  await prisma.aiUsageLog.createMany({
+    data: [
+      {
+        userId,
+        tool: "listing_writer",
+        action: "generate_listing",
+        inputSummary: "Blue Copper Marans breeder listing prompt",
+        outputSummary: "Generated breeder-ready listing paragraph",
+      },
+      {
+        userId: "user_paid",
+        tool: "pairing_suggestions",
+        action: "suggest_pairing",
+        inputSummary: "Lavender Ameraucana pairing review",
+        outputSummary: "Returned strengths and concerns",
+      },
+    ],
+  });
+
   console.log(
-    `Seeded demo user ${currentUser.email} with password ${DEMO_PASSWORD} and Founder Access enabled`,
+    `Seeded founder admin ${currentUser.email} with password ${DEMO_PASSWORD}, plus billing and support demo accounts`,
   );
 }
 

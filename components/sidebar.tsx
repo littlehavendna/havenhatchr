@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 
 const links = [
@@ -27,6 +28,18 @@ type SidebarProps = {
 
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    async function loadUser() {
+      const response = await fetch("/api/auth/me", { cache: "no-store" });
+      if (!response.ok) return;
+      const data = (await response.json()) as { user: { isAdmin?: boolean } };
+      setIsAdmin(Boolean(data.user.isAdmin));
+    }
+
+    void loadUser();
+  }, []);
 
   return (
     <>
@@ -80,6 +93,19 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
               </Link>
             );
           })}
+          {isAdmin ? (
+            <Link
+              href="/admin"
+              onClick={onClose}
+              className={`rounded-2xl px-4 py-3 text-sm font-medium transition ${
+                pathname.startsWith("/admin")
+                  ? "bg-[color:var(--teal)] text-white shadow-lg shadow-teal-950/12"
+                  : "text-[color:var(--muted)] hover:bg-white/70 hover:text-foreground"
+              }`}
+            >
+              Admin Console
+            </Link>
+          ) : null}
         </nav>
 
         <div className="rounded-[24px] border border-[color:var(--line)] bg-white/72 p-4">

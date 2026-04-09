@@ -113,6 +113,16 @@ export async function getCurrentUser() {
   return session?.user ?? null;
 }
 
+export async function getCurrentAdminUser() {
+  const user = await getCurrentUser();
+
+  if (!user || !user.isAdmin || user.accountDisabledAt) {
+    return null;
+  }
+
+  return user;
+}
+
 export async function getCurrentUserId() {
   const user = await getCurrentUser();
   if (!user || !hasBillingAccess(user)) {
@@ -125,8 +135,18 @@ export async function getCurrentUserId() {
 export async function requireCurrentUser() {
   const user = await getCurrentUser();
 
-  if (!user) {
+  if (!user || user.accountDisabledAt) {
     throw new Error("Unauthorized");
+  }
+
+  return user;
+}
+
+export async function requireAdminUser() {
+  const user = await getCurrentAdminUser();
+
+  if (!user) {
+    throw new Error("Forbidden");
   }
 
   return user;

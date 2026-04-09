@@ -3,6 +3,14 @@
 import Link from "next/link";
 import { useState } from "react";
 
+async function readJsonSafely<T>(response: Response): Promise<T> {
+  try {
+    return (await response.json()) as T;
+  } catch {
+    return {} as T;
+  }
+}
+
 type PaywallScreenProps = {
   isBetaUser?: boolean;
 };
@@ -17,7 +25,7 @@ export function PaywallScreen({ isBetaUser = false }: PaywallScreenProps) {
       setRequestError("");
 
       const response = await fetch("/api/billing/checkout", { method: "POST" });
-      const data = (await response.json()) as { url?: string; error?: string };
+      const data = await readJsonSafely<{ url?: string; error?: string }>(response);
 
       if (!response.ok || !data.url) {
         throw new Error(data.error || "Unable to start the free trial.");

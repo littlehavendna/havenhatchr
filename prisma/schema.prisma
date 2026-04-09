@@ -58,26 +58,38 @@ model User {
   email        String        @unique
   passwordHash String
   plan         String        @default("starter")
-  stripeCustomerId      String?       @unique
-  stripeSubscriptionId  String?       @unique
-  subscriptionStatus    String        @default("inactive")
+  stripeCustomerId      String?        @unique
+  stripeSubscriptionId  String?        @unique
+  subscriptionStatus    String         @default("inactive")
   trialEnd              DateTime?
   currentPeriodEnd      DateTime?
-  isBetaUser            Boolean       @default(false)
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  sessions     Session[]
-  customers    Customer[]
-  flocks       Flock[]
-  birds        Bird[]
-  pairings     Pairing[]
-  hatchGroups  HatchGroup[]
-  chicks       Chick[]
-  reservations Reservation[]
-  orders       Order[]
-  traits       Trait[]
-  notes        Note[]
-  photos       Photo[]
+  isBetaUser            Boolean        @default(false)
+  isAdmin               Boolean        @default(false)
+  isFounder             Boolean        @default(false)
+  aiAccessEnabled       Boolean        @default(true)
+  lastLoginAt           DateTime?
+  accountDisabledAt     DateTime?
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+  sessions              Session[]
+  customers             Customer[]
+  flocks                Flock[]
+  birds                 Bird[]
+  pairings              Pairing[]
+  hatchGroups           HatchGroup[]
+  chicks                Chick[]
+  reservations          Reservation[]
+  orders                Order[]
+  traits                Trait[]
+  notes                 Note[]
+  photos                Photo[]
+  createdFeatureFlags   FeatureFlag[]  @relation("FeatureFlagCreatedBy")
+  updatedFeatureFlags   FeatureFlag[]  @relation("FeatureFlagUpdatedBy")
+  auditLogs             AuditLog[]     @relation("AuditActor")
+  subjectAuditLogs      AuditLog[]     @relation("AuditSubjectUser")
+  updatedSystemSettings SystemSetting[]
+  usageEvents           UsageEvent[]
+  aiUsageLogs           AiUsageLog[]
 }
 
 model Session {
@@ -361,4 +373,83 @@ model Photo {
   @@index([pairingId])
   @@index([hatchGroupId])
   @@index([flockId])
+}
+
+model FeatureFlag {
+  id             String   @id @default(cuid())
+  name           String
+  key            String   @unique
+  description    String   @default("")
+  enabled        Boolean  @default(false)
+  rolloutPercent Int?
+  audience       String   @default("all")
+  createdById    String?
+  updatedById    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  createdBy      User?    @relation("FeatureFlagCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy      User?    @relation("FeatureFlagUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([enabled])
+}
+
+model AuditLog {
+  id            String   @id @default(cuid())
+  actorUserId   String?
+  subjectUserId String?
+  action        String
+  entityType    String
+  entityId      String?
+  summary       String
+  metadata      Json?
+  createdAt     DateTime @default(now())
+  actorUser     User?    @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  subjectUser   User?    @relation("AuditSubjectUser", fields: [subjectUserId], references: [id], onDelete: SetNull)
+
+  @@index([actorUserId])
+  @@index([subjectUserId])
+  @@index([action])
+  @@index([entityType])
+  @@index([createdAt])
+}
+
+model SystemSetting {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  label       String
+  description String   @default("")
+  value       Json
+  updatedById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  updatedBy   User?    @relation(fields: [updatedById], references: [id], onDelete: SetNull)
+}
+
+model UsageEvent {
+  id         String   @id @default(cuid())
+  userId     String?
+  eventType  String
+  route      String   @default("")
+  metadata   Json?
+  createdAt  DateTime @default(now())
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([eventType])
+  @@index([createdAt])
+}
+
+model AiUsageLog {
+  id            String   @id @default(cuid())
+  userId        String?
+  tool          String
+  action        String   @default("")
+  inputSummary  String   @default("")
+  outputSummary String   @default("")
+  createdAt     DateTime @default(now())
+  user          User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([tool])
+  @@index([createdAt])
 }

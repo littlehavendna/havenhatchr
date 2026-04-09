@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logUsageEvent } from "@/lib/admin";
 import { createSession, verifyPassword } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -19,7 +20,24 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
   }
 
+  if (user.accountDisabledAt) {
+    return NextResponse.json({ error: "This account has been disabled." }, { status: 403 });
+  }
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      lastLoginAt: new Date(),
+    },
+  });
+
   await createSession(user.id);
+  await logUsageEvent({
+    userId: user.id,
+    eventType: "auth.login",
+    route: "/login",
+    metadata: { source: "credentials" },
+  });
 
   return NextResponse.json({
     user: {

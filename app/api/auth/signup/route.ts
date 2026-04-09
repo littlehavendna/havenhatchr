@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logUsageEvent } from "@/lib/admin";
 import { createSession, hashPassword } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -37,6 +38,12 @@ export async function POST(request: Request) {
   });
 
   await createSession(user.id);
+  await logUsageEvent({
+    userId: user.id,
+    eventType: "auth.signup",
+    route: "/signup",
+    metadata: { source: "credentials" },
+  });
 
   return NextResponse.json({
     user: {

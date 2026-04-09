@@ -23,6 +23,11 @@ export async function GET() {
       currentPeriodEnd: formatBillingDate(user.currentPeriodEnd),
       hasAppAccess: hasBillingAccess(user),
       planBadge: getPlanBadge(user),
+      isAdmin: user.isAdmin,
+      isFounder: user.isFounder,
+      aiAccessEnabled: user.aiAccessEnabled,
+      lastLoginAt: formatBillingDate(user.lastLoginAt),
+      accountDisabledAt: formatBillingDate(user.accountDisabledAt),
     },
   });
 }

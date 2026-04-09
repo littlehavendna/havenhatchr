@@ -54,13 +54,11 @@ export default function LoginPage() {
             </p>
             <div className="mt-8 rounded-[26px] border border-white/12 bg-white/6 p-5">
               <p className="text-sm font-semibold uppercase tracking-[0.18em] text-white/65">
-                Demo account
+                Account security
               </p>
               <p className="mt-3 text-sm leading-7 text-white/78">
-                Email: <span className="font-semibold text-white">owner@havenhatchr.com</span>
-              </p>
-              <p className="text-sm leading-7 text-white/78">
-                Password: <span className="font-semibold text-white">demo12345</span>
+                Use your HavenHatchr account credentials to access your private breeder workspace
+                and internal tools.
               </p>
             </div>
           </section>

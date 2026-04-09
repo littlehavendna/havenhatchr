@@ -17,6 +17,15 @@ export interface User {
   name: string;
   email: string;
   plan: string;
+  isBetaUser?: boolean;
+  isFounder?: boolean;
+  isAdmin?: boolean;
+  aiAccessEnabled?: boolean;
+  subscriptionStatus?: string;
+  trialEnd?: string | null;
+  currentPeriodEnd?: string | null;
+  lastLoginAt?: string | null;
+  accountDisabledAt?: string | null;
   createdAt: string;
 }
 
