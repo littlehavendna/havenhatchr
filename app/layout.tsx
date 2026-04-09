@@ -5,6 +5,7 @@ import { getAppBaseUrl } from "@/lib/env";
 
 export const metadata: Metadata = {
   metadataBase: getAppBaseUrl(),
+  manifest: "/manifest.webmanifest",
   title: {
     default: "HavenHatchr",
     template: "%s | HavenHatchr",

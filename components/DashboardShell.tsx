@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { OnboardingWalkthrough } from "@/components/onboarding-walkthrough";
 import { PaywallScreen } from "@/components/paywall-screen";
 import { FeedbackModal } from "@/components/feedback-modal";
+import { OfflineProvider } from "@/components/offline-provider";
 import { Sidebar } from "@/components/sidebar";
 import { Topbar } from "@/components/topbar";
 
@@ -80,6 +81,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
       <div className="mx-auto flex min-h-screen w-full max-w-[1600px]">
         <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
         <div className="flex min-h-screen min-w-0 flex-1 flex-col">
+          <OfflineProvider />
           <Topbar
             onMenuClick={() => setIsSidebarOpen(true)}
             onFeedbackClick={() => setIsFeedbackOpen(true)}

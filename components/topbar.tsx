@@ -17,6 +17,9 @@ export function Topbar({ onMenuClick, onFeedbackClick }: TopbarProps) {
     planBadge: string;
     isBetaUser: boolean;
   } | null>(null);
+  const [isOnline, setIsOnline] = useState(() =>
+    typeof navigator === "undefined" ? true : navigator.onLine,
+  );
 
   useEffect(() => {
     async function loadCurrentUser() {
@@ -39,6 +42,19 @@ export function Topbar({ onMenuClick, onFeedbackClick }: TopbarProps) {
     }
 
     void loadCurrentUser();
+  }, []);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
   }, []);
 
   const initials = useMemo(() => {
@@ -85,6 +101,15 @@ export function Topbar({ onMenuClick, onFeedbackClick }: TopbarProps) {
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-3 sm:justify-end">
+          <div
+            className={`order-3 w-full rounded-full border px-4 py-2 text-center text-[11px] font-semibold uppercase tracking-[0.18em] sm:order-none sm:w-auto sm:text-xs ${
+              isOnline
+                ? "border-[color:var(--line)] bg-white/80 text-[color:var(--muted)]"
+                : "border-[#f2d38a] bg-[#fff4dc] text-[#7b5b14]"
+            }`}
+          >
+            {isOnline ? "Online" : "Offline Cache Mode"}
+          </div>
           {user ? (
             <div className="order-3 w-full rounded-full border border-[color:var(--line)] bg-[color:var(--teal-soft)] px-4 py-2 text-center text-[11px] font-semibold uppercase tracking-[0.18em] text-[color:var(--teal)] sm:order-none sm:w-auto sm:text-xs">
               {user.planBadge}
