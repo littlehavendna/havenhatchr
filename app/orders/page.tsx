@@ -224,6 +224,13 @@ export default function OrdersPage() {
             { key: "notes", label: "Notes" },
           ]}
           rows={rows}
+          emptyState={{
+            title: "No orders yet",
+            description:
+              "Orders stay empty until you start assigning chicks to customer pickups.",
+            actionLabel: "Add Order",
+            onAction: () => setIsOpen(true),
+          }}
         />
       </div>
 

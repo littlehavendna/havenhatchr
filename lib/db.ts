@@ -972,6 +972,53 @@ export async function getDashboardData(userId: string) {
         detail: "Breeder requests still waiting on matches or fulfillment",
       },
     ],
+    onboardingChecklist: {
+      completedCount: [
+        flocks.length > 0,
+        birds.length > 0,
+        chicks.length > 0,
+        pairings.length > 0,
+        reservations.length > 0,
+      ].filter(Boolean).length,
+      totalCount: 5,
+      items: [
+        {
+          key: "first-flock",
+          label: "Create your first flock",
+          description: "Set up a flock so birds and chicks have a home base.",
+          href: "/flocks",
+          complete: flocks.length > 0,
+        },
+        {
+          key: "first-bird",
+          label: "Add your first bird",
+          description: "Start building the breeder directory that powers pairings and genetics.",
+          href: "/birds",
+          complete: birds.length > 0,
+        },
+        {
+          key: "first-chick",
+          label: "Add your first chick",
+          description: "Track hatch outcomes and inventory from the start.",
+          href: "/chicks",
+          complete: chicks.length > 0,
+        },
+        {
+          key: "first-pairing",
+          label: "Create your first pairing",
+          description: "Plan breeder outcomes and connect future hatch groups.",
+          href: "/pairings",
+          complete: pairings.length > 0,
+        },
+        {
+          key: "first-reservation",
+          label: "Add your first reservation",
+          description: "Capture demand early so chicks and orders stay aligned.",
+          href: "/reservations",
+          complete: reservations.length > 0,
+        },
+      ],
+    },
     recentChicks: chicks.slice(0, 3).map((chick) => ({
       bandNumber: chick.bandNumber,
       hatchDate: formatDateOnly(chick.hatchDate),

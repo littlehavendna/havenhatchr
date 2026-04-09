@@ -410,9 +410,29 @@ export default function ReservationsPage() {
                   <tr>
                     <td
                       colSpan={8}
-                      className="px-6 py-8 text-center text-sm text-[color:var(--muted)]"
+                      className="px-6 py-10"
                     >
-                      No reservations match the current filters.
+                      <div className="mx-auto max-w-xl text-center">
+                        <p className="text-base font-semibold tracking-tight text-foreground">
+                          {search || statusFilter !== "All Statuses"
+                            ? "No reservations match these filters"
+                            : "No reservations yet"}
+                        </p>
+                        <p className="mt-2 text-sm leading-7 text-[color:var(--muted)]">
+                          {search || statusFilter !== "All Statuses"
+                            ? "Try adjusting the search or status filter to see more requests."
+                            : "Capture your first reservation to track real demand against upcoming hatches."}
+                        </p>
+                        {!search && statusFilter === "All Statuses" ? (
+                          <button
+                            type="button"
+                            onClick={() => setIsOpen(true)}
+                            className="mt-5 inline-flex items-center justify-center rounded-full bg-[color:var(--accent)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#4f3fa0]"
+                          >
+                            Add your first reservation
+                          </button>
+                        ) : null}
+                      </div>
                     </td>
                   </tr>
                 ) : null}
@@ -442,7 +462,7 @@ export default function ReservationsPage() {
           </div>
 
           <div className="mt-5 grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
-            {matchSuggestions.map((suggestion) => (
+            {matchSuggestions.length > 0 ? matchSuggestions.map((suggestion) => (
               <article
                 key={suggestion.id}
                 className="rounded-[24px] border border-[color:var(--line)] bg-[#fcfbff] p-4"
@@ -465,7 +485,12 @@ export default function ReservationsPage() {
                   </p>
                 </div>
               </article>
-            ))}
+            )) : (
+              <div className="rounded-[24px] border border-[color:var(--line)] bg-[#fcfbff] p-5 text-sm leading-7 text-[color:var(--muted)] lg:col-span-2 xl:col-span-3">
+                Match suggestions will appear here once you have reservations and available chicks
+                or hatch groups to compare.
+              </div>
+            )}
           </div>
         </section>
       </div>

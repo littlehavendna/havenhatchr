@@ -67,6 +67,15 @@ type AnalyticsPayload = {
 export default function AnalyticsPage() {
   const [data, setData] = useState<AnalyticsPayload | null>(null);
   const [requestError, setRequestError] = useState("");
+  const isEmptyWorkspace = Boolean(
+    data &&
+      data.summary.totalBirds === 0 &&
+      data.summary.activePairings === 0 &&
+      data.summary.totalHatchGroups === 0 &&
+      data.summary.availableChicks === 0 &&
+      data.summary.openReservations === 0 &&
+      data.summary.completedOrders === 0,
+  );
 
   useEffect(() => {
     async function loadAnalytics() {
@@ -125,6 +134,22 @@ export default function AnalyticsPage() {
           value={String(data?.summary.completedOrders ?? 0)}
         />
       </section>
+
+      {isEmptyWorkspace ? (
+        <section className="soft-shadow rounded-[32px] border border-[color:var(--line)] bg-white/90 p-6">
+          <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[color:var(--muted)]">
+            Empty Workspace
+          </p>
+          <h2 className="mt-2 text-xl font-semibold tracking-tight">
+            Analytics will populate as you add breeder records
+          </h2>
+          <p className="mt-2 max-w-3xl text-sm leading-7 text-[color:var(--muted)]">
+            Start with a flock, a bird, a pairing, and a hatch group. Once real records exist,
+            HavenHatchr will calculate hatch performance, reservation pressure, and genetics
+            trends automatically.
+          </p>
+        </section>
+      ) : null}
 
       <section className="soft-shadow overflow-hidden rounded-[32px] border border-[color:var(--line)] bg-[color:var(--panel-strong)]">
         <div className="border-b border-[color:var(--line)] px-6 py-5">

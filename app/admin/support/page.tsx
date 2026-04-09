@@ -11,7 +11,12 @@ type SupportData = {
     accountDisabledAt: string | null;
     stripeCustomerId: string | null;
   }>;
-  recentAccountEvents: Array<{ id: string; action: string; summary: string; createdAt: string | null }>;
+  recentAccountEvents: Array<{
+    id: string;
+    action: string;
+    summary: string;
+    createdAt: string | null;
+  }>;
   recentUsage: Array<{ id: string; eventType: string; route: string; createdAt: string | null }>;
   placeholderImpersonation: string;
 };
@@ -19,6 +24,8 @@ type SupportData = {
 export default function AdminSupportPage() {
   const [data, setData] = useState<SupportData | null>(null);
   const [search, setSearch] = useState("");
+  const [requestError, setRequestError] = useState("");
+  const [loadingUserId, setLoadingUserId] = useState<string | null>(null);
 
   async function loadSupport(query = "") {
     const response = await fetch(`/api/admin/support?search=${encodeURIComponent(query)}`, {
@@ -35,6 +42,30 @@ export default function AdminSupportPage() {
     });
   }, []);
 
+  async function handleLoadDemoData(userId: string) {
+    try {
+      setRequestError("");
+      setLoadingUserId(userId);
+
+      const response = await fetch("/api/admin/support", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "loadDemoData", userId }),
+      });
+
+      const payload = (await response.json().catch(() => ({}))) as { error?: string };
+      if (!response.ok) {
+        throw new Error(payload.error || "Unable to load demo data.");
+      }
+
+      await loadSupport(search);
+    } catch (error) {
+      setRequestError(error instanceof Error ? error.message : "Unable to load demo data.");
+    } finally {
+      setLoadingUserId(null);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <section className="soft-shadow rounded-[28px] border border-[color:var(--line)] bg-white/88 p-6">
@@ -42,7 +73,8 @@ export default function AdminSupportPage() {
           <div>
             <h2 className="text-lg font-semibold tracking-tight">Support Operations</h2>
             <p className="mt-1 text-sm text-[color:var(--muted)]">
-              Search user accounts, review recent account events, and diagnose billing or access state.
+              Search user accounts, review recent account events, diagnose billing or access
+              state, and optionally load demo data into a clean test account.
             </p>
           </div>
           <input
@@ -57,12 +89,17 @@ export default function AdminSupportPage() {
             className="w-full max-w-md rounded-2xl border border-[color:var(--line)] bg-white px-4 py-3 text-sm outline-none transition focus:border-[color:var(--accent)] focus:ring-2 focus:ring-[color:var(--accent-soft)]"
           />
         </div>
+        {requestError ? <p className="mt-4 text-sm text-[#b34b75]">{requestError}</p> : null}
       </section>
+
       <div className="grid gap-6 xl:grid-cols-2">
         <Section title="Account Diagnostics">
           <div className="space-y-3">
             {(data?.users ?? []).map((user) => (
-              <div key={user.id} className="rounded-[20px] border border-[color:var(--line)] bg-[#fcfbff] p-4">
+              <div
+                key={user.id}
+                className="rounded-[20px] border border-[color:var(--line)] bg-[#fcfbff] p-4"
+              >
                 <p className="font-semibold">{user.name}</p>
                 <p className="text-sm text-[color:var(--muted)]">{user.email}</p>
                 <p className="mt-2 text-sm text-[color:var(--muted)]">
@@ -71,14 +108,26 @@ export default function AdminSupportPage() {
                 <p className="mt-2 text-xs uppercase tracking-[0.16em] text-[color:var(--muted)]">
                   {user.stripeCustomerId || "No Stripe customer"}
                 </p>
+                <button
+                  type="button"
+                  onClick={() => handleLoadDemoData(user.id)}
+                  disabled={loadingUserId === user.id}
+                  className="mt-4 inline-flex items-center justify-center rounded-full border border-[color:var(--line)] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--accent)] transition hover:bg-[#f8f7fe] disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {loadingUserId === user.id ? "Loading..." : "Load Demo Data"}
+                </button>
               </div>
             ))}
           </div>
         </Section>
+
         <Section title="Recent Account Events">
           <div className="space-y-3">
             {(data?.recentAccountEvents ?? []).map((entry) => (
-              <div key={entry.id} className="rounded-[20px] border border-[color:var(--line)] bg-[#fff7f8] p-4">
+              <div
+                key={entry.id}
+                className="rounded-[20px] border border-[color:var(--line)] bg-[#fff7f8] p-4"
+              >
                 <p className="font-semibold">{entry.action}</p>
                 <p className="mt-1 text-sm text-[color:var(--muted)]">{entry.summary}</p>
                 <p className="mt-2 text-xs uppercase tracking-[0.16em] text-[color:var(--muted)]">
@@ -89,6 +138,7 @@ export default function AdminSupportPage() {
           </div>
         </Section>
       </div>
+
       <Section title="Support Notes">
         <div className="rounded-[20px] border border-[color:var(--line)] bg-[#edf7f8] p-4 text-sm text-[color:var(--muted)]">
           {data?.placeholderImpersonation ?? "-"}

@@ -67,6 +67,9 @@ model User {
   isAdmin               Boolean        @default(false)
   isFounder             Boolean        @default(false)
   aiAccessEnabled       Boolean        @default(true)
+  hasCompletedTutorial  Boolean        @default(false)
+  hasSkippedTutorial    Boolean        @default(false)
+  tutorialCompletedAt   DateTime?
   lastLoginAt           DateTime?
   accountDisabledAt     DateTime?
   createdAt             DateTime       @default(now())

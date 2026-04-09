@@ -13,6 +13,8 @@ type CurrentUser = {
   trialEnd: string | null;
   currentPeriodEnd: string | null;
   stripeCustomerId: string | null;
+  hasCompletedTutorial: boolean;
+  hasSkippedTutorial: boolean;
 };
 
 async function readJsonSafely<T>(response: Response): Promise<T> {
@@ -113,6 +115,29 @@ export default function SettingsPage() {
     }
   }
 
+  async function handleRestartTutorial() {
+    try {
+      setIsRedirecting(true);
+      setRequestError("");
+
+      const response = await fetch("/api/onboarding", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "restart" }),
+      });
+      const data = await readJsonSafely<{ error?: string }>(response);
+
+      if (!response.ok) {
+        throw new Error(data.error || "Unable to restart tutorial.");
+      }
+
+      window.location.href = "/dashboard";
+    } catch (error) {
+      setRequestError(error instanceof Error ? error.message : "Unable to restart tutorial.");
+      setIsRedirecting(false);
+    }
+  }
+
   return (
     <div className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
       <section className="soft-shadow rounded-[28px] border border-[color:var(--line)] bg-white/88 p-6 sm:p-8">
@@ -129,6 +154,23 @@ export default function SettingsPage() {
         </div>
 
         {requestError ? <p className="mt-5 text-sm text-[#b34b75]">{requestError}</p> : null}
+        <div className="mt-8 rounded-[20px] border border-[color:var(--line)] bg-[#fcfaff] p-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)]">
+            Onboarding
+          </p>
+          <p className="mt-2 text-sm leading-7 text-[color:var(--muted)]">
+            Restart the guided walkthrough anytime if you want a quick refresher on the breeder
+            workflow.
+          </p>
+          <button
+            type="button"
+            onClick={handleRestartTutorial}
+            disabled={isRedirecting}
+            className="mt-4 inline-flex items-center justify-center rounded-full border border-[color:var(--line)] bg-white px-5 py-3 text-sm font-semibold text-foreground transition hover:bg-[#f8f7fe] disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            Restart Tutorial
+          </button>
+        </div>
       </section>
 
       <section className="soft-shadow rounded-[28px] border border-[color:var(--line)] bg-white/88 p-6 sm:p-8">

@@ -2,6 +2,7 @@
 
 import { ReactNode, useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
+import { OnboardingWalkthrough } from "@/components/onboarding-walkthrough";
 import { PaywallScreen } from "@/components/paywall-screen";
 import { Sidebar } from "@/components/sidebar";
 import { Topbar } from "@/components/topbar";
@@ -18,6 +19,8 @@ export function DashboardShell({ children }: DashboardShellProps) {
   const [billingState, setBillingState] = useState<{
     hasAppAccess: boolean;
     isBetaUser: boolean;
+    hasCompletedTutorial: boolean;
+    hasSkippedTutorial: boolean;
   } | null>(null);
   const [isBillingLoading, setIsBillingLoading] = useState(true);
   useEffect(() => {
@@ -39,12 +42,16 @@ export function DashboardShell({ children }: DashboardShellProps) {
           user: {
             hasAppAccess: boolean;
             isBetaUser: boolean;
+            hasCompletedTutorial: boolean;
+            hasSkippedTutorial: boolean;
           };
         };
 
         setBillingState({
           hasAppAccess: data.user.hasAppAccess,
           isBetaUser: data.user.isBetaUser,
+          hasCompletedTutorial: data.user.hasCompletedTutorial,
+          hasSkippedTutorial: data.user.hasSkippedTutorial,
         });
       } finally {
         setIsBillingLoading(false);
@@ -59,6 +66,12 @@ export function DashboardShell({ children }: DashboardShellProps) {
   }
 
   const allowChildren = billingState?.hasAppAccess || pathname === "/settings";
+  const showWalkthrough = Boolean(
+    billingState &&
+      billingState.hasAppAccess &&
+      !billingState.hasCompletedTutorial &&
+      !billingState.hasSkippedTutorial,
+  );
 
   return (
     <div className="min-h-screen text-foreground">
@@ -81,6 +94,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
           </main>
         </div>
       </div>
+      <OnboardingWalkthrough pathname={pathname} isEnabled={showWalkthrough} />
     </div>
   );
 }

@@ -206,6 +206,13 @@ export default function HatchGroupsPage() {
             { key: "notes", label: "Notes" },
           ]}
           rows={rows}
+          emptyState={{
+            title: "No hatch groups yet",
+            description:
+              "Add your first hatch group to track incubator batches, hatch rate, and produced traits.",
+            actionLabel: "Add your first hatch group",
+            onAction: openModal,
+          }}
         />
       </div>
 

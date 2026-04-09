@@ -1,6 +1,20 @@
 import "server-only";
 
+import { randomUUID } from "crypto";
 import { Prisma } from "@prisma/client";
+import {
+  birds as demoBirds,
+  chicks as demoChicks,
+  customers as demoCustomers,
+  flocks as demoFlocks,
+  hatchGroups as demoHatchGroups,
+  notes as demoNotes,
+  orders as demoOrders,
+  pairings as demoPairings,
+  photos as demoPhotos,
+  reservations as demoReservations,
+  traits as demoTraits,
+} from "@/lib/mock-data";
 import { prisma } from "@/lib/prisma";
 
 function formatDateTime(value: Date | null) {
@@ -536,6 +550,271 @@ export async function getSupportData(search = "") {
     placeholderImpersonation:
       "Future only: secure support impersonation should require a one-time approval flow and explicit audit logging.",
   };
+}
+
+function makeDemoId(prefix: string) {
+  return `${prefix}_${randomUUID().replace(/-/g, "").slice(0, 12)}`;
+}
+
+export async function loadDemoDataForUser(actorUserId: string, userId: string) {
+  const existingCounts = await prisma.user.findUnique({
+    where: { id: userId },
+    include: {
+      _count: {
+        select: {
+          customers: true,
+          flocks: true,
+          birds: true,
+          pairings: true,
+          hatchGroups: true,
+          chicks: true,
+          reservations: true,
+          orders: true,
+        },
+      },
+    },
+  });
+
+  if (!existingCounts) {
+    throw new Error("User not found.");
+  }
+
+  const hasExistingData = Object.values(existingCounts._count).some((count) => count > 0);
+  if (hasExistingData) {
+    throw new Error("Demo data can only be loaded into an empty account.");
+  }
+
+  const customerIdMap = new Map(demoCustomers.map((record) => [record.id, makeDemoId("customer")]));
+  const flockIdMap = new Map(demoFlocks.map((record) => [record.id, makeDemoId("flock")]));
+  const traitIdMap = new Map(demoTraits.map((record) => [record.id, makeDemoId("trait")]));
+  const birdIdMap = new Map(demoBirds.map((record) => [record.id, makeDemoId("bird")]));
+  const pairingIdMap = new Map(demoPairings.map((record) => [record.id, makeDemoId("pairing")]));
+  const hatchGroupIdMap = new Map(
+    demoHatchGroups.map((record) => [record.id, makeDemoId("hatchGroup")]),
+  );
+  const chickIdMap = new Map(demoChicks.map((record) => [record.id, makeDemoId("chick")]));
+  const reservationIdMap = new Map(
+    demoReservations.map((record) => [record.id, makeDemoId("reservation")]),
+  );
+  const orderIdMap = new Map(demoOrders.map((record) => [record.id, makeDemoId("order")]));
+
+  await prisma.$transaction(async (tx) => {
+    await tx.customer.createMany({
+      data: demoCustomers.map((customer) => ({
+        ...customer,
+        id: customerIdMap.get(customer.id)!,
+        userId,
+        createdAt: new Date(customer.createdAt),
+      })),
+    });
+
+    await tx.flock.createMany({
+      data: demoFlocks.map((flock) => ({
+        ...flock,
+        id: flockIdMap.get(flock.id)!,
+        userId,
+        createdAt: new Date(flock.createdAt),
+      })),
+    });
+
+    await tx.trait.createMany({
+      data: demoTraits.map((trait) => ({
+        ...trait,
+        id: traitIdMap.get(trait.id)!,
+        userId,
+      })),
+    });
+
+    for (const bird of demoBirds) {
+      await tx.bird.create({
+        data: {
+          ...bird,
+          id: birdIdMap.get(bird.id)!,
+          flockId: flockIdMap.get(bird.flockId)!,
+          userId,
+          createdAt: new Date(bird.createdAt),
+          bandNumber: `${bird.bandNumber}-${randomUUID().slice(0, 4)}`,
+        },
+      });
+    }
+
+    for (const pairing of demoPairings) {
+      await tx.pairing.create({
+        data: {
+          ...pairing,
+          id: pairingIdMap.get(pairing.id)!,
+          sireId: birdIdMap.get(pairing.sireId)!,
+          damId: birdIdMap.get(pairing.damId)!,
+          userId,
+          createdAt: new Date(pairing.createdAt),
+        },
+      });
+    }
+
+    for (const hatchGroup of demoHatchGroups) {
+      await tx.hatchGroup.create({
+        data: {
+          ...hatchGroup,
+          id: hatchGroupIdMap.get(hatchGroup.id)!,
+          pairingId: pairingIdMap.get(hatchGroup.pairingId)!,
+          userId,
+          setDate: new Date(`${hatchGroup.setDate}T00:00:00`),
+          hatchDate: new Date(`${hatchGroup.hatchDate}T00:00:00`),
+          createdAt: new Date(hatchGroup.createdAt),
+        },
+      });
+    }
+
+    for (const chick of demoChicks) {
+      await tx.chick.create({
+        data: {
+          ...chick,
+          id: chickIdMap.get(chick.id)!,
+          flockId: flockIdMap.get(chick.flockId)!,
+          hatchGroupId: chick.hatchGroupId ? hatchGroupIdMap.get(chick.hatchGroupId)! : null,
+          userId,
+          hatchDate: new Date(`${chick.hatchDate}T00:00:00`),
+          createdAt: new Date(chick.createdAt),
+          bandNumber: `${chick.bandNumber}-${randomUUID().slice(0, 4)}`,
+        },
+      });
+    }
+
+    for (const reservation of demoReservations) {
+      await tx.reservation.create({
+        data: {
+          ...reservation,
+          id: reservationIdMap.get(reservation.id)!,
+          customerId: customerIdMap.get(reservation.customerId)!,
+          userId,
+          createdAt: new Date(reservation.createdAt),
+        },
+      });
+    }
+
+    for (const order of demoOrders) {
+      const normalizedStatus =
+        order.status === "Ready" ? "Completed" : order.status === "Waitlist" ? "Pending" : order.status;
+
+      await tx.order.create({
+        data: {
+          id: orderIdMap.get(order.id)!,
+          customerId: customerIdMap.get(order.customerId)!,
+          userId,
+          total: order.total,
+          status: normalizedStatus,
+          pickupDate: new Date(`${order.pickupDate}T00:00:00`),
+          notes: order.notes,
+          createdAt: new Date(order.createdAt),
+          orderChicks: {
+            create: order.chickIds
+              .filter((chickId) => chickIdMap.has(chickId))
+              .map((chickId) => ({
+                chickId: chickIdMap.get(chickId)!,
+              })),
+          },
+        },
+      });
+    }
+
+    await tx.note.createMany({
+      data: demoNotes.map((note) => {
+        const mappedEntityId =
+          note.entityType === "bird"
+            ? birdIdMap.get(note.entityId)!
+            : note.entityType === "chick"
+              ? chickIdMap.get(note.entityId)!
+              : note.entityType === "pairing"
+                ? pairingIdMap.get(note.entityId)!
+                : note.entityType === "hatchGroup"
+                  ? hatchGroupIdMap.get(note.entityId)!
+                  : note.entityType === "flock"
+                    ? flockIdMap.get(note.entityId)!
+                    : note.entityType === "customer"
+                      ? customerIdMap.get(note.entityId)!
+                      : note.entityType === "order"
+                        ? orderIdMap.get(note.entityId)!
+                        : note.entityType === "reservation"
+                          ? reservationIdMap.get(note.entityId)!
+                          : note.entityId;
+
+        return {
+          ...note,
+          id: makeDemoId("note"),
+          entityId: mappedEntityId,
+          userId,
+          birdId: note.entityType === "bird" ? mappedEntityId : null,
+          chickId: note.entityType === "chick" ? mappedEntityId : null,
+          pairingId: note.entityType === "pairing" ? mappedEntityId : null,
+          hatchGroupId: note.entityType === "hatchGroup" ? mappedEntityId : null,
+          flockId: note.entityType === "flock" ? mappedEntityId : null,
+          customerId: note.entityType === "customer" ? mappedEntityId : null,
+          orderId: note.entityType === "order" ? mappedEntityId : null,
+          reservationId: note.entityType === "reservation" ? mappedEntityId : null,
+          createdAt: new Date(note.createdAt),
+        };
+      }),
+    });
+
+    await tx.photo.createMany({
+      data: demoPhotos.map((photo) => {
+        const mappedEntityId =
+          photo.entityType === "bird"
+            ? birdIdMap.get(photo.entityId)!
+            : photo.entityType === "chick"
+              ? chickIdMap.get(photo.entityId)!
+              : photo.entityType === "hatchGroup"
+                ? hatchGroupIdMap.get(photo.entityId)!
+                : flockIdMap.get(photo.entityId)!;
+
+        return {
+          ...photo,
+          id: makeDemoId("photo"),
+          entityId: mappedEntityId,
+          userId,
+          birdId: photo.entityType === "bird" ? mappedEntityId : null,
+          chickId: photo.entityType === "chick" ? mappedEntityId : null,
+          pairingId: null,
+          hatchGroupId: photo.entityType === "hatchGroup" ? mappedEntityId : null,
+          flockId: photo.entityType === "flock" ? mappedEntityId : null,
+          createdAt: new Date(photo.createdAt),
+        };
+      }),
+    });
+
+    for (const bird of demoBirds) {
+      const relatedTraitNames = Array.from(
+        new Set([...bird.visualTraits, ...bird.carriedTraits]),
+      ).filter((name) => demoTraits.some((trait) => trait.name === name));
+
+      if (relatedTraitNames.length === 0) {
+        continue;
+      }
+
+      await tx.bird.update({
+        where: { id: birdIdMap.get(bird.id)! },
+        data: {
+          traits: {
+            connect: relatedTraitNames.map((name) => ({
+              userId_name: {
+                userId,
+                name,
+              },
+            })),
+          },
+        },
+      });
+    }
+  });
+
+  await logAuditAction({
+    actorUserId,
+    subjectUserId: userId,
+    action: "admin.demo_data_loaded",
+    entityType: "user",
+    entityId: userId,
+    summary: `Loaded demo breeder data into user ${existingCounts.email}.`,
+  });
 }
 
 export async function getSystemSettingsData() {

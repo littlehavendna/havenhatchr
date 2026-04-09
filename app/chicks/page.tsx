@@ -276,6 +276,16 @@ export default function ChicksPage() {
             { key: "notes", label: "Notes" },
           ]}
           rows={rows}
+          emptyState={{
+            title: search || statusFilter !== "All Statuses" ? "No chicks match these filters" : "No chicks yet",
+            description:
+              search || statusFilter !== "All Statuses"
+                ? "Try clearing your search or status filter to see more chick records."
+                : "Add your first chick once you have a hatch to track.",
+            actionLabel:
+              search || statusFilter !== "All Statuses" ? undefined : "Add your first chick",
+            onAction: search || statusFilter !== "All Statuses" ? undefined : openModal,
+          }}
         />
       </div>
 

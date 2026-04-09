@@ -222,9 +222,24 @@ export default function CustomersPage() {
                   <tr>
                     <td
                       colSpan={6}
-                      className="px-5 py-8 text-center text-sm text-[color:var(--muted)] sm:px-6"
+                      className="px-5 py-10 sm:px-6"
                     >
-                      No customers found yet.
+                      <div className="mx-auto max-w-xl text-center">
+                        <p className="text-base font-semibold tracking-tight text-foreground">
+                          No customers yet
+                        </p>
+                        <p className="mt-2 text-sm leading-7 text-[color:var(--muted)]">
+                          Add your first customer when you are ready to track reservations,
+                          follow-ups, and breeder orders.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={openModal}
+                          className="mt-5 inline-flex items-center justify-center rounded-full bg-[color:var(--accent)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#4f3fa0]"
+                        >
+                          Add your first customer
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ) : null}

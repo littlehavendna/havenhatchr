@@ -10,6 +10,12 @@ type DataTableProps<T extends Record<string, RowValue>> = {
   description?: string;
   columns: Column<T>[];
   rows: T[];
+  emptyState?: {
+    title: string;
+    description: string;
+    actionLabel?: string;
+    onAction?: () => void;
+  };
 };
 
 export function DataTable<T extends Record<string, RowValue>>({
@@ -17,6 +23,7 @@ export function DataTable<T extends Record<string, RowValue>>({
   description,
   columns,
   rows,
+  emptyState,
 }: DataTableProps<T>) {
   return (
     <section className="soft-shadow overflow-hidden rounded-[28px] border border-[color:var(--line)] bg-[color:var(--panel-strong)]">
@@ -42,21 +49,48 @@ export function DataTable<T extends Record<string, RowValue>>({
             </tr>
           </thead>
           <tbody>
-            {rows.map((row, index) => (
-              <tr
-                key={index}
-                className="border-t border-[color:var(--line)] transition hover:bg-[#f8f7fe]"
-              >
-                {columns.map((column) => (
-                  <td
-                    key={String(column.key)}
-                    className="px-5 py-4 text-sm text-foreground sm:px-6"
-                  >
-                    {row[column.key]}
-                  </td>
-                ))}
+            {rows.length > 0 ? (
+              rows.map((row, index) => (
+                <tr
+                  key={index}
+                  className="border-t border-[color:var(--line)] transition hover:bg-[#f8f7fe]"
+                >
+                  {columns.map((column) => (
+                    <td
+                      key={String(column.key)}
+                      className="px-5 py-4 text-sm text-foreground sm:px-6"
+                    >
+                      {row[column.key]}
+                    </td>
+                  ))}
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td
+                  colSpan={columns.length}
+                  className="border-t border-[color:var(--line)] px-5 py-10 sm:px-6"
+                >
+                  <div className="mx-auto max-w-xl text-center">
+                    <p className="text-base font-semibold tracking-tight text-foreground">
+                      {emptyState?.title ?? "Nothing here yet"}
+                    </p>
+                    <p className="mt-2 text-sm leading-7 text-[color:var(--muted)]">
+                      {emptyState?.description ?? "Add your first record to get started."}
+                    </p>
+                    {emptyState?.actionLabel && emptyState.onAction ? (
+                      <button
+                        type="button"
+                        onClick={emptyState.onAction}
+                        className="mt-5 inline-flex items-center justify-center rounded-full bg-[color:var(--accent)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#4f3fa0]"
+                      >
+                        {emptyState.actionLabel}
+                      </button>
+                    ) : null}
+                  </div>
+                </td>
               </tr>
-            ))}
+            )}
           </tbody>
         </table>
       </div>

@@ -1,0 +1,5 @@
+-- AlterTable
+ALTER TABLE "User"
+ADD COLUMN IF NOT EXISTS "hasCompletedTutorial" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN IF NOT EXISTS "hasSkippedTutorial" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN IF NOT EXISTS "tutorialCompletedAt" TIMESTAMP(3);

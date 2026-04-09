@@ -209,6 +209,13 @@ export default function PairingsPage() {
             { key: "notes", label: "Notes" },
           ]}
           rows={rows}
+          emptyState={{
+            title: "No pairings yet",
+            description:
+              "Create your first pairing once you have a sire and dam ready for planning.",
+            actionLabel: "Create your first pairing",
+            onAction: openModal,
+          }}
         />
       </div>
 

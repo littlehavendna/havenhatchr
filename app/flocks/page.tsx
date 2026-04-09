@@ -167,6 +167,13 @@ export default function FlocksPage() {
             { key: "notes", label: "Notes" },
           ]}
           rows={rows}
+          emptyState={{
+            title: "No flocks yet",
+            description:
+              "Create your first flock to organize breeders, chicks, and future hatch planning.",
+            actionLabel: "Create your first flock",
+            onAction: openModal,
+          }}
         />
       </div>
 

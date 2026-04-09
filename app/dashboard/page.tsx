@@ -13,6 +13,17 @@ type DashboardStat = {
 
 type DashboardData = {
   stats: DashboardStat[];
+  onboardingChecklist: {
+    completedCount: number;
+    totalCount: number;
+    items: Array<{
+      key: string;
+      label: string;
+      description: string;
+      href: string;
+      complete: boolean;
+    }>;
+  };
   recentChicks: Array<Record<string, string>>;
   recentReservations: Array<Record<string, string>>;
   recentOrders: Array<Record<string, string>>;
@@ -84,27 +95,33 @@ const aiWorkbench = [
 export default function DashboardPage() {
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
+  const [currentUser, setCurrentUser] = useState<{
+    hasCompletedTutorial: boolean;
+  } | null>(null);
   const [requestError, setRequestError] = useState("");
 
   useEffect(() => {
     async function loadData() {
       try {
-        const [dashboardResponse, analyticsResponse] = await Promise.all([
+        const [dashboardResponse, analyticsResponse, currentUserResponse] = await Promise.all([
           fetch("/api/dashboard", { cache: "no-store" }),
           fetch("/api/analytics", { cache: "no-store" }),
+          fetch("/api/auth/me", { cache: "no-store" }),
         ]);
 
-        if (!dashboardResponse.ok || !analyticsResponse.ok) {
+        if (!dashboardResponse.ok || !analyticsResponse.ok || !currentUserResponse.ok) {
           throw new Error("Failed to load dashboard data.");
         }
 
-        const [dashboardData, analyticsData] = await Promise.all([
+        const [dashboardData, analyticsData, currentUserData] = await Promise.all([
           dashboardResponse.json() as Promise<DashboardData>,
           analyticsResponse.json() as Promise<AnalyticsData>,
+          currentUserResponse.json() as Promise<{ user: { hasCompletedTutorial: boolean } }>,
         ]);
 
         setDashboard(dashboardData);
         setAnalytics(analyticsData);
+        setCurrentUser(currentUserData.user);
       } catch (error) {
         setRequestError(
           error instanceof Error ? error.message : "Failed to load dashboard data.",
@@ -119,6 +136,24 @@ export default function DashboardPage() {
   const recentProjectTags = analytics?.geneticsSnapshot.mostActiveProjectTags ?? [];
   const activeGoalPairings = analytics?.activeGoalPairings ?? [];
   const dashboardInsights = analytics?.dashboardInsights;
+  const checklist = dashboard?.onboardingChecklist;
+  const hasAnyOperationalData = Boolean(
+    dashboard &&
+      (dashboard.stats.some((stat) => Number(stat.value) > 0) ||
+        dashboard.recentBirds.length > 0 ||
+        dashboard.recentChicks.length > 0 ||
+        dashboard.recentReservations.length > 0 ||
+        dashboard.recentOrders.length > 0 ||
+        dashboard.recentHatchGroups.length > 0 ||
+        dashboard.activePairings.length > 0),
+  );
+  const shouldShowChecklist = Boolean(
+    checklist &&
+      (!currentUser?.hasCompletedTutorial || checklist.completedCount < checklist.totalCount),
+  );
+  const isChecklistComplete = Boolean(
+    checklist && checklist.completedCount === checklist.totalCount,
+  );
 
   return (
     <div className="space-y-6">
@@ -140,6 +175,86 @@ export default function DashboardPage() {
         ))}
       </section>
 
+      {!hasAnyOperationalData && !requestError ? (
+        <section className="soft-shadow rounded-[28px] border border-[color:var(--line)] bg-white/88 p-5 sm:p-6">
+          <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[color:var(--muted)]">
+            Clean Start
+          </p>
+          <h2 className="mt-2 text-xl font-semibold tracking-tight">
+            Your breeder workspace is ready for real data
+          </h2>
+          <p className="mt-2 max-w-3xl text-sm leading-7 text-[color:var(--muted)]">
+            New accounts now start empty by default. Use the checklist below to add your first
+            flock, bird, chick, pairing, and reservation instead of working around fake starter
+            records.
+          </p>
+        </section>
+      ) : null}
+
+      {shouldShowChecklist && checklist ? (
+        <section className="soft-shadow rounded-[28px] border border-[color:var(--line)] bg-white/88 p-5 sm:p-6">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[color:var(--muted)]">
+                Getting Started
+              </p>
+              <h2 className="text-xl font-semibold tracking-tight">New breeder checklist</h2>
+              <p className="mt-2 text-sm leading-7 text-[color:var(--muted)]">
+                Complete a few core setup actions to get HavenHatchr working for your operation.
+              </p>
+            </div>
+            <span className="rounded-full border border-[color:var(--line)] bg-[#fcfbff] px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--accent)]">
+              {checklist.completedCount} of {checklist.totalCount} completed
+            </span>
+          </div>
+          <div className="mt-5 h-2 overflow-hidden rounded-full bg-[#efeaf8]">
+            <div
+              className="h-full rounded-full bg-[color:var(--accent)] transition-all"
+              style={{ width: `${(checklist.completedCount / checklist.totalCount) * 100}%` }}
+            />
+          </div>
+          <div className="mt-5 grid gap-3 lg:grid-cols-2">
+            {checklist.items.map((item) => (
+              <Link
+                key={item.key}
+                href={item.href}
+                className="rounded-[22px] border border-[color:var(--line)] bg-[#fcfbff] px-4 py-4 transition hover:bg-white"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">{item.label}</p>
+                    <p className="mt-2 text-sm leading-7 text-[color:var(--muted)]">
+                      {item.description}
+                    </p>
+                  </div>
+                  <span
+                    className={`inline-flex h-7 min-w-7 items-center justify-center rounded-full border px-2 text-xs font-semibold uppercase tracking-[0.16em] ${
+                      item.complete
+                        ? "border-[#b9e5cf] bg-[#edf9f1] text-[#2b8a57]"
+                        : "border-[color:var(--line)] bg-white text-[color:var(--muted)]"
+                    }`}
+                  >
+                    {item.complete ? "Done" : "Open"}
+                  </span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {isChecklistComplete ? (
+        <section className="soft-shadow rounded-[28px] border border-[color:var(--line)] bg-white/88 p-5 sm:p-6">
+          <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[color:var(--muted)]">
+            You&apos;re All Set
+          </p>
+          <p className="mt-2 text-base leading-7 text-[color:var(--muted)]">
+            Your key breeder records are in place. From here, use the dashboard, genetics tools,
+            and analytics views to grow the workflow at your own pace.
+          </p>
+        </section>
+      ) : null}
+
       <div className="grid gap-6 xl:grid-cols-2">
         <DataTable<Record<string, string>>
           title="Recent Chicks"
@@ -152,6 +267,14 @@ export default function DashboardPage() {
             { key: "notes", label: "Notes" },
           ]}
           rows={dashboard?.recentChicks ?? []}
+          emptyState={{
+            title: "No chicks yet",
+            description: "Add your first chick to start tracking hatch outcomes and inventory.",
+            actionLabel: "Add your first chick",
+            onAction: () => {
+              window.location.href = "/chicks";
+            },
+          }}
         />
         <DataTable<Record<string, string>>
           title="Recent Reservations"
@@ -168,6 +291,14 @@ export default function DashboardPage() {
             ...reservation,
             createdAt: formatDateTime(reservation.createdAt),
           }))}
+          emptyState={{
+            title: "No reservations yet",
+            description: "Reservations will appear here once customers start requesting birds or chicks.",
+            actionLabel: "Add your first reservation",
+            onAction: () => {
+              window.location.href = "/reservations";
+            },
+          }}
         />
       </div>
 
@@ -186,6 +317,14 @@ export default function DashboardPage() {
             status: toTitleCase(order.status),
             pickupDate: formatDate(order.pickupDate),
           }))}
+          emptyState={{
+            title: "No orders yet",
+            description: "Orders show up here after you start assigning chicks to customer pickups.",
+            actionLabel: "Create an order",
+            onAction: () => {
+              window.location.href = "/orders";
+            },
+          }}
         />
         <DataTable<Record<string, string>>
           title="Recent Hatch Groups"
@@ -203,6 +342,14 @@ export default function DashboardPage() {
             setDate: formatDate(group.setDate),
             hatchDate: formatDate(group.hatchDate),
           }))}
+          emptyState={{
+            title: "No hatch groups yet",
+            description: "Track your first incubator batch to unlock hatch-rate analytics.",
+            actionLabel: "Add a hatch group",
+            onAction: () => {
+              window.location.href = "/hatch-groups";
+            },
+          }}
         />
       </div>
 
@@ -218,6 +365,14 @@ export default function DashboardPage() {
             { key: "status", label: "Status" },
           ]}
           rows={dashboard?.recentBirds ?? []}
+          emptyState={{
+            title: "No birds yet",
+            description: "Bird records power pairings, genetics, notes, and breeder history.",
+            actionLabel: "Add your first bird",
+            onAction: () => {
+              window.location.href = "/birds";
+            },
+          }}
         />
         <DataTable<Record<string, string>>
           title="Active Pairings"
@@ -230,6 +385,14 @@ export default function DashboardPage() {
             { key: "status", label: "Status" },
           ]}
           rows={dashboard?.activePairings ?? []}
+          emptyState={{
+            title: "No active pairings yet",
+            description: "Create your first pairing to start planning hatch groups and breeding goals.",
+            actionLabel: "Create your first pairing",
+            onAction: () => {
+              window.location.href = "/pairings";
+            },
+          }}
         />
       </div>
 
