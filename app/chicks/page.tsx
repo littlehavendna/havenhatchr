@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { FormEvent, type ReactNode, useEffect, useState } from "react";
 import { DataTable } from "@/components/data-table";
-import type { BirdSex, ChickStatus } from "@/lib/types";
+import type { BirdSex, ChickDeathReason, ChickStatus } from "@/lib/types";
 
 type ChickRow = {
   id: string;
@@ -21,6 +21,13 @@ type ChickRow = {
   photoUrl: string;
   dnaStatus: "None" | "Pending" | "Completed" | "Cancelled";
   createdAt: string;
+  deathRecord: {
+    id: string;
+    deathDate: string;
+    deathReason: ChickDeathReason;
+    deathReasonLabel: string;
+    notes: string;
+  } | null;
 };
 
 type FlockOption = {
@@ -57,6 +64,14 @@ type DnaRequestForm = {
   testType: string;
 };
 
+type DeathForm = {
+  chickId: string;
+  bandNumber: string;
+  deathDate: string;
+  deathReason: ChickDeathReason;
+  notes: string;
+};
+
 const emptyForm: FormState = {
   bandNumber: "",
   hatchDate: "",
@@ -75,10 +90,22 @@ const statusOptions: Array<ChickStatus | "All Statuses"> = [
   "Reserved",
   "Sold",
   "Holdback",
+  "Deceased",
 ];
 
 const sexOptions: BirdSex[] = ["Male", "Female", "Unknown"];
 const dnaTestOptions = ["Sexing", "Color", "Trait Panel"];
+const deathReasonOptions: Array<{ value: ChickDeathReason; label: string }> = [
+  { value: "FailureToThrive", label: "Failure to thrive" },
+  { value: "ShippedWeak", label: "Shipped weak" },
+  { value: "SplayLeg", label: "Splay leg" },
+  { value: "Injury", label: "Injury" },
+  { value: "Predator", label: "Predator" },
+  { value: "UnabsorbedYolk", label: "Unabsorbed yolk" },
+  { value: "AssistedHatchComplications", label: "Assisted hatch complications" },
+  { value: "Unknown", label: "Unknown" },
+  { value: "Other", label: "Other" },
+];
 
 export default function ChicksPage() {
   const [chicks, setChicks] = useState<ChickRow[]>([]);
@@ -101,6 +128,15 @@ export default function ChicksPage() {
   const [requestError, setRequestError] = useState("");
   const [isDnaModalOpen, setIsDnaModalOpen] = useState(false);
   const [isRequestingDna, setIsRequestingDna] = useState(false);
+  const [isDeathModalOpen, setIsDeathModalOpen] = useState(false);
+  const [isLoggingDeath, setIsLoggingDeath] = useState(false);
+  const [deathForm, setDeathForm] = useState<DeathForm>({
+    chickId: "",
+    bandNumber: "",
+    deathDate: new Date().toISOString().slice(0, 10),
+    deathReason: "Unknown",
+    notes: "",
+  });
 
   useEffect(() => {
     void loadChicks();
@@ -166,6 +202,22 @@ export default function ChicksPage() {
       bandNumber: "",
       testType: "Sexing",
     });
+  }
+
+  function openDeathModal(chick: ChickRow) {
+    setDeathForm({
+      chickId: chick.id,
+      bandNumber: chick.bandNumber,
+      deathDate: new Date().toISOString().slice(0, 10),
+      deathReason: "Unknown",
+      notes: "",
+    });
+    setRequestError("");
+    setIsDeathModalOpen(true);
+  }
+
+  function closeDeathModal() {
+    setIsDeathModalOpen(false);
   }
 
   function updateField<K extends keyof FormState>(key: K, value: FormState[K]) {
@@ -250,6 +302,37 @@ export default function ChicksPage() {
     }
   }
 
+  async function handleDeathSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    try {
+      setIsLoggingDeath(true);
+      setRequestError("");
+
+      const response = await fetch("/api/chicks/deaths", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chickId: deathForm.chickId,
+          deathDate: deathForm.deathDate,
+          deathReason: deathForm.deathReason,
+          notes: deathForm.notes.trim(),
+        }),
+      });
+      const payload = (await response.json().catch(() => ({}))) as { error?: string };
+      if (!response.ok) {
+        throw new Error(payload.error || "Unable to log chick death.");
+      }
+
+      await loadChicks();
+      closeDeathModal();
+    } catch (error) {
+      setRequestError(error instanceof Error ? error.message : "Unable to log chick death.");
+    } finally {
+      setIsLoggingDeath(false);
+    }
+  }
+
   const rows = filteredChicks.map((chick) => ({
     bandNumber: chick.bandNumber,
     hatchDate: formatDate(chick.hatchDate),
@@ -260,6 +343,7 @@ export default function ChicksPage() {
     observedTraits: chick.observedTraits.join(", ") || "-",
     status: chick.status,
     dnaStatus: chick.dnaStatus,
+    deathReason: chick.deathRecord?.deathReasonLabel ?? "-",
     notes: chick.notes || "-",
   }));
 
@@ -340,9 +424,34 @@ export default function ChicksPage() {
             { key: "observedTraits", label: "Observed Traits" },
             { key: "status", label: "Status" },
             { key: "dnaStatus", label: "DNA Status" },
+            { key: "deathReason", label: "Death Reason" },
             { key: "notes", label: "Notes" },
           ]}
           rows={rows}
+          renderActions={(row) => {
+            const chick = filteredChicks.find((entry) => entry.bandNumber === row.bandNumber);
+            if (!chick) return null;
+
+            return (
+              <div className="flex gap-2">
+                {chick.status !== "Deceased" ? (
+                  <button
+                    type="button"
+                    onClick={() => openDeathModal(chick)}
+                    className="inline-flex rounded-full border border-[#d9c9d2] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-[#8d5d72] transition hover:bg-[#fff7f8]"
+                  >
+                    Log Loss
+                  </button>
+                ) : null}
+                <Link
+                  href={`/chicks/${chick.id}`}
+                  className="inline-flex rounded-full border border-[color:var(--line)] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--accent)] transition hover:bg-[#f8f7fe]"
+                >
+                  Open
+                </Link>
+              </div>
+            );
+          }}
           emptyState={{
             title: search || statusFilter !== "All Statuses" ? "No chicks match these filters" : "No chicks yet",
             description:
@@ -518,6 +627,7 @@ export default function ChicksPage() {
                   >
                     {statusOptions
                       .filter((option): option is ChickStatus => option !== "All Statuses")
+                      .filter((option) => option !== "Deceased")
                       .map((option) => (
                         <option key={option} value={option}>
                           {option}
@@ -658,6 +768,61 @@ export default function ChicksPage() {
                 className="inline-flex w-full items-center justify-center rounded-full bg-[color:var(--accent)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#4f3fa0] disabled:cursor-not-allowed disabled:opacity-70"
               >
                 {isRequestingDna ? "Requesting..." : "Confirm DNA Request"}
+              </button>
+            </form>
+          </div>
+        </div>
+      ) : null}
+
+      {isDeathModalOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#221c3f]/40 px-4 backdrop-blur-sm">
+          <div className="soft-shadow w-full max-w-xl rounded-[30px] border border-[color:var(--line)] bg-white p-6 sm:p-7">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-2xl font-semibold tracking-tight">Log Chick Loss</h3>
+                <p className="mt-1 text-sm text-[color:var(--muted)]">
+                  Record the loss respectfully and keep the hatch reporting accurate.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeDeathModal}
+                className="rounded-2xl border border-[color:var(--line)] px-3 py-2 text-sm text-[color:var(--muted)] transition hover:bg-[#f8f7fe]"
+              >
+                Cancel
+              </button>
+            </div>
+            <form onSubmit={handleDeathSubmit} className="mt-6 space-y-4">
+              <FormField
+                label="Band Number"
+                input={<input type="text" value={deathForm.bandNumber} readOnly className={`${inputClassName()} bg-[#f7f5ff] text-[color:var(--muted)]`} />}
+              />
+              <FormField
+                label="Death Date"
+                input={<input type="date" value={deathForm.deathDate} onChange={(event) => setDeathForm((current) => ({ ...current, deathDate: event.target.value }))} className={inputClassName()} />}
+              />
+              <FormField
+                label="Reason"
+                input={
+                  <select value={deathForm.deathReason} onChange={(event) => setDeathForm((current) => ({ ...current, deathReason: event.target.value as ChickDeathReason }))} className={inputClassName()}>
+                    {deathReasonOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                }
+              />
+              <FormField
+                label="Notes"
+                input={<textarea value={deathForm.notes} onChange={(event) => setDeathForm((current) => ({ ...current, notes: event.target.value }))} rows={4} className={`${inputClassName()} resize-none`} />}
+              />
+              <button
+                type="submit"
+                disabled={isLoggingDeath}
+                className="inline-flex w-full items-center justify-center rounded-full bg-[#8d5d72] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#74485b] disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {isLoggingDeath ? "Saving..." : "Save Death Record"}
               </button>
             </form>
           </div>

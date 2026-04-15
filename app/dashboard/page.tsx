@@ -13,6 +13,13 @@ type DashboardStat = {
 
 type DashboardData = {
   stats: DashboardStat[];
+  reviewAlerts: Array<{
+    key: string;
+    title: string;
+    detail: string;
+    href: string;
+    tone: string;
+  }>;
   onboardingChecklist: {
     completedCount: number;
     totalCount: number;
@@ -137,6 +144,7 @@ export default function DashboardPage() {
   const activeGoalPairings = analytics?.activeGoalPairings ?? [];
   const dashboardInsights = analytics?.dashboardInsights;
   const checklist = dashboard?.onboardingChecklist;
+  const reviewAlerts = dashboard?.reviewAlerts ?? [];
   const hasAnyOperationalData = Boolean(
     dashboard &&
       (dashboard.stats.some((stat) => Number(stat.value) > 0) ||
@@ -174,6 +182,46 @@ export default function DashboardPage() {
           <StatCard key={card.label} label={card.label} value={card.value} detail={card.detail} />
         ))}
       </section>
+
+      {reviewAlerts.length > 0 ? (
+        <section className="soft-shadow rounded-[28px] border border-[color:var(--line)] bg-white/88 p-5 sm:p-6">
+          <div className="flex flex-col gap-2">
+            <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[color:var(--muted)]">
+              Suggested Review
+            </p>
+            <h2 className="text-xl font-semibold tracking-tight">
+              Signals worth checking today
+            </h2>
+          </div>
+          <div className="mt-5 grid gap-3 lg:grid-cols-2">
+            {reviewAlerts.map((alert) => (
+              <Link
+                key={alert.key}
+                href={alert.href}
+                className="rounded-[22px] border border-[color:var(--line)] bg-[#fcfbff] px-4 py-4 transition hover:bg-white"
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">{alert.title}</p>
+                    <p className="mt-2 text-sm leading-7 text-[color:var(--muted)]">
+                      {alert.detail}
+                    </p>
+                  </div>
+                  <span
+                    className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] ${
+                      alert.tone === "warning"
+                        ? "bg-[#fff0f4] text-[#b34b75]"
+                        : "bg-[#f3f0ff] text-[color:var(--accent)]"
+                    }`}
+                  >
+                    Review
+                  </span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       {!hasAnyOperationalData && !requestError ? (
         <section className="soft-shadow rounded-[28px] border border-[color:var(--line)] bg-white/88 p-5 sm:p-6">

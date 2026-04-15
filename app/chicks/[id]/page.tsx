@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import type { ChickDeathReason } from "@/lib/types";
 
 type ChickProfileResponse = {
   chick: {
@@ -38,9 +39,28 @@ type ChickProfileResponse = {
     completedAt: string | null;
     createdAt: string;
   }>;
+  deathRecords: Array<{
+    id: string;
+    deathDate: string;
+    deathReason: ChickDeathReason;
+    deathReasonLabel: string;
+    notes: string;
+    createdAt: string;
+  }>;
 };
 
 const dnaTestOptions = ["Sexing", "Color", "Trait Panel"];
+const deathReasonOptions: Array<{ value: ChickDeathReason; label: string }> = [
+  { value: "FailureToThrive", label: "Failure to thrive" },
+  { value: "ShippedWeak", label: "Shipped weak" },
+  { value: "SplayLeg", label: "Splay leg" },
+  { value: "Injury", label: "Injury" },
+  { value: "Predator", label: "Predator" },
+  { value: "UnabsorbedYolk", label: "Unabsorbed yolk" },
+  { value: "AssistedHatchComplications", label: "Assisted hatch complications" },
+  { value: "Unknown", label: "Unknown" },
+  { value: "Other", label: "Other" },
+];
 
 export default function ChickProfilePage() {
   const params = useParams<{ id: string }>();
@@ -51,6 +71,11 @@ export default function ChickProfilePage() {
   const [isDnaModalOpen, setIsDnaModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [testType, setTestType] = useState("Sexing");
+  const [isDeathModalOpen, setIsDeathModalOpen] = useState(false);
+  const [isSavingDeath, setIsSavingDeath] = useState(false);
+  const [deathDate, setDeathDate] = useState(new Date().toISOString().slice(0, 10));
+  const [deathReason, setDeathReason] = useState<ChickDeathReason>("Unknown");
+  const [deathNotes, setDeathNotes] = useState("");
 
   const loadProfile = useCallback(async () => {
     try {
@@ -103,6 +128,36 @@ export default function ChickProfilePage() {
     }
   }
 
+  async function handleDeathRecord(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!profile) return;
+
+    try {
+      setIsSavingDeath(true);
+      setRequestError("");
+      const response = await fetch("/api/chicks/deaths", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chickId: profile.chick.id,
+          deathDate,
+          deathReason,
+          notes: deathNotes.trim(),
+        }),
+      });
+      const payload = (await response.json().catch(() => ({}))) as { error?: string };
+      if (!response.ok) {
+        throw new Error(payload.error || "Unable to log chick death.");
+      }
+      await loadProfile();
+      setIsDeathModalOpen(false);
+    } catch (error) {
+      setRequestError(error instanceof Error ? error.message : "Unable to log chick death.");
+    } finally {
+      setIsSavingDeath(false);
+    }
+  }
+
   if (!isLoading && !profile) {
     return (
       <section className="soft-shadow rounded-[30px] border border-[color:var(--line)] bg-white/90 p-6">
@@ -126,7 +181,7 @@ export default function ChickProfilePage() {
     );
   }
 
-  const { chick, notes, photos, dnaTests } = profile;
+  const { chick, notes, photos, dnaTests, deathRecords } = profile;
 
   return (
     <>
@@ -199,6 +254,15 @@ export default function ChickProfilePage() {
                   >
                     Request DNA Test
                   </button>
+                  {chick.status !== "Deceased" ? (
+                    <button
+                      type="button"
+                      onClick={() => setIsDeathModalOpen(true)}
+                      className="rounded-full border border-[#d9c9d2] bg-white px-5 py-3 text-sm font-semibold text-[#8d5d72] transition hover:bg-[#fff7f8]"
+                    >
+                      Log Chick Loss
+                    </button>
+                  ) : null}
                 </div>
                 <div className="mt-5 grid gap-4 sm:grid-cols-2">
                   <OverviewCard label="Pairing" value={chick.pairingName || "-"} />
@@ -232,6 +296,22 @@ export default function ChickProfilePage() {
             </div>
 
             <div className="space-y-6">
+              <section className="rounded-[28px] border border-[color:var(--line)] bg-white p-5">
+                <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[color:var(--muted)]">Loss Records</p>
+                <div className="mt-4 space-y-3">
+                  {deathRecords.length > 0 ? deathRecords.map((record) => (
+                    <article key={record.id} className="rounded-[22px] border border-[color:var(--line)] bg-[#fcfbff] p-4">
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <p className="text-sm font-semibold text-foreground">{record.deathReasonLabel}</p>
+                          <p className="mt-1 text-sm text-[color:var(--muted)]">{formatDate(record.deathDate)}</p>
+                        </div>
+                      </div>
+                      <p className="mt-2 text-sm leading-7 text-[color:var(--muted)]">{record.notes || "No additional notes recorded."}</p>
+                    </article>
+                  )) : <EmptyState copy="No chick loss has been recorded for this chick." />}
+                </div>
+              </section>
               <section className="rounded-[28px] border border-[color:var(--line)] bg-white p-5">
                 <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[color:var(--muted)]">Notes</p>
                 <div className="mt-4 space-y-3">
@@ -305,6 +385,54 @@ export default function ChickProfilePage() {
                 className="inline-flex w-full items-center justify-center rounded-full bg-[color:var(--accent)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#4f3fa0] disabled:cursor-not-allowed disabled:opacity-70"
               >
                 {isSubmitting ? "Requesting..." : "Confirm DNA Request"}
+              </button>
+            </form>
+          </div>
+        </div>
+      ) : null}
+
+      {isDeathModalOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#221c3f]/40 px-4 backdrop-blur-sm">
+          <div className="soft-shadow w-full max-w-xl rounded-[30px] border border-[color:var(--line)] bg-white p-6 sm:p-7">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-2xl font-semibold tracking-tight">Log Chick Loss</h3>
+                <p className="mt-1 text-sm text-[color:var(--muted)]">
+                  Save the loss reason and keep hatch and incubator reports accurate.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsDeathModalOpen(false)}
+                className="rounded-2xl border border-[color:var(--line)] px-3 py-2 text-sm text-[color:var(--muted)] transition hover:bg-[#f8f7fe]"
+              >
+                Cancel
+              </button>
+            </div>
+            <form onSubmit={handleDeathRecord} className="mt-6 space-y-4">
+              <Field label="Band Number" value={chick.bandNumber} />
+              <label className="block">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)]">Death Date</span>
+                <input type="date" value={deathDate} onChange={(event) => setDeathDate(event.target.value)} className={inputClassName()} />
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)]">Reason</span>
+                <select value={deathReason} onChange={(event) => setDeathReason(event.target.value as ChickDeathReason)} className={inputClassName()}>
+                  {deathReasonOptions.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)]">Notes</span>
+                <textarea value={deathNotes} onChange={(event) => setDeathNotes(event.target.value)} rows={4} className={`${inputClassName()} resize-none`} />
+              </label>
+              <button
+                type="submit"
+                disabled={isSavingDeath}
+                className="inline-flex w-full items-center justify-center rounded-full bg-[#8d5d72] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#74485b] disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {isSavingDeath ? "Saving..." : "Save Death Record"}
               </button>
             </form>
           </div>

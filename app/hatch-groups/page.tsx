@@ -14,16 +14,30 @@ type HatchGroupRow = {
   lockdownDate: string;
   hatchDate: string;
   eggsSet: number;
+  eggsCleared: number;
+  eggsQuitters: number;
   eggsHatched: number;
   producedTraitsSummary: string;
   notes: string;
   createdAt: string;
+  hatchRate: number;
+  fertilityRate: number;
+  hatchOfFertileRate: number;
+  chickCount: number;
+  deathCount: number;
+  survivalRate: number;
+  incubatorName: string;
+  pairingSireName: string;
+  pairingDamName: string;
 };
 
 type PairingOption = {
   id: string;
   name: string;
   targetTraits: string[];
+  sireName: string;
+  damName: string;
+  breedDesignation: string;
 };
 
 type BreedOption = {
@@ -48,6 +62,8 @@ type HatchGroupForm = {
   lockdownDate: string;
   hatchDate: string;
   eggsSet: string;
+  eggsCleared: string;
+  eggsQuitters: string;
   eggsHatched: string;
   notes: string;
 };
@@ -60,6 +76,8 @@ const emptyForm: HatchGroupForm = {
   lockdownDate: "",
   hatchDate: "",
   eggsSet: "",
+  eggsCleared: "",
+  eggsQuitters: "",
   eggsHatched: "",
   notes: "",
 };
@@ -139,6 +157,20 @@ export default function HatchGroupsPage() {
     setIsOpen(true);
   }
 
+  function openCreateFromPairing(pairing: PairingOption) {
+    setIsEditing(false);
+    setForm({
+      ...emptyForm,
+      pairingId: pairing.id,
+      breedDesignation: pairing.breedDesignation || "Chicken",
+      name: `${pairing.name} Hatch`,
+      notes: `Started from pairing ${pairing.sireName} x ${pairing.damName}.`,
+    });
+    setErrors({});
+    setRequestError("");
+    setIsOpen(true);
+  }
+
   function openEditModal(group: HatchGroupRow) {
     setIsEditing(true);
     setForm({
@@ -150,6 +182,8 @@ export default function HatchGroupsPage() {
       lockdownDate: group.lockdownDate,
       hatchDate: group.hatchDate,
       eggsSet: String(group.eggsSet),
+      eggsCleared: String(group.eggsCleared),
+      eggsQuitters: String(group.eggsQuitters),
       eggsHatched: String(group.eggsHatched),
       notes: group.notes,
     });
@@ -200,6 +234,8 @@ export default function HatchGroupsPage() {
           lockdownDate: form.lockdownDate,
           hatchDate: form.hatchDate,
           eggsSet: Number(form.eggsSet) || 0,
+          eggsCleared: Number(form.eggsCleared) || 0,
+          eggsQuitters: Number(form.eggsQuitters) || 0,
           eggsHatched: Number(form.eggsHatched) || 0,
           producedTraitsSummary:
             selectedPairing && selectedPairing.targetTraits.length > 0
@@ -237,7 +273,13 @@ export default function HatchGroupsPage() {
     lockdownDate: formatDate(group.lockdownDate),
     hatchDate: formatDate(group.hatchDate),
     eggsSet: String(group.eggsSet),
+    eggsCleared: String(group.eggsCleared),
+    eggsQuitters: String(group.eggsQuitters),
     eggsHatched: String(group.eggsHatched),
+    hatchRate: `${group.hatchRate}%`,
+    fertilityRate: `${group.fertilityRate}%`,
+    hatchOfFertileRate: `${group.hatchOfFertileRate}%`,
+    survivalRate: `${group.survivalRate}%`,
     producedTraits: group.producedTraitsSummary || "-",
     notes: group.notes || "-",
   }));
@@ -265,6 +307,36 @@ export default function HatchGroupsPage() {
           {requestError ? <p className="mt-4 text-sm text-[#b34b75]">{requestError}</p> : null}
         </section>
 
+        <section className="soft-shadow rounded-[28px] border border-[color:var(--line)] bg-[#edf7f8] p-5 sm:p-6">
+          <div className="flex flex-col gap-2">
+            <h3 className="text-lg font-semibold tracking-tight">Start From Pairing</h3>
+            <p className="text-sm text-[color:var(--muted)]">
+              Launch a hatch workflow with pairing, breed designation, and parent context preloaded.
+            </p>
+          </div>
+          <div className="mt-5 grid gap-3 lg:grid-cols-2">
+            {pairings.length > 0 ? (
+              pairings.map((pairing) => (
+                <button
+                  key={pairing.id}
+                  type="button"
+                  onClick={() => openCreateFromPairing(pairing)}
+                  className="rounded-[22px] border border-[color:var(--line)] bg-white px-4 py-4 text-left transition hover:bg-[#fcfbff]"
+                >
+                  <p className="text-sm font-semibold text-foreground">{pairing.name}</p>
+                  <p className="mt-1 text-sm text-[color:var(--muted)]">
+                    {pairing.sireName} x {pairing.damName}
+                  </p>
+                </button>
+              ))
+            ) : (
+              <div className="rounded-[22px] border border-dashed border-[color:var(--line)] bg-white px-4 py-6 text-sm text-[color:var(--muted)]">
+                Create a pairing first to use quick hatch setup.
+              </div>
+            )}
+          </div>
+        </section>
+
         <DataTable
           title="Hatch Groups"
           description={
@@ -280,7 +352,12 @@ export default function HatchGroupsPage() {
             { key: "lockdownDate", label: "Lockdown Date" },
             { key: "hatchDate", label: "Hatch Date" },
             { key: "eggsSet", label: "Eggs Set" },
+            { key: "eggsCleared", label: "Clears" },
+            { key: "eggsQuitters", label: "Quitters" },
             { key: "eggsHatched", label: "Eggs Hatched" },
+            { key: "fertilityRate", label: "Fertility" },
+            { key: "hatchRate", label: "Hatch Rate" },
+            { key: "survivalRate", label: "Survival Rate" },
           ]}
           rows={rows}
           renderActions={(row) => (
@@ -433,6 +510,32 @@ export default function HatchGroupsPage() {
                     value={form.eggsSet}
                     onChange={(event) => updateField("eggsSet", event.target.value)}
                     placeholder="18"
+                    className={inputClassName()}
+                  />
+                }
+              />
+              <FormField
+                label="Clears"
+                input={
+                  <input
+                    type="number"
+                    min="0"
+                    value={form.eggsCleared}
+                    onChange={(event) => updateField("eggsCleared", event.target.value)}
+                    placeholder="2"
+                    className={inputClassName()}
+                  />
+                }
+              />
+              <FormField
+                label="Quitters"
+                input={
+                  <input
+                    type="number"
+                    min="0"
+                    value={form.eggsQuitters}
+                    onChange={(event) => updateField("eggsQuitters", event.target.value)}
+                    placeholder="1"
                     className={inputClassName()}
                   />
                 }

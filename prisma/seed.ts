@@ -109,6 +109,9 @@ async function main() {
   await prisma.aiUsageLog.deleteMany();
   await prisma.usageEvent.deleteMany();
   await prisma.auditLog.deleteMany();
+  await prisma.chickDeathRecord.deleteMany();
+  await prisma.incubatorRun.deleteMany();
+  await prisma.incubator.deleteMany();
   await prisma.eggSale.deleteMany();
   await prisma.eggSaleSettings.deleteMany();
   await prisma.eggSaleLocation.deleteMany();

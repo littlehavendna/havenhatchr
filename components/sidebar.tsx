@@ -10,6 +10,7 @@ const links = [
   { href: "/birds", label: "Birds" },
   { href: "/chicks", label: "Chicks" },
   { href: "/hatch-groups", label: "Hatch Groups" },
+  { href: "/incubation", label: "Incubation" },
   { href: "/tasks", label: "Tasks" },
   { href: "/shows", label: "Shows" },
   { href: "/customers", label: "Customers" },

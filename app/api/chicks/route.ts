@@ -40,7 +40,7 @@ export async function POST(request: Request) {
       hatchDate: readIsoDateString(body, "hatchDate", { required: true }),
       flockId: readString(body, "flockId", { required: true, maxLength: 40 }),
       hatchGroupId: readString(body, "hatchGroupId", { maxLength: 40 }) || undefined,
-      status: readEnum(body, "status", ["Available", "Reserved", "Sold", "Holdback"] as const, {
+      status: readEnum(body, "status", ["Available", "Reserved", "Sold", "Holdback", "Deceased"] as const, {
         required: true,
       }),
       sex: readEnum(body, "sex", ["Male", "Female", "Unknown"] as const, { required: true }),

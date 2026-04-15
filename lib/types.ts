@@ -1,6 +1,16 @@
-export type ChickStatus = "Available" | "Reserved" | "Sold" | "Holdback";
+export type ChickStatus = "Available" | "Reserved" | "Sold" | "Holdback" | "Deceased";
 export type BirdSex = "Male" | "Female" | "Unknown";
 export type BirdStatus = "Active" | "Holdback" | "Retired" | "Sold";
+export type ChickDeathReason =
+  | "FailureToThrive"
+  | "ShippedWeak"
+  | "SplayLeg"
+  | "Injury"
+  | "Predator"
+  | "UnabsorbedYolk"
+  | "AssistedHatchComplications"
+  | "Unknown"
+  | "Other";
 export type NoteEntityType =
   | "bird"
   | "flock"
@@ -105,6 +115,8 @@ export interface HatchGroup {
   lockdownDate: string;
   hatchDate: string;
   eggsSet: number;
+  eggsCleared: number;
+  eggsQuitters: number;
   eggsHatched: number;
   producedTraitsSummary: string;
   notes: string;

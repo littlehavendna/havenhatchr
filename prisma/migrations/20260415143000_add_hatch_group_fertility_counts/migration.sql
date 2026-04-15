@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "HatchGroup"
+ADD COLUMN "eggsCleared" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN "eggsQuitters" INTEGER NOT NULL DEFAULT 0;

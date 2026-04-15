@@ -25,6 +25,7 @@ enum ChickStatus {
   Reserved
   Sold
   Holdback
+  Deceased
 }
 
 enum ReservationStatus {
@@ -105,6 +106,18 @@ enum EggSaleUnit {
   Flat
 }
 
+enum ChickDeathReason {
+  FailureToThrive
+  ShippedWeak
+  SplayLeg
+  Injury
+  Predator
+  UnabsorbedYolk
+  AssistedHatchComplications
+  Unknown
+  Other
+}
+
 model User {
   id           String        @id @default(cuid())
   name         String
@@ -155,6 +168,9 @@ model User {
   eggSaleLocations      EggSaleLocation[]
   eggSaleSettings       EggSaleSettings?
   eggSales              EggSale[]
+  incubators            Incubator[]
+  incubatorRuns         IncubatorRun[]
+  chickDeathRecords     ChickDeathRecord[]
 }
 
 model Session {
@@ -232,6 +248,8 @@ model Bird {
   flock         Flock      @relation(fields: [flockId], references: [id], onDelete: Cascade)
   sirePairings  Pairing[]  @relation("PairingSire")
   damPairings   Pairing[]  @relation("PairingDam")
+  siredChicks   Chick[]    @relation("ChickSire")
+  dammedChicks  Chick[]    @relation("ChickDam")
   traits        Trait[]
   showEntries   ShowEntry[]
   noteEntries   Note[]     @relation("BirdNotes")
@@ -275,6 +293,8 @@ model HatchGroup {
   lockdownDate          DateTime
   hatchDate             DateTime
   eggsSet               Int        @default(0)
+  eggsCleared           Int        @default(0)
+  eggsQuitters          Int        @default(0)
   eggsHatched           Int        @default(0)
   producedTraitsSummary String     @default("")
   notes                 String     @default("")
@@ -283,6 +303,7 @@ model HatchGroup {
   user                  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   pairing               Pairing?   @relation(fields: [pairingId], references: [id], onDelete: SetNull)
   chicks                Chick[]
+  incubatorRuns         IncubatorRun[]
   noteEntries           Note[]     @relation("HatchGroupNotes")
   photoEntries          Photo[]    @relation("HatchGroupPhotos")
 
@@ -296,6 +317,8 @@ model Chick {
   hatchDate      DateTime
   flockId        String
   hatchGroupId   String?
+  sireId         String?
+  damId          String?
   status         ChickStatus
   sex            BirdSex
   color          String      @default("")
@@ -307,12 +330,17 @@ model Chick {
   user           User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   flock          Flock       @relation(fields: [flockId], references: [id], onDelete: Cascade)
   hatchGroup     HatchGroup? @relation(fields: [hatchGroupId], references: [id], onDelete: SetNull)
+  sire           Bird?       @relation("ChickSire", fields: [sireId], references: [id], onDelete: SetNull)
+  dam            Bird?       @relation("ChickDam", fields: [damId], references: [id], onDelete: SetNull)
   noteEntries    Note[]      @relation("ChickNotes")
   photoEntries   Photo[]     @relation("ChickPhotos")
   orderItems     OrderChick[]
   dnaTestRequests DnaTestRequest[]
+  deathRecords   ChickDeathRecord[]
 
   @@index([userId])
+  @@index([sireId])
+  @@index([damId])
   @@unique([userId, bandNumber])
 }
 
@@ -626,6 +654,67 @@ model EggSale {
   @@index([locationId])
   @@index([saleDate])
   @@index([saleType])
+}
+
+model Incubator {
+  id          String        @id @default(cuid())
+  userId      String
+  name        String
+  brand       String        @default("")
+  model       String        @default("")
+  notes       String        @default("")
+  active      Boolean       @default(true)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  runs        IncubatorRun[]
+
+  @@index([userId])
+  @@unique([userId, name])
+}
+
+model IncubatorRun {
+  id                   String      @id @default(cuid())
+  userId               String
+  incubatorId          String
+  hatchGroupId         String
+  startDate            DateTime
+  lockdownDate         DateTime
+  expectedHatchDate    DateTime
+  temperatureNotes     String      @default("")
+  humidityNotes        String      @default("")
+  turningNotes         String      @default("")
+  lockdownHumidityNotes String     @default("")
+  specialAdjustments   String      @default("")
+  generalNotes         String      @default("")
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+  user                 User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  incubator            Incubator   @relation(fields: [incubatorId], references: [id], onDelete: Cascade)
+  hatchGroup           HatchGroup  @relation(fields: [hatchGroupId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([incubatorId])
+  @@index([hatchGroupId])
+  @@index([startDate])
+}
+
+model ChickDeathRecord {
+  id          String           @id @default(cuid())
+  userId      String
+  chickId     String
+  deathDate   DateTime
+  deathReason ChickDeathReason
+  notes       String           @default("")
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chick       Chick            @relation(fields: [chickId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([chickId])
+  @@index([deathDate])
+  @@index([deathReason])
 }
 
 model Task {

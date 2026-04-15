@@ -83,6 +83,18 @@ async function requireOwnedHatchGroup(userId: string, hatchGroupId: string) {
   return hatchGroup;
 }
 
+async function requireOwnedIncubator(userId: string, incubatorId: string) {
+  const incubator = await prisma.incubator.findFirst({
+    where: { id: incubatorId, userId },
+  });
+
+  if (!incubator) {
+    throw new Error("Incubator not found.");
+  }
+
+  return incubator;
+}
+
 async function requireOwnedChick(userId: string, chickId: string) {
   const chick = await prisma.chick.findFirst({
     where: { id: chickId, userId },
@@ -738,39 +750,128 @@ export async function createPairing(
   });
 }
 
+function formatDeathReason(reason: string) {
+  return reason
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/^./, (value) => value.toUpperCase());
+}
+
+function calculateHatchRate(eggsSet: number, eggsHatched: number) {
+  if (eggsSet <= 0) {
+    return 0;
+  }
+
+  return Math.round((eggsHatched / eggsSet) * 100);
+}
+
+function calculateFertilityRate(eggsSet: number, eggsCleared: number) {
+  if (eggsSet <= 0) {
+    return 0;
+  }
+
+  return Math.round(((eggsSet - eggsCleared) / eggsSet) * 100);
+}
+
+function calculateHatchOfFertileRate(eggsSet: number, eggsCleared: number, eggsHatched: number) {
+  const fertileEggs = eggsSet - eggsCleared;
+  if (fertileEggs <= 0) {
+    return 0;
+  }
+
+  return Math.round((eggsHatched / fertileEggs) * 100);
+}
+
+function calculateSurvivalRate(totalChicks: number, deathCount: number) {
+  if (totalChicks <= 0) {
+    return 0;
+  }
+
+  return Math.round(((totalChicks - deathCount) / totalChicks) * 100);
+}
+
 export async function getHatchGroupsData(userId: string) {
   const [groups, pairings] = await Promise.all([
     prisma.hatchGroup.findMany({
       where: { userId },
-      include: { pairing: true },
+      include: {
+        pairing: {
+          include: {
+            sire: true,
+            dam: true,
+          },
+        },
+        chicks: {
+          where: { userId },
+          include: {
+            deathRecords: true,
+          },
+        },
+        incubatorRuns: {
+          include: {
+            incubator: true,
+          },
+          orderBy: { createdAt: "desc" },
+        },
+      },
       orderBy: { createdAt: "desc" },
     }),
     prisma.pairing.findMany({
       where: { userId },
+      include: {
+        sire: true,
+        dam: true,
+      },
       orderBy: { name: "asc" },
     }),
   ]);
 
   return {
-      hatchGroups: groups.map((group) => ({
+    hatchGroups: groups.map((group) => {
+      const deathCount = group.chicks.reduce(
+        (sum, chick) => sum + chick.deathRecords.length,
+        0,
+      );
+      const incubatorRun = group.incubatorRuns[0];
+
+      return {
         id: group.id,
         name: group.name,
         pairingId: group.pairingId,
         breedDesignation: group.breedDesignation,
+        pairingName: group.pairing?.name ?? "Mixed flock / not set",
+        pairingSireName: group.pairing?.sire.name ?? "",
+        pairingDamName: group.pairing?.dam.name ?? "",
       setDate: formatDateOnly(group.setDate),
       lockdownDate: formatDateOnly(group.lockdownDate),
       hatchDate: formatDateOnly(group.hatchDate),
       eggsSet: group.eggsSet,
+      eggsCleared: group.eggsCleared,
+      eggsQuitters: group.eggsQuitters,
       eggsHatched: group.eggsHatched,
       producedTraitsSummary: group.producedTraitsSummary,
       notes: group.notes,
       createdAt: formatDateTime(group.createdAt),
-        pairingName: group.pairing?.name ?? "Mixed flock / not set",
-      })),
+        hatchRate: calculateHatchRate(group.eggsSet, group.eggsHatched),
+        fertilityRate: calculateFertilityRate(group.eggsSet, group.eggsCleared),
+        hatchOfFertileRate: calculateHatchOfFertileRate(
+          group.eggsSet,
+          group.eggsCleared,
+          group.eggsHatched,
+        ),
+        chickCount: group.chicks.length,
+        deathCount,
+        survivalRate: calculateSurvivalRate(group.chicks.length, deathCount),
+        incubatorName: incubatorRun?.incubator.name ?? "",
+        incubatorRunId: incubatorRun?.id ?? null,
+      };
+    }),
     pairings: pairings.map((pairing) => ({
       id: pairing.id,
       name: pairing.name,
       targetTraits: pairing.targetTraits,
+      sireName: pairing.sire.name,
+      damName: pairing.dam.name,
+      breedDesignation: pairing.sire.breed || pairing.dam.breed || "Chicken",
     })),
     breedOptions: HATCH_BREED_OPTIONS,
   };
@@ -786,13 +887,20 @@ export async function createHatchGroup(
     lockdownDate?: string;
     hatchDate: string;
     eggsSet: number;
+    eggsCleared: number;
+    eggsQuitters: number;
     eggsHatched: number;
     producedTraitsSummary: string;
     notes: string;
   },
 ) {
+  let producedTraitsSummary = data.producedTraitsSummary;
+
   if (data.pairingId) {
-    await requireOwnedPairing(userId, data.pairingId);
+    const pairing = await requireOwnedPairing(userId, data.pairingId);
+    if (!producedTraitsSummary && pairing.targetTraits.length > 0) {
+      producedTraitsSummary = `Expected traits: ${pairing.targetTraits.join(", ")}`;
+    }
   }
   const derivedDates = deriveIncubationDates(data.setDate, data.breedDesignation);
 
@@ -800,6 +908,7 @@ export async function createHatchGroup(
     data: {
       userId,
       ...data,
+      producedTraitsSummary,
       pairingId: data.pairingId || null,
       setDate: new Date(`${data.setDate}T00:00:00`),
       lockdownDate: new Date(`${(data.lockdownDate || derivedDates.lockdownDate)}T00:00:00`),
@@ -819,14 +928,20 @@ export async function updateHatchGroup(
     lockdownDate?: string;
     hatchDate: string;
     eggsSet: number;
+    eggsCleared: number;
+    eggsQuitters: number;
     eggsHatched: number;
     producedTraitsSummary: string;
     notes: string;
   },
 ) {
   await requireOwnedHatchGroup(userId, hatchGroupId);
+  let producedTraitsSummary = data.producedTraitsSummary;
   if (data.pairingId) {
-    await requireOwnedPairing(userId, data.pairingId);
+    const pairing = await requireOwnedPairing(userId, data.pairingId);
+    if (!producedTraitsSummary && pairing.targetTraits.length > 0) {
+      producedTraitsSummary = `Expected traits: ${pairing.targetTraits.join(", ")}`;
+    }
   }
   const derivedDates = deriveIncubationDates(data.setDate, data.breedDesignation);
 
@@ -834,6 +949,7 @@ export async function updateHatchGroup(
     where: { id: hatchGroupId },
     data: {
       ...data,
+      producedTraitsSummary,
       pairingId: data.pairingId || null,
       setDate: new Date(`${data.setDate}T00:00:00`),
       lockdownDate: new Date(`${(data.lockdownDate || derivedDates.lockdownDate)}T00:00:00`),
@@ -848,9 +964,22 @@ export async function getChicksData(userId: string) {
       where: { userId },
       include: {
         flock: true,
-        hatchGroup: true,
+        hatchGroup: {
+          include: {
+            pairing: {
+              include: {
+                sire: true,
+                dam: true,
+              },
+            },
+          },
+        },
         dnaTestRequests: {
           orderBy: { createdAt: "desc" },
+          take: 1,
+        },
+        deathRecords: {
+          orderBy: { deathDate: "desc" },
           take: 1,
         },
       },
@@ -883,6 +1012,19 @@ export async function getChicksData(userId: string) {
       createdAt: formatDateTime(chick.createdAt),
       flockName: chick.flock.name,
       hatchGroupName: chick.hatchGroup?.name ?? "-",
+      pairingName: chick.hatchGroup?.pairing?.name ?? "",
+      sireName: chick.hatchGroup?.pairing?.sire.name ?? "",
+      damName: chick.hatchGroup?.pairing?.dam.name ?? "",
+      deathRecord:
+        chick.deathRecords[0]
+          ? {
+              id: chick.deathRecords[0].id,
+              deathDate: formatDateOnly(chick.deathRecords[0].deathDate),
+              deathReason: chick.deathRecords[0].deathReason,
+              deathReasonLabel: formatDeathReason(chick.deathRecords[0].deathReason),
+              notes: chick.deathRecords[0].notes,
+            }
+          : null,
     })),
     flocks: flocks.map((flock) => ({ id: flock.id, name: flock.name })),
     hatchGroups: hatchGroups.map((group) => ({ id: group.id, name: group.name })),
@@ -916,6 +1058,12 @@ export async function getChickProfileData(userId: string, chickId: string) {
         where: { userId },
         orderBy: { createdAt: "desc" },
       },
+      deathRecords: {
+        where: { userId },
+        orderBy: { deathDate: "desc" },
+      },
+      sire: true,
+      dam: true,
     },
   });
 
@@ -941,8 +1089,8 @@ export async function getChickProfileData(userId: string, chickId: string) {
       dnaStatus: chick.dnaTestRequests[0]?.status ?? "None",
       createdAt: formatDateTime(chick.createdAt),
       pairingName: chick.hatchGroup?.pairing?.name ?? "",
-      sireName: chick.hatchGroup?.pairing?.sire.name ?? "",
-      damName: chick.hatchGroup?.pairing?.dam.name ?? "",
+      sireName: chick.sire?.name ?? chick.hatchGroup?.pairing?.sire.name ?? "",
+      damName: chick.dam?.name ?? chick.hatchGroup?.pairing?.dam.name ?? "",
       producedTraitsSummary: chick.hatchGroup?.producedTraitsSummary ?? "",
     },
     notes: chick.noteEntries.map((note) => ({
@@ -969,6 +1117,14 @@ export async function getChickProfileData(userId: string, chickId: string) {
       resultSummary: request.resultSummary || "",
       completedAt: request.completedAt ? formatDateTime(request.completedAt) : null,
       createdAt: formatDateTime(request.createdAt),
+    })),
+    deathRecords: chick.deathRecords.map((record) => ({
+      id: record.id,
+      deathDate: formatDateOnly(record.deathDate),
+      deathReason: record.deathReason,
+      deathReasonLabel: formatDeathReason(record.deathReason),
+      notes: record.notes,
+      createdAt: formatDateTime(record.createdAt),
     })),
   };
 }
@@ -1000,7 +1156,7 @@ export async function createChick(
     hatchDate: string;
     flockId: string;
     hatchGroupId?: string;
-    status: "Available" | "Reserved" | "Sold" | "Holdback";
+    status: "Available" | "Reserved" | "Sold" | "Holdback" | "Deceased";
     sex: "Male" | "Female" | "Unknown";
     color: string;
     observedTraits: string[];
@@ -1009,8 +1165,27 @@ export async function createChick(
 ) {
   await requireOwnedFlock(userId, data.flockId);
 
+  let pairingIds: { sireId: string | null; damId: string | null } = {
+    sireId: null,
+    damId: null,
+  };
+
   if (data.hatchGroupId) {
-    await requireOwnedHatchGroup(userId, data.hatchGroupId);
+    const hatchGroup = await prisma.hatchGroup.findFirst({
+      where: { id: data.hatchGroupId, userId },
+      include: {
+        pairing: true,
+      },
+    });
+
+    if (!hatchGroup) {
+      throw new Error("Hatch group not found.");
+    }
+
+    pairingIds = {
+      sireId: hatchGroup.pairing?.sireId ?? null,
+      damId: hatchGroup.pairing?.damId ?? null,
+    };
   }
 
   return prisma.chick.create({
@@ -1019,9 +1194,463 @@ export async function createChick(
       ...data,
       hatchDate: new Date(`${data.hatchDate}T00:00:00`),
       hatchGroupId: data.hatchGroupId || null,
+      sireId: pairingIds.sireId,
+      damId: pairingIds.damId,
       photoUrl: "",
     },
   });
+}
+
+export async function createChickDeathRecord(
+  userId: string,
+  data: {
+    chickId: string;
+    deathDate: string;
+    deathReason:
+      | "FailureToThrive"
+      | "ShippedWeak"
+      | "SplayLeg"
+      | "Injury"
+      | "Predator"
+      | "UnabsorbedYolk"
+      | "AssistedHatchComplications"
+      | "Unknown"
+      | "Other";
+    notes: string;
+  },
+) {
+  await requireOwnedChick(userId, data.chickId);
+
+  return prisma.$transaction(async (tx) => {
+    const existing = await tx.chickDeathRecord.findFirst({
+      where: { chickId: data.chickId, userId },
+    });
+
+    if (existing) {
+      throw new Error("A death record already exists for this chick.");
+    }
+
+    const record = await tx.chickDeathRecord.create({
+      data: {
+        userId,
+        chickId: data.chickId,
+        deathDate: new Date(`${data.deathDate}T00:00:00`),
+        deathReason: data.deathReason,
+        notes: data.notes,
+      },
+    });
+
+    await tx.chick.update({
+      where: { id: data.chickId },
+      data: { status: "Deceased" },
+    });
+
+    return record;
+  });
+}
+
+export async function createIncubator(
+  userId: string,
+  data: {
+    name: string;
+    brand: string;
+    model: string;
+    notes: string;
+    active: boolean;
+  },
+) {
+  return prisma.incubator.create({
+    data: {
+      userId,
+      ...data,
+    },
+  });
+}
+
+export async function updateIncubator(
+  userId: string,
+  incubatorId: string,
+  data: {
+    name: string;
+    brand: string;
+    model: string;
+    notes: string;
+    active: boolean;
+  },
+) {
+  await requireOwnedIncubator(userId, incubatorId);
+
+  return prisma.incubator.update({
+    where: { id: incubatorId },
+    data,
+  });
+}
+
+export async function createIncubatorRun(
+  userId: string,
+  data: {
+    incubatorId: string;
+    hatchGroupId: string;
+    startDate: string;
+    lockdownDate: string;
+    expectedHatchDate: string;
+    temperatureNotes: string;
+    humidityNotes: string;
+    turningNotes: string;
+    lockdownHumidityNotes: string;
+    specialAdjustments: string;
+    generalNotes: string;
+  },
+) {
+  await requireOwnedIncubator(userId, data.incubatorId);
+  await requireOwnedHatchGroup(userId, data.hatchGroupId);
+
+  return prisma.incubatorRun.create({
+    data: {
+      userId,
+      incubatorId: data.incubatorId,
+      hatchGroupId: data.hatchGroupId,
+      startDate: new Date(`${data.startDate}T00:00:00`),
+      lockdownDate: new Date(`${data.lockdownDate}T00:00:00`),
+      expectedHatchDate: new Date(`${data.expectedHatchDate}T00:00:00`),
+      temperatureNotes: data.temperatureNotes,
+      humidityNotes: data.humidityNotes,
+      turningNotes: data.turningNotes,
+      lockdownHumidityNotes: data.lockdownHumidityNotes,
+      specialAdjustments: data.specialAdjustments,
+      generalNotes: data.generalNotes,
+    },
+  });
+}
+
+export async function updateIncubatorRun(
+  userId: string,
+  runId: string,
+  data: {
+    incubatorId: string;
+    hatchGroupId: string;
+    startDate: string;
+    lockdownDate: string;
+    expectedHatchDate: string;
+    temperatureNotes: string;
+    humidityNotes: string;
+    turningNotes: string;
+    lockdownHumidityNotes: string;
+    specialAdjustments: string;
+    generalNotes: string;
+  },
+) {
+  const run = await prisma.incubatorRun.findFirst({
+    where: { id: runId, userId },
+  });
+
+  if (!run) {
+    throw new Error("Incubator run not found.");
+  }
+
+  await requireOwnedIncubator(userId, data.incubatorId);
+  await requireOwnedHatchGroup(userId, data.hatchGroupId);
+
+  return prisma.incubatorRun.update({
+    where: { id: runId },
+    data: {
+      incubatorId: data.incubatorId,
+      hatchGroupId: data.hatchGroupId,
+      startDate: new Date(`${data.startDate}T00:00:00`),
+      lockdownDate: new Date(`${data.lockdownDate}T00:00:00`),
+      expectedHatchDate: new Date(`${data.expectedHatchDate}T00:00:00`),
+      temperatureNotes: data.temperatureNotes,
+      humidityNotes: data.humidityNotes,
+      turningNotes: data.turningNotes,
+      lockdownHumidityNotes: data.lockdownHumidityNotes,
+      specialAdjustments: data.specialAdjustments,
+      generalNotes: data.generalNotes,
+    },
+  });
+}
+
+export async function getIncubationData(userId: string) {
+  const [incubators, hatchGroups, pairings, deathRecords] = await Promise.all([
+    prisma.incubator.findMany({
+      where: { userId },
+      include: {
+        runs: {
+          include: {
+            hatchGroup: {
+              include: {
+                chicks: {
+                  where: { userId },
+                  include: {
+                    deathRecords: true,
+                  },
+                },
+              },
+            },
+          },
+          orderBy: { startDate: "desc" },
+        },
+      },
+      orderBy: [{ active: "desc" }, { name: "asc" }],
+    }),
+    prisma.hatchGroup.findMany({
+      where: { userId },
+      include: {
+        pairing: {
+          include: {
+            sire: true,
+            dam: true,
+          },
+        },
+        chicks: {
+          where: { userId },
+          include: {
+            deathRecords: true,
+          },
+        },
+        incubatorRuns: {
+          include: {
+            incubator: true,
+          },
+          orderBy: { startDate: "desc" },
+        },
+      },
+      orderBy: { hatchDate: "desc" },
+    }),
+    prisma.pairing.findMany({
+      where: { userId },
+      include: {
+        hatchGroups: {
+          include: {
+            chicks: {
+              where: { userId },
+              include: { deathRecords: true },
+            },
+          },
+        },
+      },
+      orderBy: { name: "asc" },
+    }),
+    prisma.chickDeathRecord.findMany({
+      where: { userId },
+      include: {
+        chick: {
+          include: {
+            hatchGroup: true,
+          },
+        },
+      },
+      orderBy: { deathDate: "desc" },
+    }),
+  ]);
+
+  const hatchGroupSummaries = hatchGroups.map((group) => {
+    const deathCount = group.chicks.reduce((sum, chick) => sum + chick.deathRecords.length, 0);
+    const availableCount = group.chicks.filter((chick) => chick.status === "Available").length;
+    const reservedCount = group.chicks.filter((chick) => chick.status === "Reserved").length;
+    const soldCount = group.chicks.filter((chick) => chick.status === "Sold").length;
+    const quitterCount = group.eggsQuitters;
+
+    return {
+      id: group.id,
+      name: group.name,
+      pairingName: group.pairing?.name ?? "Mixed flock / not set",
+      breedDesignation: group.breedDesignation,
+      setDate: formatDateOnly(group.setDate),
+      lockdownDate: formatDateOnly(group.lockdownDate),
+      hatchDate: formatDateOnly(group.hatchDate),
+      eggsSet: group.eggsSet,
+      eggsCleared: group.eggsCleared,
+      eggsQuitters: group.eggsQuitters,
+      eggsHatched: group.eggsHatched,
+      hatchRate: calculateHatchRate(group.eggsSet, group.eggsHatched),
+      fertilityRate: calculateFertilityRate(group.eggsSet, group.eggsCleared),
+      hatchOfFertileRate: calculateHatchOfFertileRate(
+        group.eggsSet,
+        group.eggsCleared,
+        group.eggsHatched,
+      ),
+      quitterCount,
+      chickCount: group.chicks.length,
+      deathCount,
+      survivalRate: calculateSurvivalRate(group.chicks.length, deathCount),
+      availableCount,
+      reservedCount,
+      soldCount,
+      incubatorName: group.incubatorRuns[0]?.incubator.name ?? "",
+      reviewFlag:
+        calculateHatchRate(group.eggsSet, group.eggsHatched) < 60 || deathCount > 0,
+      notes: group.notes,
+    };
+  });
+
+  const incubatorSummaries = incubators.map((incubator) => {
+    const eggsSet = incubator.runs.reduce((sum, run) => sum + run.hatchGroup.eggsSet, 0);
+    const eggsCleared = incubator.runs.reduce((sum, run) => sum + run.hatchGroup.eggsCleared, 0);
+    const eggsQuitters = incubator.runs.reduce((sum, run) => sum + run.hatchGroup.eggsQuitters, 0);
+    const eggsHatched = incubator.runs.reduce((sum, run) => sum + run.hatchGroup.eggsHatched, 0);
+    const deathCount = incubator.runs.reduce(
+      (sum, run) =>
+        sum +
+        run.hatchGroup.chicks.reduce((innerSum, chick) => innerSum + chick.deathRecords.length, 0),
+      0,
+    );
+    const chickCount = incubator.runs.reduce((sum, run) => sum + run.hatchGroup.chicks.length, 0);
+
+    return {
+      id: incubator.id,
+      name: incubator.name,
+      brand: incubator.brand,
+      model: incubator.model,
+      notes: incubator.notes,
+      active: incubator.active,
+      runCount: incubator.runs.length,
+      eggsSet,
+      eggsCleared,
+      eggsQuitters,
+      eggsHatched,
+      hatchRate: calculateHatchRate(eggsSet, eggsHatched),
+      fertilityRate: calculateFertilityRate(eggsSet, eggsCleared),
+      hatchOfFertileRate: calculateHatchOfFertileRate(eggsSet, eggsCleared, eggsHatched),
+      deathCount,
+      survivalRate: calculateSurvivalRate(chickCount, deathCount),
+      averageHatchRate:
+        incubator.runs.length > 0
+          ? Math.round(
+              incubator.runs.reduce(
+                (sum, run) =>
+                  sum + calculateHatchRate(run.hatchGroup.eggsSet, run.hatchGroup.eggsHatched),
+                0,
+              ) / incubator.runs.length,
+            )
+          : 0,
+      createdAt: formatDateTime(incubator.createdAt),
+    };
+  });
+
+  const bestIncubator = [...incubatorSummaries].sort(
+    (left, right) => right.averageHatchRate - left.averageHatchRate,
+  )[0];
+  const worstIncubator = [...incubatorSummaries].sort(
+    (left, right) => left.averageHatchRate - right.averageHatchRate,
+  )[0];
+
+  const deathReasonCounts = new Map<string, number>();
+  for (const record of deathRecords) {
+    const label = formatDeathReason(record.deathReason);
+    deathReasonCounts.set(label, (deathReasonCounts.get(label) ?? 0) + 1);
+  }
+
+  const pairingPerformance = pairings.map((pairing) => {
+    const eggsSet = pairing.hatchGroups.reduce((sum, group) => sum + group.eggsSet, 0);
+    const eggsHatched = pairing.hatchGroups.reduce((sum, group) => sum + group.eggsHatched, 0);
+    return {
+      id: pairing.id,
+      name: pairing.name,
+      hatchGroupCount: pairing.hatchGroups.length,
+      eggsSet,
+      eggsHatched,
+      hatchRate: calculateHatchRate(eggsSet, eggsHatched),
+    };
+  });
+  const topPairing = [...pairingPerformance].sort(
+    (left, right) => right.hatchRate - left.hatchRate,
+  )[0];
+
+  return {
+    incubators: incubatorSummaries.map((incubator) => ({
+      ...incubator,
+    })),
+    runs: incubators.flatMap((incubator) =>
+      incubator.runs.map((run) => {
+        const deathCount = run.hatchGroup.chicks.reduce(
+          (sum, chick) => sum + chick.deathRecords.length,
+          0,
+        );
+
+        return {
+          id: run.id,
+          incubatorId: incubator.id,
+          incubatorName: incubator.name,
+          hatchGroupId: run.hatchGroupId,
+          hatchGroupName: run.hatchGroup.name,
+          startDate: formatDateOnly(run.startDate),
+          lockdownDate: formatDateOnly(run.lockdownDate),
+          expectedHatchDate: formatDateOnly(run.expectedHatchDate),
+          temperatureNotes: run.temperatureNotes,
+          humidityNotes: run.humidityNotes,
+          turningNotes: run.turningNotes,
+          lockdownHumidityNotes: run.lockdownHumidityNotes,
+          specialAdjustments: run.specialAdjustments,
+          generalNotes: run.generalNotes,
+          eggsSet: run.hatchGroup.eggsSet,
+          eggsCleared: run.hatchGroup.eggsCleared,
+          eggsQuitters: run.hatchGroup.eggsQuitters,
+          eggsHatched: run.hatchGroup.eggsHatched,
+          hatchRate: calculateHatchRate(run.hatchGroup.eggsSet, run.hatchGroup.eggsHatched),
+          fertilityRate: calculateFertilityRate(
+            run.hatchGroup.eggsSet,
+            run.hatchGroup.eggsCleared,
+          ),
+          hatchOfFertileRate: calculateHatchOfFertileRate(
+            run.hatchGroup.eggsSet,
+            run.hatchGroup.eggsCleared,
+            run.hatchGroup.eggsHatched,
+          ),
+          quitterCount: run.hatchGroup.eggsQuitters,
+          survivalRate: calculateSurvivalRate(run.hatchGroup.chicks.length, deathCount),
+          deathCount,
+          createdAt: formatDateTime(run.createdAt),
+          updatedAt: formatDateTime(run.updatedAt),
+        };
+      }),
+    ),
+    hatchGroups: hatchGroupSummaries,
+    pairings: pairingPerformance,
+    deathRecords: deathRecords.map((record) => ({
+      id: record.id,
+      chickId: record.chickId,
+      chickBandNumber: record.chick.bandNumber,
+      hatchGroupName: record.chick.hatchGroup?.name ?? "",
+      deathDate: formatDateOnly(record.deathDate),
+      deathReason: record.deathReason,
+      deathReasonLabel: formatDeathReason(record.deathReason),
+      notes: record.notes,
+    })),
+    deathReasonSummary: Array.from(deathReasonCounts.entries())
+      .map(([reason, count]) => ({ reason, count }))
+      .sort((left, right) => right.count - left.count),
+    incubatorOptions: incubators.map((incubator) => ({
+      id: incubator.id,
+      name: incubator.name,
+      active: incubator.active,
+    })),
+    hatchGroupOptions: hatchGroups.map((group) => ({
+      id: group.id,
+      name: group.name,
+      setDate: formatDateOnly(group.setDate),
+      lockdownDate: formatDateOnly(group.lockdownDate),
+      expectedHatchDate: formatDateOnly(group.hatchDate),
+    })),
+    reports: {
+      bestIncubator: bestIncubator
+        ? `${bestIncubator.name} averages ${bestIncubator.averageHatchRate}% hatch rate`
+        : "Add incubator runs to compare performance",
+      lowestIncubator:
+        worstIncubator && incubatorSummaries.length > 1
+          ? `${worstIncubator.name} is lowest at ${worstIncubator.averageHatchRate}% average hatch rate`
+          : "More incubator history is needed for low performer comparisons",
+      mostCommonDeathReason:
+        Array.from(deathReasonCounts.entries()).sort((left, right) => right[1] - left[1])[0]?.[0] ??
+        "No death reasons logged",
+      topPairing:
+        topPairing && topPairing.hatchGroupCount > 0
+          ? `${topPairing.name} is leading at ${topPairing.hatchRate}% hatch rate`
+          : "No pairing performance data yet",
+      hatchGroupsNeedingReview: hatchGroupSummaries
+        .filter((group) => group.reviewFlag)
+        .map((group) => group.name),
+    },
+  };
 }
 
 export async function getReservationsData(userId: string) {
@@ -2247,7 +2876,7 @@ export async function getStorefrontData(userId: string) {
 }
 
 export async function getDashboardData(userId: string) {
-  const [customers, flocks, chicks, reservations, orders, hatchGroups, birds, pairings] =
+  const [customers, flocks, chicks, reservations, orders, hatchGroups, birds, pairings, incubators] =
     await Promise.all([
       prisma.customer.findMany({ where: { userId } }),
       prisma.flock.findMany({ where: { userId } }),
@@ -2268,7 +2897,20 @@ export async function getDashboardData(userId: string) {
       }),
       prisma.hatchGroup.findMany({
         where: { userId },
-        include: { pairing: true },
+        include: {
+          pairing: true,
+          chicks: {
+            where: { userId },
+            include: {
+              deathRecords: true,
+            },
+          },
+          incubatorRuns: {
+            include: {
+              incubator: true,
+            },
+          },
+        },
       }),
       prisma.bird.findMany({
         where: { userId },
@@ -2278,7 +2920,125 @@ export async function getDashboardData(userId: string) {
         where: { userId },
         include: { sire: true, dam: true },
       }),
+      prisma.incubator.findMany({
+        where: { userId },
+        include: {
+          runs: {
+            include: {
+              hatchGroup: {
+                include: {
+                  chicks: {
+                    where: { userId },
+                    include: {
+                      deathRecords: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      }),
     ]);
+
+  const reviewAlerts = [
+    ...hatchGroups
+      .map((group) => {
+        const deathCount = group.chicks.reduce(
+          (sum, chick) => sum + chick.deathRecords.length,
+          0,
+        );
+        const hatchRate = calculateHatchRate(group.eggsSet, group.eggsHatched);
+        const fertilityRate = calculateFertilityRate(group.eggsSet, group.eggsCleared);
+
+        if (hatchRate < 60) {
+          return {
+            key: `group-hatch-${group.id}`,
+            title: `${group.name} needs hatch review`,
+            detail: `${hatchRate}% hatch rate from ${group.eggsSet} eggs set. Check incubator notes, fertility, and handling.`,
+            href: "/incubation",
+            tone: "warning",
+          };
+        }
+
+        if (deathCount > 0) {
+          return {
+            key: `group-loss-${group.id}`,
+            title: `${group.name} has logged chick losses`,
+            detail: `${deathCount} death record${deathCount === 1 ? "" : "s"} recorded. Review causes and survival notes.`,
+            href: "/chicks",
+            tone: "warning",
+          };
+        }
+
+        if (group.eggsCleared > 0 && fertilityRate < 75) {
+          return {
+            key: `group-fertility-${group.id}`,
+            title: `${group.name} is showing weak fertility`,
+            detail: `${group.eggsCleared} clears logged with ${fertilityRate}% fertility. Review parent pairing and storage conditions.`,
+            href: "/hatch-groups",
+            tone: "watch",
+          };
+        }
+
+        return null;
+      })
+      .filter(
+        (
+          alert,
+        ): alert is {
+          key: string;
+          title: string;
+          detail: string;
+          href: string;
+          tone: "warning" | "watch";
+        } => alert !== null,
+      ),
+    ...incubators
+      .map((incubator) => {
+        if (incubator.runs.length < 2) {
+          return null;
+        }
+
+        const eggsSet = incubator.runs.reduce((sum, run) => sum + run.hatchGroup.eggsSet, 0);
+        const eggsHatched = incubator.runs.reduce(
+          (sum, run) => sum + run.hatchGroup.eggsHatched,
+          0,
+        );
+        const hatchRate = calculateHatchRate(eggsSet, eggsHatched);
+
+        if (hatchRate >= 65) {
+          return null;
+        }
+
+        return {
+          key: `incubator-${incubator.id}`,
+          title: `${incubator.name} is trending low`,
+          detail: `${hatchRate}% hatch rate across ${incubator.runs.length} runs. Compare notes and calibrations.`,
+          href: "/incubation",
+          tone: "watch",
+        };
+      })
+      .filter(
+        (
+          alert,
+        ): alert is {
+          key: string;
+          title: string;
+          detail: string;
+          href: string;
+          tone: "warning" | "watch";
+        } => alert !== null,
+      ),
+  ]
+    .slice(0, 5)
+    .map((alert) => ({
+      key: alert.key,
+      title: alert.title,
+      detail: alert.detail,
+      href: alert.href,
+      tone: alert.tone,
+    }));
 
   return {
     stats: [
@@ -2407,6 +3167,7 @@ export async function getDashboardData(userId: string) {
         goals: pairing.goals || "-",
         status: pairing.active ? "Active" : "Inactive",
       })),
+    reviewAlerts,
   };
 }
 
