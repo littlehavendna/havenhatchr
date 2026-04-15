@@ -20,6 +20,7 @@ const links = [
   { href: "/ai", label: "AI Tools" },
   { href: "/reservations", label: "Reservations" },
   { href: "/orders", label: "Orders" },
+  { href: "/egg-sales", label: "Egg Sales" },
   { href: "/storefront", label: "Storefront" },
   { href: "/settings", label: "Settings" },
 ];

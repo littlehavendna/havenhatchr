@@ -93,6 +93,18 @@ enum PhotoEntityType {
   hatchGroup
 }
 
+enum EggSaleType {
+  TableEggs
+  HatchingEggs
+  Other
+}
+
+enum EggSaleUnit {
+  PerEgg
+  PerDozen
+  Flat
+}
+
 model User {
   id           String        @id @default(cuid())
   name         String
@@ -140,6 +152,9 @@ model User {
   dnaTestRequests       DnaTestRequest[]
   operationalEvents     OperationalEvent[]
   feedbackEntries       Feedback[]
+  eggSaleLocations      EggSaleLocation[]
+  eggSaleSettings       EggSaleSettings?
+  eggSales              EggSale[]
 }
 
 model Session {
@@ -563,6 +578,54 @@ model Feedback {
   @@index([type])
   @@index([status])
   @@index([createdAt])
+}
+
+model EggSaleLocation {
+  id          String      @id @default(cuid())
+  userId      String
+  name        String
+  description String      @default("")
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sales       EggSale[]
+
+  @@index([userId])
+  @@unique([userId, name])
+}
+
+model EggSaleSettings {
+  id                   String      @id @default(cuid())
+  userId               String      @unique
+  defaultPricePerEgg   Float       @default(0)
+  defaultPricePerDozen Float       @default(0)
+  defaultSaleUnit      EggSaleUnit @default(PerDozen)
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+  user                 User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model EggSale {
+  id           String          @id @default(cuid())
+  userId       String
+  saleDate     DateTime
+  locationId   String
+  saleType     EggSaleType     @default(TableEggs)
+  quantity     Float
+  unitType     EggSaleUnit
+  pricePerUnit Float
+  totalAmount  Float
+  notes        String          @default("")
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  location     EggSaleLocation @relation(fields: [locationId], references: [id], onDelete: Restrict)
+
+  @@index([userId])
+  @@index([locationId])
+  @@index([saleDate])
+  @@index([saleType])
 }
 
 model Task {

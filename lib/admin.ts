@@ -228,6 +228,10 @@ export async function getAdminDashboardData() {
       founderUsers: users.filter((user) => user.isFounder).length,
       activeBreeders,
       aiUsageCount: aiUsageRecent.length,
+      signupsLast30Days: users.filter(
+        (user) => user.createdAt.getTime() >= Date.now() - 1000 * 60 * 60 * 24 * 30,
+      ).length,
+      latestSignupAt: recentSignups[0]?.createdAt.toISOString() ?? null,
     },
     recentSignups: recentSignups.map((user) => serializeUser(user)),
     aiUsageSnapshot: Array.from(aiToolCounts.entries())

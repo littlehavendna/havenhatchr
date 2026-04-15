@@ -12,6 +12,8 @@ type AdminSummary = {
     founderUsers: number;
     activeBreeders: number;
     aiUsageCount: number;
+    signupsLast30Days: number;
+    latestSignupAt: string | null;
   };
   recentSignups: Array<{
     id: string;
@@ -44,8 +46,25 @@ export default function AdminOverviewPage() {
 
   return (
     <div className="space-y-6">
+      <section className="soft-shadow rounded-[28px] border border-[color:var(--line)] bg-[#edf7f8] p-6">
+        <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[color:var(--teal)]">
+          Signup Snapshot
+        </p>
+        <h2 className="mt-2 text-2xl font-semibold tracking-tight">
+          {data?.totals.totalUsers ?? 0} total account{(data?.totals.totalUsers ?? 0) === 1 ? "" : "s"}
+        </h2>
+        <p className="mt-2 max-w-3xl text-sm leading-7 text-[color:var(--muted)]">
+          {data
+            ? data.totals.latestSignupAt
+              ? `${data.totals.signupsLast30Days} signup${data.totals.signupsLast30Days === 1 ? "" : "s"} in the last 30 days. Latest account created ${formatDate(data.totals.latestSignupAt)}.`
+              : "No signup activity is recorded yet."
+            : "Loading signup activity..."}
+        </p>
+      </section>
+
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Total Users" value={String(data?.totals.totalUsers ?? 0)} detail="All accounts in the system" />
+        <StatCard label="Signups (30d)" value={String(data?.totals.signupsLast30Days ?? 0)} detail="Accounts created in the last 30 days" />
         <StatCard label="Active Subscribers" value={String(data?.totals.activeSubscribers ?? 0)} detail="Paying users with active access" />
         <StatCard label="Trial Users" value={String(data?.totals.trialUsers ?? 0)} detail="Accounts currently in free trial" />
         <StatCard label="Beta Users" value={String(data?.totals.betaUsers ?? 0)} detail="Accounts bypassing billing checks" />

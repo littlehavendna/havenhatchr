@@ -18,6 +18,15 @@ function parseDateOnly(value: string) {
   return new Date(`${value}T00:00:00Z`);
 }
 
+const DEFAULT_EGG_SALE_LOCATIONS = [
+  "Roadside",
+  "Friend",
+  "Market",
+  "Feed Store",
+  "Farm Stand",
+  "Local Shop",
+] as const;
+
 function getDayDifference(from: string, to: string) {
   const msPerDay = 1000 * 60 * 60 * 24;
   return Math.round((parseDateOnly(to).getTime() - parseDateOnly(from).getTime()) / msPerDay);
@@ -96,6 +105,18 @@ async function requireOwnedCustomer(userId: string, customerId: string) {
   }
 
   return customer;
+}
+
+async function requireOwnedEggSaleLocation(userId: string, locationId: string) {
+  const location = await prisma.eggSaleLocation.findFirst({
+    where: { id: locationId, userId },
+  });
+
+  if (!location) {
+    throw new Error("Egg sale location not found.");
+  }
+
+  return location;
 }
 
 async function requireOwnedBird(userId: string, birdId: string) {
@@ -1214,6 +1235,277 @@ export async function createOrder(
     },
     include: {
       orderChicks: true,
+    },
+  });
+}
+
+async function ensureEggSaleSetup(userId: string) {
+  const [settings, locationCount] = await Promise.all([
+    prisma.eggSaleSettings.upsert({
+      where: { userId },
+      update: {},
+      create: {
+        userId,
+        defaultPricePerEgg: 0,
+        defaultPricePerDozen: 0,
+        defaultSaleUnit: "PerDozen",
+      },
+    }),
+    prisma.eggSaleLocation.count({
+      where: { userId },
+    }),
+  ]);
+
+  if (locationCount === 0) {
+    await prisma.eggSaleLocation.createMany({
+      data: DEFAULT_EGG_SALE_LOCATIONS.map((name) => ({
+        userId,
+        name,
+        description: "",
+        isActive: true,
+      })),
+    });
+  }
+
+  return settings;
+}
+
+function getEggSaleUnitQuantityLabel(unitType: "PerEgg" | "PerDozen" | "Flat", quantity: number) {
+  if (unitType === "PerEgg") {
+    return quantity === 1 ? "1 egg" : `${formatEggSaleNumber(quantity)} eggs`;
+  }
+
+  if (unitType === "PerDozen") {
+    return quantity === 1 ? "1 dozen" : `${formatEggSaleNumber(quantity)} dozen`;
+  }
+
+  return quantity === 1 ? "1 flat sale" : `${formatEggSaleNumber(quantity)} flat sales`;
+}
+
+function formatEggSaleNumber(value: number) {
+  return Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/\.?0+$/, "");
+}
+
+function mapEggSaleType(type: "TableEggs" | "HatchingEggs" | "Other") {
+  if (type === "TableEggs") {
+    return "Table Eggs";
+  }
+
+  if (type === "HatchingEggs") {
+    return "Hatching Eggs";
+  }
+
+  return "Other";
+}
+
+function mapEggSaleUnit(unit: "PerEgg" | "PerDozen" | "Flat") {
+  if (unit === "PerEgg") {
+    return "Per Egg";
+  }
+
+  if (unit === "PerDozen") {
+    return "Per Dozen";
+  }
+
+  return "Flat";
+}
+
+function calculateEggSaleTotal(
+  unitType: "PerEgg" | "PerDozen" | "Flat",
+  quantity: number,
+  pricePerUnit: number,
+) {
+  if (unitType === "Flat") {
+    return pricePerUnit;
+  }
+
+  return quantity * pricePerUnit;
+}
+
+export async function getEggSalesData(userId: string) {
+  await ensureEggSaleSetup(userId);
+
+  const [settings, locations, sales] = await Promise.all([
+    prisma.eggSaleSettings.findUniqueOrThrow({
+      where: { userId },
+    }),
+    prisma.eggSaleLocation.findMany({
+      where: { userId },
+      orderBy: [{ isActive: "desc" }, { name: "asc" }],
+    }),
+    prisma.eggSale.findMany({
+      where: { userId },
+      include: {
+        location: true,
+      },
+      orderBy: [{ saleDate: "desc" }, { createdAt: "desc" }],
+    }),
+  ]);
+
+  const locationStats = new Map<
+    string,
+    { locationId: string; locationName: string; revenue: number; saleCount: number }
+  >();
+
+  for (const sale of sales) {
+    const entry = locationStats.get(sale.locationId) ?? {
+      locationId: sale.locationId,
+      locationName: sale.location.name,
+      revenue: 0,
+      saleCount: 0,
+    };
+
+    entry.revenue += sale.totalAmount;
+    entry.saleCount += 1;
+    locationStats.set(sale.locationId, entry);
+  }
+
+  return {
+    settings: {
+      id: settings.id,
+      defaultPricePerEgg: settings.defaultPricePerEgg,
+      defaultPricePerDozen: settings.defaultPricePerDozen,
+      defaultSaleUnit: settings.defaultSaleUnit,
+      defaultSaleUnitLabel: mapEggSaleUnit(settings.defaultSaleUnit),
+      createdAt: formatDateTime(settings.createdAt),
+      updatedAt: formatDateTime(settings.updatedAt),
+    },
+    locations: locations.map((location) => ({
+      id: location.id,
+      name: location.name,
+      description: location.description,
+      isActive: location.isActive,
+      createdAt: formatDateTime(location.createdAt),
+      updatedAt: formatDateTime(location.updatedAt),
+      saleCount: locationStats.get(location.id)?.saleCount ?? 0,
+      revenue: locationStats.get(location.id)?.revenue ?? 0,
+    })),
+    sales: sales.map((sale) => ({
+      id: sale.id,
+      saleDate: formatDateOnly(sale.saleDate),
+      locationId: sale.locationId,
+      locationName: sale.location.name,
+      saleType: sale.saleType,
+      saleTypeLabel: mapEggSaleType(sale.saleType),
+      quantity: sale.quantity,
+      quantityLabel: getEggSaleUnitQuantityLabel(sale.unitType, sale.quantity),
+      unitType: sale.unitType,
+      unitTypeLabel: mapEggSaleUnit(sale.unitType),
+      pricePerUnit: sale.pricePerUnit,
+      totalAmount: sale.totalAmount,
+      notes: sale.notes,
+      createdAt: formatDateTime(sale.createdAt),
+      updatedAt: formatDateTime(sale.updatedAt),
+    })),
+    reporting: {
+      byLocation: Array.from(locationStats.values()).sort((left, right) => {
+        if (right.revenue === left.revenue) {
+          return left.locationName.localeCompare(right.locationName);
+        }
+
+        return right.revenue - left.revenue;
+      }),
+    },
+  };
+}
+
+export async function createEggSaleLocation(
+  userId: string,
+  data: {
+    name: string;
+    description: string;
+  },
+) {
+  return prisma.eggSaleLocation.create({
+    data: {
+      userId,
+      name: data.name,
+      description: data.description,
+      isActive: true,
+    },
+  });
+}
+
+export async function updateEggSaleLocation(
+  userId: string,
+  locationId: string,
+  data: {
+    name: string;
+    description: string;
+    isActive: boolean;
+  },
+) {
+  await requireOwnedEggSaleLocation(userId, locationId);
+
+  return prisma.eggSaleLocation.update({
+    where: { id: locationId },
+    data: {
+      name: data.name,
+      description: data.description,
+      isActive: data.isActive,
+    },
+  });
+}
+
+export async function updateEggSaleSettings(
+  userId: string,
+  data: {
+    defaultPricePerEgg: number;
+    defaultPricePerDozen: number;
+    defaultSaleUnit: "PerEgg" | "PerDozen" | "Flat";
+  },
+) {
+  return prisma.eggSaleSettings.upsert({
+    where: { userId },
+    update: {
+      defaultPricePerEgg: data.defaultPricePerEgg,
+      defaultPricePerDozen: data.defaultPricePerDozen,
+      defaultSaleUnit: data.defaultSaleUnit,
+    },
+    create: {
+      userId,
+      defaultPricePerEgg: data.defaultPricePerEgg,
+      defaultPricePerDozen: data.defaultPricePerDozen,
+      defaultSaleUnit: data.defaultSaleUnit,
+    },
+  });
+}
+
+export async function createEggSale(
+  userId: string,
+  data: {
+    saleDate: string;
+    locationId: string;
+    saleType: "TableEggs" | "HatchingEggs" | "Other";
+    quantity: number;
+    unitType: "PerEgg" | "PerDozen" | "Flat";
+    pricePerUnit: number;
+    notes: string;
+  },
+) {
+  const location = await requireOwnedEggSaleLocation(userId, data.locationId);
+
+  if (!location.isActive) {
+    throw new Error("This egg sale location is inactive.");
+  }
+
+  const quantity = data.unitType === "Flat" ? 1 : data.quantity;
+  const totalAmount = calculateEggSaleTotal(data.unitType, quantity, data.pricePerUnit);
+
+  return prisma.eggSale.create({
+    data: {
+      userId,
+      saleDate: new Date(`${data.saleDate}T00:00:00`),
+      locationId: data.locationId,
+      saleType: data.saleType,
+      quantity,
+      unitType: data.unitType,
+      pricePerUnit: data.pricePerUnit,
+      totalAmount,
+      notes: data.notes,
+    },
+    include: {
+      location: true,
     },
   });
 }
