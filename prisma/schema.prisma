@@ -133,6 +133,7 @@ model User {
   isAdmin               Boolean        @default(false)
   isFounder             Boolean        @default(false)
   aiAccessEnabled       Boolean        @default(true)
+  moduleVisibility     Json?
   hasCompletedTutorial  Boolean        @default(false)
   hasSkippedTutorial    Boolean        @default(false)
   tutorialCompletedAt   DateTime?

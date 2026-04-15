@@ -468,7 +468,7 @@ export default function ChicksPage() {
           <div className="border-b border-[color:var(--line)] px-5 py-5 sm:px-6">
             <h2 className="text-lg font-semibold tracking-tight">DNA Requests</h2>
             <p className="mt-1 text-sm text-[color:var(--muted)]">
-              Start simple DNA requests from any chick and keep the workflow ready for future Little Haven DNA integration.
+              Start DNA requests from any chick and keep testing records organized in one place.
             </p>
           </div>
           <div className="overflow-x-auto">
@@ -720,7 +720,7 @@ export default function ChicksPage() {
               <div>
                 <h3 className="text-2xl font-semibold tracking-tight">Request DNA Test</h3>
                 <p className="mt-1 text-sm text-[color:var(--muted)]">
-                  Create a pending DNA request for this chick and keep the record ready for future external lab integration.
+                  Create a DNA request for this chick and keep the testing record attached to the profile.
                 </p>
               </div>
               <button

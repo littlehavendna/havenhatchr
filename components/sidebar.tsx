@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
+import { defaultModuleVisibility, type ModuleVisibility, type OptionalModuleKey } from "@/lib/module-visibility";
 
 const links = [
   { href: "/dashboard", label: "Dashboard" },
@@ -10,21 +11,21 @@ const links = [
   { href: "/birds", label: "Birds" },
   { href: "/chicks", label: "Chicks" },
   { href: "/hatch-groups", label: "Hatch Groups" },
-  { href: "/incubation", label: "Incubation" },
-  { href: "/tasks", label: "Tasks" },
-  { href: "/shows", label: "Shows" },
+  { href: "/incubation", label: "Incubation", moduleKey: "incubation" },
+  { href: "/tasks", label: "Tasks", moduleKey: "tasks" },
+  { href: "/shows", label: "Shows", moduleKey: "shows" },
   { href: "/customers", label: "Customers" },
   { href: "/pairings", label: "Pairings" },
-  { href: "/traits", label: "Traits" },
-  { href: "/genetics", label: "Genetics" },
-  { href: "/analytics", label: "Analytics" },
-  { href: "/ai", label: "AI Tools" },
-  { href: "/reservations", label: "Reservations" },
-  { href: "/orders", label: "Orders" },
-  { href: "/egg-sales", label: "Egg Sales" },
-  { href: "/storefront", label: "Storefront" },
+  { href: "/traits", label: "Traits", moduleKey: "traits" },
+  { href: "/genetics", label: "Genetics", moduleKey: "genetics" },
+  { href: "/analytics", label: "Analytics", moduleKey: "analytics" },
+  { href: "/ai", label: "AI Tools", moduleKey: "aiTools" },
+  { href: "/reservations", label: "Reservations", moduleKey: "reservations" },
+  { href: "/orders", label: "Orders", moduleKey: "orders" },
+  { href: "/egg-sales", label: "Egg Sales", moduleKey: "eggSales" },
+  { href: "/storefront", label: "Storefront", moduleKey: "storefront" },
   { href: "/settings", label: "Settings" },
-];
+] as Array<{ href: string; label: string; moduleKey?: OptionalModuleKey }>;
 
 type SidebarProps = {
   isOpen: boolean;
@@ -34,17 +35,21 @@ type SidebarProps = {
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
   const [isAdmin, setIsAdmin] = useState(false);
+  const [moduleVisibility, setModuleVisibility] = useState<ModuleVisibility>(defaultModuleVisibility);
 
   useEffect(() => {
     async function loadUser() {
       const response = await fetch("/api/auth/me", { cache: "no-store" });
       if (!response.ok) return;
-      const data = (await response.json()) as { user: { isAdmin?: boolean } };
+      const data = (await response.json()) as {
+        user: { isAdmin?: boolean; moduleVisibility?: ModuleVisibility };
+      };
       setIsAdmin(Boolean(data.user.isAdmin));
+      setModuleVisibility(data.user.moduleVisibility ?? defaultModuleVisibility);
     }
 
     void loadUser();
-  }, []);
+  }, [pathname]);
 
   return (
     <>
@@ -80,7 +85,9 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         </div>
 
         <nav className="mt-6 flex flex-1 flex-col gap-2 overflow-y-auto pr-1">
-          {links.map((link) => {
+          {links
+            .filter((link) => (link.moduleKey ? moduleVisibility[link.moduleKey] : true))
+            .map((link) => {
             const active = pathname === link.href;
 
             return (

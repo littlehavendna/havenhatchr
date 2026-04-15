@@ -71,7 +71,7 @@ export default function PricingPage() {
                 "Customers, reservations, and orders",
                 "Bird profiles, flock records, and hatch groups",
                 "Genetics tracking and analytics",
-                "AI tool placeholders and breeder workflows",
+                "AI tools and breeder workflows",
               ].map((item) => (
                 <div
                   key={item}

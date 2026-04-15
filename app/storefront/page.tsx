@@ -46,17 +46,17 @@ export default function StorefrontPage() {
     {
       label: "Available Chicks",
       value: String(data?.chicks.length ?? 0),
-      detail: "Current chick inventory that could flow into future public listings.",
+      detail: "Current chick inventory available for listing and customer review.",
     },
     {
       label: "Bird Listing Candidates",
       value: String(data?.birds.length ?? 0),
-      detail: "Active birds that can anchor later breeder listing workflows.",
+      detail: "Active birds organized for breeder listing workflows.",
     },
     {
       label: "Storefront State",
-      value: "Foundation",
-      detail: "Internal-only listing prep, not a public marketplace yet.",
+      value: "Active",
+      detail: "Current listing-ready inventory inside your breeder workspace.",
     },
   ];
 
@@ -66,10 +66,9 @@ export default function StorefrontPage() {
         <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[color:var(--muted)]">
           Storefront
         </p>
-        <h1 className="mt-2 text-2xl font-semibold tracking-tight">Internal listing foundation</h1>
+        <h1 className="mt-2 text-2xl font-semibold tracking-tight">Storefront Inventory</h1>
         <p className="mt-2 max-w-3xl text-sm leading-7 text-[color:var(--muted)]">
-          This is the lightweight storefront base for future public listing pages. Right now it surfaces
-          available internal inventory with price and description placeholders so the structure can grow cleanly later.
+          Review listing-ready chicks and birds with organized descriptions, pricing fields, and breeder context.
         </p>
         {error ? <p className="mt-4 text-sm text-[#b34b75]">{error}</p> : null}
       </section>
@@ -82,13 +81,13 @@ export default function StorefrontPage() {
 
       <StorefrontSection
         title="Available Chicks"
-        emptyCopy="No available chicks are ready for storefront preview."
+        emptyCopy="No available chicks are currently listed."
         items={data?.chicks ?? []}
       />
 
       <StorefrontSection
         title="Bird Listing Candidates"
-        emptyCopy="No active birds are currently in the listing foundation view."
+        emptyCopy="No active birds are currently listed here."
         items={data?.birds ?? []}
       />
     </div>

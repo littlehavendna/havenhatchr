@@ -245,7 +245,7 @@ export default function ChickProfilePage() {
                 <div className="flex items-center justify-between gap-4">
                   <div>
                     <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[color:var(--muted)]">DNA Testing</p>
-                    <h2 className="mt-2 text-xl font-semibold tracking-tight">Little Haven DNA prep</h2>
+                    <h2 className="mt-2 text-xl font-semibold tracking-tight">DNA Tracking</h2>
                   </div>
                   <button
                     type="button"
@@ -285,7 +285,7 @@ export default function ChickProfilePage() {
                         </span>
                       </div>
                       <p className="mt-3 text-sm leading-7 text-[color:var(--muted)]">
-                        {test.resultSummary || "No results attached yet. This request is ready for future external ordering and result sync."}
+                        {test.resultSummary || "No results have been attached to this DNA request yet."}
                       </p>
                     </article>
                   )) : (
@@ -352,7 +352,7 @@ export default function ChickProfilePage() {
               <div>
                 <h3 className="text-2xl font-semibold tracking-tight">Request DNA Test</h3>
                 <p className="mt-1 text-sm text-[color:var(--muted)]">
-                  Create a pending DNA request and keep the chick ready for future Little Haven DNA ordering and results sync.
+                  Create a DNA request and keep the chick record connected to its testing history.
                 </p>
               </div>
               <button

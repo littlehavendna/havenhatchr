@@ -338,8 +338,7 @@ function AiToolsClientPage() {
             </p>
             <h1 className="mt-2 text-2xl font-semibold tracking-tight">AI Tools</h1>
             <p className="mt-2 max-w-3xl text-sm leading-7 text-[color:var(--muted)]">
-              Placeholder AI tools are wired into the breeder workflow now, with clean UI hooks
-              and structured utility functions ready for future API-backed generation.
+              Use breeder-focused AI drafting and summaries directly from your live HavenHatchr data.
             </p>
           </div>
           <div className="rounded-[26px] border border-[color:var(--line)] bg-[#fcfbff] px-5 py-4">
@@ -465,7 +464,7 @@ function AiToolsClientPage() {
             title="Generated Listing"
             body={
               listingOutput ||
-              "Generate a listing to see a polished placeholder sales paragraph for website or social use."
+              "Generate a listing to create polished sales copy for website, message, or social use."
             }
           />
         </ToolCard>
@@ -560,7 +559,7 @@ function AiToolsClientPage() {
             title="Reply Draft"
             body={
               replyOutput ||
-              "Generate a reply to see a placeholder response that can later be replaced with a real AI draft."
+              "Generate a reply to create a customer-ready draft from the selected record and notes."
             }
             preserveWhitespace
           />
@@ -568,7 +567,7 @@ function AiToolsClientPage() {
 
         <ToolCard
           title="Pairing Suggestions"
-          description="Review a sire and dam combination with breeder-focused placeholder guidance."
+          description="Review a sire and dam combination with breeder-focused guidance."
         >
           <form onSubmit={handleSuggestPairing} className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
@@ -714,7 +713,7 @@ function AiToolsClientPage() {
 
       <ToolCard
         title="Analyze Hatch Rates"
-        description="Use the shared placeholder analytics function to surface a breeder-friendly hatch summary."
+        description="Surface a breeder-friendly hatch summary from your current hatch and reservation data."
       >
         <div className="rounded-[24px] border border-[color:var(--line)] bg-[#fcfbff] p-4">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)]">
@@ -735,7 +734,7 @@ function AiToolsFallback() {
       </p>
       <h1 className="mt-2 text-2xl font-semibold tracking-tight">Loading AI workspace</h1>
       <p className="mt-2 text-sm leading-7 text-[color:var(--muted)]">
-        Preparing the placeholder AI tools and prefilled workflow context.
+        Preparing your AI workspace and breeder workflow context.
       </p>
     </section>
   );

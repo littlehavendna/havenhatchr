@@ -13,6 +13,22 @@ type CustomerRow = {
   status: string;
   createdAt: string;
   reservationCount: number;
+  reservations: ReservationRow[];
+};
+
+type ReservationStatus = "Waiting" | "Matched" | "Completed" | "Cancelled";
+
+type ReservationRow = {
+  id: string;
+  customerId: string;
+  requestedSex: string;
+  requestedBreed: string;
+  requestedVariety: string;
+  requestedColor: string;
+  quantity: number;
+  status: ReservationStatus;
+  notes: string;
+  createdAt: string;
 };
 
 type CustomerForm = {
@@ -37,8 +53,20 @@ export default function CustomersPage() {
   const [customers, setCustomers] = useState<CustomerRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isManagingList, setIsManagingList] = useState(false);
+  const [isSavingList, setIsSavingList] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
+  const [selectedCustomerId, setSelectedCustomerId] = useState("");
   const [form, setForm] = useState<CustomerForm>(emptyForm);
+  const [listForm, setListForm] = useState({
+    requestedSex: "",
+    requestedBreed: "",
+    requestedVariety: "",
+    requestedColor: "",
+    quantity: "1",
+    status: "Waiting" as ReservationStatus,
+    notes: "",
+  });
   const [errors, setErrors] = useState<Partial<Record<keyof CustomerForm, string>>>({});
   const [requestError, setRequestError] = useState("");
 
@@ -86,6 +114,27 @@ export default function CustomersPage() {
     setIsOpen(false);
   }
 
+  function openListManager(customerId: string) {
+    setSelectedCustomerId(customerId);
+    setListForm({
+      requestedSex: "",
+      requestedBreed: "",
+      requestedVariety: "",
+      requestedColor: "",
+      quantity: "1",
+      status: "Waiting",
+      notes: "",
+    });
+    setRequestError("");
+    setIsManagingList(true);
+  }
+
+  function closeListManager() {
+    setSelectedCustomerId("");
+    setRequestError("");
+    setIsManagingList(false);
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -128,6 +177,122 @@ export default function CustomersPage() {
     }
   }
 
+  async function handleAddToList(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!selectedCustomerId) {
+      return;
+    }
+
+    if (!listForm.requestedBreed.trim()) {
+      setRequestError("Requested breed is required to add to a customer list.");
+      return;
+    }
+
+    try {
+      setIsSavingList(true);
+      setRequestError("");
+
+      const response = await fetch("/api/reservations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customerId: selectedCustomerId,
+          requestedSex: listForm.requestedSex.trim(),
+          requestedBreed: listForm.requestedBreed.trim(),
+          requestedVariety: listForm.requestedVariety.trim(),
+          requestedColor: listForm.requestedColor.trim(),
+          quantity: Number(listForm.quantity) || 1,
+          status: listForm.status,
+          notes: listForm.notes.trim(),
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to add item to customer list.");
+      }
+
+      await loadCustomers();
+      setListForm({
+        requestedSex: "",
+        requestedBreed: "",
+        requestedVariety: "",
+        requestedColor: "",
+        quantity: "1",
+        status: "Waiting",
+        notes: "",
+      });
+    } catch (error) {
+      setRequestError(
+        error instanceof Error ? error.message : "Failed to add item to customer list.",
+      );
+    } finally {
+      setIsSavingList(false);
+    }
+  }
+
+  async function updateReservationItem(
+    reservation: ReservationRow,
+    updates: Partial<ReservationRow>,
+  ) {
+    try {
+      setIsSavingList(true);
+      setRequestError("");
+
+      const response = await fetch(`/api/reservations/${reservation.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          requestedSex: updates.requestedSex ?? reservation.requestedSex,
+          requestedBreed: updates.requestedBreed ?? reservation.requestedBreed,
+          requestedVariety: updates.requestedVariety ?? reservation.requestedVariety,
+          requestedColor: updates.requestedColor ?? reservation.requestedColor,
+          quantity: updates.quantity ?? reservation.quantity,
+          status: updates.status ?? reservation.status,
+          notes: updates.notes ?? reservation.notes,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to update customer list item.");
+      }
+
+      await loadCustomers();
+    } catch (error) {
+      setRequestError(
+        error instanceof Error ? error.message : "Failed to update customer list item.",
+      );
+    } finally {
+      setIsSavingList(false);
+    }
+  }
+
+  async function removeReservationItem(reservationId: string) {
+    try {
+      setIsSavingList(true);
+      setRequestError("");
+
+      const response = await fetch(`/api/reservations/${reservationId}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to remove customer list item.");
+      }
+
+      await loadCustomers();
+    } catch (error) {
+      setRequestError(
+        error instanceof Error ? error.message : "Failed to remove customer list item.",
+      );
+    } finally {
+      setIsSavingList(false);
+    }
+  }
+
+  const selectedCustomer =
+    customers.find((customer) => customer.id === selectedCustomerId) ?? null;
+
   return (
     <>
       <div className="space-y-6">
@@ -168,7 +333,7 @@ export default function CustomersPage() {
             <table className="min-w-full text-left">
               <thead className="bg-[#f5f3fd]">
                 <tr>
-                  {["Name", "Contact", "Location", "Reservations", "Notes", "AI Reply"].map(
+                  {["Name", "Contact", "Location", "Reservations", "Notes", "Actions"].map(
                     (label) => (
                       <th
                         key={label}
@@ -207,14 +372,23 @@ export default function CustomersPage() {
                       {customer.notes}
                     </td>
                     <td className="px-5 py-4 text-sm text-foreground sm:px-6">
-                      <Link
-                        href={`/ai?tool=reply&customerId=${customer.id}&customerName=${encodeURIComponent(
-                          customer.name,
-                        )}`}
-                        className="inline-flex rounded-full border border-[color:var(--line)] bg-white px-4 py-2 text-sm font-semibold text-[color:var(--accent)] transition hover:bg-[#f8f7fe]"
-                      >
-                        Draft Reply
-                      </Link>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => openListManager(customer.id)}
+                          className="inline-flex rounded-full border border-[color:var(--line)] bg-white px-4 py-2 text-sm font-semibold text-foreground transition hover:bg-[#f8f7fe]"
+                        >
+                          Manage List
+                        </button>
+                        <Link
+                          href={`/ai?tool=reply&customerId=${customer.id}&customerName=${encodeURIComponent(
+                            customer.name,
+                          )}`}
+                          className="inline-flex rounded-full border border-[color:var(--line)] bg-white px-4 py-2 text-sm font-semibold text-[color:var(--accent)] transition hover:bg-[#f8f7fe]"
+                        >
+                          Draft Reply
+                        </Link>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -266,8 +440,7 @@ export default function CustomersPage() {
               <div>
                 <h3 className="text-2xl font-semibold tracking-tight">Add Customer</h3>
                 <p className="mt-1 text-sm text-[color:var(--muted)]">
-                  Create a real customer record in PostgreSQL without changing the current UI
-                  workflow.
+                  Create a customer record and keep reservations, follow-ups, and orders organized.
                 </p>
               </div>
               <button
@@ -376,6 +549,267 @@ export default function CustomersPage() {
               </div>
             </form>
           </div>
+        </div>
+      ) : null}
+
+      {isManagingList && selectedCustomer ? (
+        <div className="fixed inset-0 z-50 flex justify-end bg-[#221c3f]/35 backdrop-blur-sm">
+          <button type="button" onClick={closeListManager} className="flex-1" />
+          <aside className="soft-shadow h-full w-full max-w-2xl overflow-y-auto border-l border-[color:var(--line)] bg-white px-6 py-7">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[color:var(--muted)]">
+                  Customer List
+                </p>
+                <h3 className="mt-2 text-2xl font-semibold tracking-tight">
+                  {selectedCustomer.name}
+                </h3>
+                <p className="mt-1 text-sm text-[color:var(--muted)]">
+                  Add requests, subtract quantity, update status, or remove items from this customer&apos;s list.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeListManager}
+                className="rounded-2xl border border-[color:var(--line)] px-3 py-2 text-sm text-[color:var(--muted)] transition hover:bg-[#f8f7fe]"
+              >
+                Close
+              </button>
+            </div>
+
+            {requestError ? <p className="mt-4 text-sm text-[#b34b75]">{requestError}</p> : null}
+
+            <section className="mt-8">
+              <h4 className="text-base font-semibold tracking-tight">Current List</h4>
+              <div className="mt-4 space-y-3">
+                {selectedCustomer.reservations.length > 0 ? (
+                  selectedCustomer.reservations.map((reservation) => (
+                    <article
+                      key={reservation.id}
+                      className="rounded-[24px] border border-[color:var(--line)] bg-[#fcfbff] p-4"
+                    >
+                      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                          <p className="text-base font-semibold text-foreground">
+                            {[
+                              reservation.requestedBreed,
+                              reservation.requestedVariety || null,
+                              reservation.requestedColor || null,
+                            ]
+                              .filter(Boolean)
+                              .join(" · ")}
+                          </p>
+                          <p className="mt-1 text-sm text-[color:var(--muted)]">
+                            {reservation.requestedSex || "No sex preference"} · {reservation.status}
+                          </p>
+                          {reservation.notes ? (
+                            <p className="mt-2 text-sm leading-7 text-[color:var(--muted)]">
+                              {reservation.notes}
+                            </p>
+                          ) : null}
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            disabled={isSavingList || reservation.quantity <= 1}
+                            onClick={() =>
+                              updateReservationItem(reservation, {
+                                quantity: Math.max(1, reservation.quantity - 1),
+                              })
+                            }
+                            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[color:var(--line)] bg-white text-lg font-semibold text-foreground transition hover:bg-[#f8f7fe] disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            -
+                          </button>
+                          <div className="inline-flex min-w-14 items-center justify-center rounded-full bg-white px-4 py-2 text-sm font-semibold text-foreground">
+                            {reservation.quantity}
+                          </div>
+                          <button
+                            type="button"
+                            disabled={isSavingList}
+                            onClick={() =>
+                              updateReservationItem(reservation, {
+                                quantity: reservation.quantity + 1,
+                              })
+                            }
+                            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[color:var(--line)] bg-white text-lg font-semibold text-foreground transition hover:bg-[#f8f7fe] disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            +
+                          </button>
+                          <select
+                            value={reservation.status}
+                            disabled={isSavingList}
+                            onChange={(event) =>
+                              updateReservationItem(reservation, {
+                                status: event.target.value as ReservationStatus,
+                              })
+                            }
+                            className="rounded-full border border-[color:var(--line)] bg-white px-4 py-2 text-sm outline-none transition focus:border-[color:var(--accent)] focus:ring-2 focus:ring-[color:var(--accent-soft)]"
+                          >
+                            <option value="Waiting">Waiting</option>
+                            <option value="Matched">Matched</option>
+                            <option value="Completed">Completed</option>
+                            <option value="Cancelled">Cancelled</option>
+                          </select>
+                          <button
+                            type="button"
+                            disabled={isSavingList}
+                            onClick={() => removeReservationItem(reservation.id)}
+                            className="inline-flex items-center justify-center rounded-full border border-[#e7c2d1] bg-white px-4 py-2 text-sm font-semibold text-[#b34b75] transition hover:bg-[#fff4f8] disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    </article>
+                  ))
+                ) : (
+                  <div className="rounded-[24px] border border-dashed border-[color:var(--line)] bg-[#fcfbff] p-4 text-sm text-[color:var(--muted)]">
+                    This customer does not have anything on their list yet.
+                  </div>
+                )}
+              </div>
+            </section>
+
+            <section className="mt-8">
+              <h4 className="text-base font-semibold tracking-tight">Add To List</h4>
+              <form onSubmit={handleAddToList} className="mt-4 grid gap-4 sm:grid-cols-2">
+                <FormField
+                  label="Requested Breed"
+                  input={
+                    <input
+                      type="text"
+                      value={listForm.requestedBreed}
+                      onChange={(event) =>
+                        setListForm((current) => ({
+                          ...current,
+                          requestedBreed: event.target.value,
+                        }))
+                      }
+                      placeholder="Marans"
+                      className={inputClassName()}
+                    />
+                  }
+                />
+                <FormField
+                  label="Requested Variety"
+                  input={
+                    <input
+                      type="text"
+                      value={listForm.requestedVariety}
+                      onChange={(event) =>
+                        setListForm((current) => ({
+                          ...current,
+                          requestedVariety: event.target.value,
+                        }))
+                      }
+                      placeholder="Blue Copper"
+                      className={inputClassName()}
+                    />
+                  }
+                />
+                <FormField
+                  label="Requested Color"
+                  input={
+                    <input
+                      type="text"
+                      value={listForm.requestedColor}
+                      onChange={(event) =>
+                        setListForm((current) => ({
+                          ...current,
+                          requestedColor: event.target.value,
+                        }))
+                      }
+                      placeholder="Dark"
+                      className={inputClassName()}
+                    />
+                  }
+                />
+                <FormField
+                  label="Requested Sex"
+                  input={
+                    <input
+                      type="text"
+                      value={listForm.requestedSex}
+                      onChange={(event) =>
+                        setListForm((current) => ({
+                          ...current,
+                          requestedSex: event.target.value,
+                        }))
+                      }
+                      placeholder="Female or Straight Run"
+                      className={inputClassName()}
+                    />
+                  }
+                />
+                <FormField
+                  label="Quantity"
+                  input={
+                    <input
+                      type="number"
+                      min="1"
+                      value={listForm.quantity}
+                      onChange={(event) =>
+                        setListForm((current) => ({
+                          ...current,
+                          quantity: event.target.value,
+                        }))
+                      }
+                      className={inputClassName()}
+                    />
+                  }
+                />
+                <FormField
+                  label="Status"
+                  input={
+                    <select
+                      value={listForm.status}
+                      onChange={(event) =>
+                        setListForm((current) => ({
+                          ...current,
+                          status: event.target.value as ReservationStatus,
+                        }))
+                      }
+                      className={inputClassName()}
+                    >
+                      <option value="Waiting">Waiting</option>
+                      <option value="Matched">Matched</option>
+                      <option value="Completed">Completed</option>
+                      <option value="Cancelled">Cancelled</option>
+                    </select>
+                  }
+                />
+                <div className="sm:col-span-2">
+                  <FormField
+                    label="Notes"
+                    input={
+                      <textarea
+                        value={listForm.notes}
+                        onChange={(event) =>
+                          setListForm((current) => ({
+                            ...current,
+                            notes: event.target.value,
+                          }))
+                        }
+                        rows={4}
+                        placeholder="Optional timing, pickup, or preference notes"
+                        className={`${inputClassName()} resize-none`}
+                      />
+                    }
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <button
+                    type="submit"
+                    disabled={isSavingList}
+                    className="inline-flex w-full items-center justify-center rounded-full bg-[color:var(--accent)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#4f3fa0] disabled:cursor-not-allowed disabled:opacity-70"
+                  >
+                    {isSavingList ? "Saving..." : "Add To Customer List"}
+                  </button>
+                </div>
+              </form>
+            </section>
+          </aside>
         </div>
       ) : null}
     </>

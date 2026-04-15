@@ -759,7 +759,7 @@ export default function EggSalesPage() {
             <form onSubmit={handleCreateLocation} className="grid gap-4 rounded-[24px] border border-[color:var(--line)] bg-[#fcfbff] p-4">
               <div>
                 <h3 className="text-base font-semibold tracking-tight">Add Location</h3>
-                <p className="mt-1 text-sm text-[color:var(--muted)]">Create a new sale channel for future egg sales.</p>
+                <p className="mt-1 text-sm text-[color:var(--muted)]">Create a new sale channel for active egg sales tracking.</p>
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <FormField label="Location Name" input={<input type="text" value={locationForm.name} onChange={(event) => setLocationForm((current) => ({ ...current, name: event.target.value }))} placeholder="Farm Stand" className={inputClassName()} />} />

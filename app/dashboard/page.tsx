@@ -57,7 +57,7 @@ const productLanes = [
   {
     title: "Genetics Tracking",
     description:
-      "Bird, Trait, Pairing, and HatchGroup entities are structured for lineage review, trait planning, and future genetics intelligence.",
+      "Bird, Trait, Pairing, and HatchGroup records support lineage review, trait planning, and hatch analysis.",
   },
   {
     title: "AI Assistant",
@@ -67,7 +67,7 @@ const productLanes = [
   {
     title: "Listing Text & Message Drafts",
     description:
-      "Customers, chicks, notes, photos, and genetics context are organized so future AI tools can draft clean outbound content.",
+      "Customers, chicks, notes, photos, and genetics context are organized for clean outbound content and follow-up.",
   },
   {
     title: "Analytics & Automation",
@@ -79,23 +79,23 @@ const productLanes = [
 const aiWorkbench = [
   {
     lane: "Pairing Outcome Tools",
-    summary: "Use pairings, hatch groups, and chick outcomes to guide future breeder decisions.",
-    readiness: "Planned",
+    summary: "Use pairings, hatch groups, and chick outcomes to guide breeder decisions.",
+    readiness: "Live",
   },
   {
     lane: "AI Listing Drafts",
     summary: "Generate polished listing copy from chick traits, breeder notes, photos, and project tags.",
-    readiness: "Stub ready",
+    readiness: "Live",
   },
   {
     lane: "Customer Reply Drafts",
     summary: "Draft customer reservation updates and pickup reminders from order state.",
-    readiness: "Stub ready",
+    readiness: "Live",
   },
   {
     lane: "Hatch Analytics",
     summary: "Analyze eggs set, hatch rate, genetic goals, and downstream reservation performance.",
-    readiness: "Data mapped",
+    readiness: "Live",
   },
 ];
 
@@ -167,12 +167,12 @@ export default function DashboardPage() {
     <div className="space-y-6">
       <section className="soft-shadow rounded-[28px] border border-[color:var(--line)] bg-white/88 p-5 sm:p-6">
         <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[color:var(--muted)]">
-          Scalable SaaS Foundation
+          Operations Overview
         </p>
         <h2 className="mt-2 text-2xl font-semibold tracking-tight">HavenHatchr</h2>
         <p className="mt-2 max-w-3xl text-sm leading-7 text-[color:var(--muted)]">
-          The dashboard is now loading breeder operations from PostgreSQL through Prisma while
-          preserving the current HavenHatchr UI structure.
+          Your breeder workspace is running on live Prisma-backed data across flock, hatch, sales,
+          customer, and incubation workflows.
         </p>
         {requestError ? <p className="mt-4 text-sm text-[#b34b75]">{requestError}</p> : null}
       </section>

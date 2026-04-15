@@ -900,7 +900,7 @@ export default function IncubationPage() {
       {activeModal === "run" ? (
         <Modal
           title={runFormMode === "edit" ? "Edit Incubator Run" : "Log Incubator Run"}
-          subtitle="Connect a hatch group to an incubator and save the notes breeders need later."
+          subtitle="Connect a hatch group to an incubator and save the notes breeders need for review and comparison."
           onClose={() => setActiveModal(null)}
         >
           <form onSubmit={handleSaveRun} className="mt-6 grid gap-4 sm:grid-cols-2">

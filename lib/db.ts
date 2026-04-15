@@ -248,7 +248,9 @@ export async function getCustomersData(userId: string) {
   const customers = await prisma.customer.findMany({
     where: { userId },
     include: {
-      reservations: true,
+      reservations: {
+        orderBy: { createdAt: "desc" },
+      },
     },
     orderBy: { createdAt: "desc" },
   });
@@ -263,6 +265,18 @@ export async function getCustomersData(userId: string) {
     status: customer.status,
     createdAt: formatDateTime(customer.createdAt),
     reservationCount: customer.reservations.length,
+    reservations: customer.reservations.map((reservation) => ({
+      id: reservation.id,
+      customerId: reservation.customerId,
+      requestedSex: reservation.requestedSex || "",
+      requestedBreed: reservation.requestedBreed,
+      requestedVariety: reservation.requestedVariety || "",
+      requestedColor: reservation.requestedColor || "",
+      quantity: reservation.quantity,
+      status: reservation.status,
+      notes: reservation.notes || "",
+      createdAt: formatDateTime(reservation.createdAt),
+    })),
   }));
 }
 
@@ -1750,6 +1764,47 @@ export async function createReservation(
   });
 }
 
+export async function updateReservation(
+  userId: string,
+  reservationId: string,
+  data: {
+    requestedSex: string;
+    requestedBreed: string;
+    requestedVariety: string;
+    requestedColor: string;
+    quantity: number;
+    status: "Waiting" | "Matched" | "Completed" | "Cancelled";
+    notes: string;
+  },
+) {
+  const reservation = await prisma.reservation.findFirst({
+    where: { id: reservationId, userId },
+  });
+
+  if (!reservation) {
+    throw new Error("Reservation not found.");
+  }
+
+  return prisma.reservation.update({
+    where: { id: reservationId },
+    data,
+  });
+}
+
+export async function deleteReservation(userId: string, reservationId: string) {
+  const reservation = await prisma.reservation.findFirst({
+    where: { id: reservationId, userId },
+  });
+
+  if (!reservation) {
+    throw new Error("Reservation not found.");
+  }
+
+  return prisma.reservation.delete({
+    where: { id: reservationId },
+  });
+}
+
 export async function getOrdersData(userId: string) {
   const [orders, customers, chicks] = await Promise.all([
     prisma.order.findMany({
@@ -2856,7 +2911,7 @@ export async function getStorefrontData(userId: string) {
       type: "Chick",
       title: chick.bandNumber,
       subtitle: chick.flock.name,
-      price: "Set later",
+      price: "Contact for pricing",
       shortDescription: [chick.flock.breed, chick.flock.variety, chick.color].filter(Boolean).join(" · ") || "Available chick",
       status: chick.status,
       hatchDate: formatDateOnly(chick.hatchDate),
@@ -2867,8 +2922,8 @@ export async function getStorefrontData(userId: string) {
       type: "Bird",
       title: bird.name,
       subtitle: bird.bandNumber,
-      price: "Set later",
-      shortDescription: [bird.breed, bird.variety, bird.color].filter(Boolean).join(" · ") || "Active breeder listing foundation",
+      price: "Contact for pricing",
+      shortDescription: [bird.breed, bird.variety, bird.color].filter(Boolean).join(" · ") || "Active breeder listing",
       status: bird.status,
       flockName: bird.flock.name,
     })),
@@ -3045,7 +3100,7 @@ export async function getDashboardData(userId: string) {
       {
         label: "Total Customers",
         value: String(customers.length),
-        detail: "Shared customer records ready for messaging and waitlists",
+        detail: "Customer records organized for messaging and waitlists",
       },
       {
         label: "Active Flocks",
@@ -3060,7 +3115,7 @@ export async function getDashboardData(userId: string) {
       {
         label: "Reserved Chicks",
         value: String(chicks.filter((chick) => chick.status === "Reserved").length),
-        detail: "Order and reservation flows are mapped for automation later",
+        detail: "Chicks currently committed to customer reservations",
       },
       {
         label: "Open Reservations",
@@ -3106,7 +3161,7 @@ export async function getDashboardData(userId: string) {
         {
           key: "first-pairing",
           label: "Create your first pairing",
-          description: "Plan breeder outcomes and connect future hatch groups.",
+          description: "Plan breeder outcomes and connect hatch groups.",
           href: "/pairings",
           complete: pairings.length > 0,
         },

@@ -1,6 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import {
+  moduleLabels,
+  optionalModuleKeys,
+  type ModuleVisibility,
+} from "@/lib/module-visibility";
 
 type CurrentUser = {
   name: string;
@@ -15,6 +20,7 @@ type CurrentUser = {
   stripeCustomerId: string | null;
   hasCompletedTutorial: boolean;
   hasSkippedTutorial: boolean;
+  moduleVisibility: ModuleVisibility;
 };
 
 async function readJsonSafely<T>(response: Response): Promise<T> {
@@ -29,7 +35,10 @@ export default function SettingsPage() {
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRedirecting, setIsRedirecting] = useState(false);
+  const [isSavingModules, setIsSavingModules] = useState(false);
   const [requestError, setRequestError] = useState("");
+  const [moduleError, setModuleError] = useState("");
+  const [moduleVisibility, setModuleVisibility] = useState<ModuleVisibility | null>(null);
 
   useEffect(() => {
     async function loadUser() {
@@ -43,6 +52,7 @@ export default function SettingsPage() {
 
         const data = (await response.json()) as { user: CurrentUser };
         setUser(data.user);
+        setModuleVisibility(data.user.moduleVisibility);
       } catch (error) {
         setRequestError(
           error instanceof Error ? error.message : "Failed to load billing settings.",
@@ -138,6 +148,54 @@ export default function SettingsPage() {
     }
   }
 
+  async function handleModuleToggle(key: keyof ModuleVisibility) {
+    if (!moduleVisibility) {
+      return;
+    }
+
+    const nextVisibility = {
+      ...moduleVisibility,
+      [key]: !moduleVisibility[key],
+    };
+
+    setModuleVisibility(nextVisibility);
+    setModuleError("");
+    setIsSavingModules(true);
+
+    try {
+      const response = await fetch("/api/settings/modules", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(nextVisibility),
+      });
+      const data = await readJsonSafely<{
+        moduleVisibility?: ModuleVisibility;
+        error?: string;
+      }>(response);
+
+      if (!response.ok || !data.moduleVisibility) {
+        throw new Error(data.error || "Unable to save feature visibility.");
+      }
+
+      setModuleVisibility(data.moduleVisibility);
+      setUser((current) =>
+        current
+          ? {
+              ...current,
+              moduleVisibility: data.moduleVisibility as ModuleVisibility,
+            }
+          : current,
+      );
+    } catch (error) {
+      setModuleVisibility(moduleVisibility);
+      setModuleError(
+        error instanceof Error ? error.message : "Unable to save feature visibility.",
+      );
+    } finally {
+      setIsSavingModules(false);
+    }
+  }
+
   return (
     <div className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
       <section className="soft-shadow rounded-[28px] border border-[color:var(--line)] bg-white/88 p-6 sm:p-8">
@@ -170,6 +228,42 @@ export default function SettingsPage() {
           >
             Restart Tutorial
           </button>
+        </div>
+
+        <div className="mt-6 rounded-[20px] border border-[color:var(--line)] bg-[#fcfaff] p-4">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)]">
+                Workspace Features
+              </p>
+              <p className="mt-2 text-sm leading-7 text-[color:var(--muted)]">
+                Turn optional sections on or off in the app menu for this account.
+              </p>
+            </div>
+            <p className="text-xs text-[color:var(--muted)]">
+              {isSavingModules ? "Saving..." : "Saved per account"}
+            </p>
+          </div>
+
+          {moduleError ? <p className="mt-4 text-sm text-[#b34b75]">{moduleError}</p> : null}
+
+          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+            {optionalModuleKeys.map((key) => (
+              <label
+                key={key}
+                className="flex items-center justify-between rounded-[18px] border border-[color:var(--line)] bg-white px-4 py-3"
+              >
+                <span className="text-sm font-medium text-foreground">{moduleLabels[key]}</span>
+                <input
+                  type="checkbox"
+                  checked={moduleVisibility?.[key] ?? true}
+                  onChange={() => void handleModuleToggle(key)}
+                  disabled={isLoading || isSavingModules || !moduleVisibility}
+                  className="h-4 w-4 rounded border-[color:var(--line)] text-[color:var(--accent)] focus:ring-[color:var(--accent)] disabled:cursor-not-allowed"
+                />
+              </label>
+            ))}
+          </div>
         </div>
       </section>
 

@@ -70,7 +70,7 @@ export default function AdminOverviewPage() {
         <StatCard label="Beta Users" value={String(data?.totals.betaUsers ?? 0)} detail="Accounts bypassing billing checks" />
         <StatCard label="Founder Users" value={String(data?.totals.founderUsers ?? 0)} detail="Founder access accounts" />
         <StatCard label="Active Breeders" value={String(data?.totals.activeBreeders ?? 0)} detail="Users with recorded breeder activity" />
-        <StatCard label="AI Usage (7d)" value={String(data?.totals.aiUsageCount ?? 0)} detail="Recent AI tool placeholder activity" />
+        <StatCard label="AI Usage (7d)" value={String(data?.totals.aiUsageCount ?? 0)} detail="Recent AI tool activity" />
       </section>
 
       {error ? <p className="text-sm text-[#b34b75]">{error}</p> : null}

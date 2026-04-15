@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { formatBillingDate, getPlanBadge, hasBillingAccess } from "@/lib/billing";
+import { normalizeModuleVisibility } from "@/lib/module-visibility";
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -26,6 +27,7 @@ export async function GET() {
       isAdmin: user.isAdmin,
       isFounder: user.isFounder,
       aiAccessEnabled: user.aiAccessEnabled,
+      moduleVisibility: normalizeModuleVisibility(user.moduleVisibility),
       hasCompletedTutorial: user.hasCompletedTutorial,
       hasSkippedTutorial: user.hasSkippedTutorial,
       tutorialCompletedAt: formatBillingDate(user.tutorialCompletedAt),

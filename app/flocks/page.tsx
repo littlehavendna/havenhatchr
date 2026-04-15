@@ -158,7 +158,7 @@ export default function FlocksPage() {
           description={
             isLoading
               ? "Loading flocks..."
-              : "Breeding groups organized for future pairing outcome tools, hatch analysis, and genetics workflows."
+              : "Breeding groups organized for pairing, hatch analysis, and genetics workflows."
           }
           columns={[
             { key: "flockName", label: "Flock Name" },
@@ -170,7 +170,7 @@ export default function FlocksPage() {
           emptyState={{
             title: "No flocks yet",
             description:
-              "Create your first flock to organize breeders, chicks, and future hatch planning.",
+              "Create your first flock to organize breeders, chicks, and hatch planning.",
             actionLabel: "Create your first flock",
             onAction: openModal,
           }}
