@@ -26,6 +26,8 @@ type DnaOrderResponse = {
       quantity: number;
       unitPriceCents: number;
       totalPriceCents: number;
+      baseUnitPriceCents?: number;
+      bulkTierLabel?: string;
     }>;
   };
   clientSecret: string | null;
@@ -116,6 +118,11 @@ export default function DnaCheckoutPage() {
                     {item.quantity} sample{item.quantity === 1 ? "" : "s"} at{" "}
                     {formatCurrencyFromCents(item.unitPriceCents)} each
                   </p>
+                  {item.bulkTierLabel ? (
+                    <p className="mt-1 text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--accent)]">
+                      {item.bulkTierLabel}
+                    </p>
+                  ) : null}
                 </div>
               ))}
             </div>

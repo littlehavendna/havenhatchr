@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, type ReactNode, useEffect, useState } from "react";
 import { DataTable } from "@/components/data-table";
+import { DNA_SEX_BULK_TIERS, getDnaSexBulkTier, getDnaSexUnitPriceCents } from "@/lib/dna";
 import type { BirdSex, ChickDeathReason, ChickStatus } from "@/lib/types";
 
 type ChickRow = {
@@ -216,6 +217,11 @@ export default function ChicksPage() {
   });
 
   const selectedDnaChicks = chicks.filter((chick) => selectedDnaChickIds.includes(chick.id));
+  const dnaSexTest = dnaConfig?.tests.find((test) => test.code === "chicken_sex");
+  const blueGeneTest = dnaConfig?.tests.find((test) => test.code === "chicken_blue_egg");
+  const recessiveWhiteTest = dnaConfig?.tests.find((test) => test.code === "chicken_recessive_white");
+  const dnaSexBulkTier = getDnaSexBulkTier(selectedDnaChickIds.length);
+  const dnaSexUnitPrice = getDnaSexUnitPriceCents(selectedDnaChickIds.length);
 
   function openModal() {
     setErrors({});
@@ -471,6 +477,45 @@ export default function ChicksPage() {
           {requestError ? <p className="mt-4 text-sm text-[#b34b75]">{requestError}</p> : null}
         </section>
 
+        <section className="soft-shadow rounded-[28px] border border-[color:var(--line)] bg-[color:var(--panel-strong)] p-5 sm:p-6">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)]">
+                DNA Orders
+              </p>
+              <h3 className="mt-2 text-lg font-semibold tracking-tight">Select which chicks to DNA test</h3>
+              <p className="mt-1 text-sm text-[color:var(--muted)]">
+                Use the checkboxes in the chick list, then start one DNA order for a single bird or a batch.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={openDnaModal}
+              disabled={!dnaConfig?.enabled || selectedDnaChickIds.length === 0}
+              className="inline-flex items-center justify-center rounded-full bg-[color:var(--accent)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#4f3fa0] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Start DNA Order ({selectedDnaChickIds.length})
+            </button>
+          </div>
+          {!dnaConfig?.enabled ? (
+            <p className="mt-4 text-sm text-[#9b4768]">
+              DNA ordering is temporarily disabled in admin settings.
+            </p>
+          ) : null}
+          {selectedDnaChicks.length > 0 ? (
+            <div className="mt-4 flex flex-wrap gap-2">
+              {selectedDnaChicks.map((chick) => (
+                <span
+                  key={chick.id}
+                  className="rounded-full border border-[color:var(--line)] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--muted)]"
+                >
+                  Sample #{selectedDnaChickIds.indexOf(chick.id) + 1} {chick.bandNumber}
+                </span>
+              ))}
+            </div>
+          ) : null}
+        </section>
+
         <DataTable
           title="Chicks"
           description={
@@ -494,6 +539,28 @@ export default function ChicksPage() {
             { key: "notes", label: "Notes" },
           ]}
           rows={rows}
+          leadingLabel="DNA"
+          renderLeading={(row) => {
+            const chick = filteredChicks.find((entry) => entry.bandNumber === row.bandNumber);
+            if (!chick) return null;
+
+            const isSelected = selectedDnaChickIds.includes(chick.id);
+            return (
+              <label className="inline-flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  checked={isSelected}
+                  onChange={() => toggleDnaSelection(chick.id)}
+                  disabled={!dnaConfig?.enabled}
+                  aria-label={`Select ${chick.bandNumber} for DNA testing`}
+                  className="h-4 w-4 rounded border-[color:var(--line)] text-[color:var(--accent)] focus:ring-[color:var(--accent-soft)]"
+                />
+                <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--muted)]">
+                  {isSelected ? `Sample ${selectedDnaChickIds.indexOf(chick.id) + 1}` : "Select"}
+                </span>
+              </label>
+            );
+          }}
           renderActions={(row) => {
             const chick = filteredChicks.find((entry) => entry.bandNumber === row.bandNumber);
             if (!chick) return null;
@@ -529,108 +596,6 @@ export default function ChicksPage() {
             onAction: search || statusFilter !== "All Statuses" ? undefined : openModal,
           }}
         />
-
-        <section className="soft-shadow overflow-hidden rounded-[28px] border border-[color:var(--line)] bg-[color:var(--panel-strong)]">
-          <div className="border-b border-[color:var(--line)] px-5 py-5 sm:px-6">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <h2 className="text-lg font-semibold tracking-tight">DNA Orders</h2>
-                <p className="mt-1 text-sm text-[color:var(--muted)]">
-                  Select one chick or a batch of chicks, add optional gene tests, and check out without leaving HavenHatchr.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={openDnaModal}
-                disabled={!dnaConfig?.enabled || selectedDnaChickIds.length === 0}
-                className="inline-flex items-center justify-center rounded-full bg-[color:var(--accent)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#4f3fa0] disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                Start DNA Order ({selectedDnaChickIds.length})
-              </button>
-            </div>
-            {!dnaConfig?.enabled ? (
-              <p className="mt-4 text-sm text-[#9b4768]">
-                DNA ordering is temporarily disabled in admin settings.
-              </p>
-            ) : null}
-            {selectedDnaChicks.length > 0 ? (
-              <div className="mt-4 flex flex-wrap gap-2">
-                {selectedDnaChicks.map((chick) => (
-                  <span
-                    key={chick.id}
-                    className="rounded-full border border-[color:var(--line)] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--muted)]"
-                  >
-                    #{selectedDnaChickIds.indexOf(chick.id) + 1} {chick.bandNumber}
-                  </span>
-                ))}
-              </div>
-            ) : null}
-          </div>
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-left">
-              <thead className="bg-[#f5f3fd]">
-                <tr>
-                  {["Select", "Band Number", "Flock", "DNA Status", "Profile"].map((label) => (
-                    <th
-                      key={label}
-                      className="px-5 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-[color:var(--muted)] sm:px-6"
-                    >
-                      {label}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {filteredChicks.map((chick) => (
-                  <tr
-                    key={chick.id}
-                    className="border-t border-[color:var(--line)] transition hover:bg-[#f8f7fe]"
-                  >
-                    <td className="px-5 py-4 text-sm sm:px-6">
-                      <label className="inline-flex items-center gap-3">
-                        <input
-                          type="checkbox"
-                          checked={selectedDnaChickIds.includes(chick.id)}
-                          onChange={() => toggleDnaSelection(chick.id)}
-                          disabled={!dnaConfig?.enabled}
-                          className="h-4 w-4 rounded border-[color:var(--line)] text-[color:var(--accent)] focus:ring-[color:var(--accent-soft)]"
-                        />
-                        <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--muted)]">
-                          Sample {selectedDnaChickIds.includes(chick.id) ? selectedDnaChickIds.indexOf(chick.id) + 1 : "-"}
-                        </span>
-                      </label>
-                    </td>
-                    <td className="px-5 py-4 text-sm font-semibold text-foreground sm:px-6">
-                      {chick.bandNumber}
-                    </td>
-                    <td className="px-5 py-4 text-sm text-foreground sm:px-6">{chick.flockName}</td>
-                    <td className="px-5 py-4 text-sm text-foreground sm:px-6">
-                      <span className={dnaStatusClassName(chick.dnaStatus)}>{chick.dnaStatus}</span>
-                    </td>
-                    <td className="px-5 py-4 text-sm text-foreground sm:px-6">
-                      <Link
-                        href={`/chicks/${chick.id}`}
-                        className="inline-flex rounded-full border border-[color:var(--line)] bg-white px-4 py-2 text-sm font-semibold text-[color:var(--accent)] transition hover:bg-[#f8f7fe]"
-                      >
-                        Open Profile
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-                {!isLoading && filteredChicks.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={5}
-                      className="px-5 py-8 text-center text-sm text-[color:var(--muted)] sm:px-6"
-                    >
-                      Add a chick first, then build a DNA order from the selected sample list.
-                    </td>
-                  </tr>
-                ) : null}
-              </tbody>
-            </table>
-          </div>
-        </section>
       </div>
 
       {isModalOpen ? (
@@ -893,9 +858,18 @@ export default function ChicksPage() {
                   <label className="flex items-start gap-3 rounded-2xl border border-[color:var(--line)] bg-white px-4 py-4">
                     <input type="checkbox" checked readOnly className="mt-1 h-4 w-4 rounded border-[color:var(--line)] text-[color:var(--accent)]" />
                     <span>
-                      <span className="block font-semibold">DNA Sexing</span>
+                      <span className="block font-semibold">
+                        DNA Sexing
+                        {dnaSexTest ? ` · ${formatPrice(dnaSexUnitPrice)}/sample` : ""}
+                      </span>
                       <span className="mt-1 block text-sm text-[color:var(--muted)]">
                         Included for every selected chick.
+                        {dnaSexBulkTier
+                          ? ` ${dnaSexBulkTier.label} is active for this order.`
+                          : " Bulk pricing starts at 50 samples."}
+                      </span>
+                      <span className="mt-2 block text-xs text-[color:var(--muted)]">
+                        {DNA_SEX_BULK_TIERS.map((tier) => `${tier.label}: ${formatPrice(tier.unitPriceCents)}/sample`).join(" · ")}
                       </span>
                     </span>
                   </label>
@@ -912,7 +886,10 @@ export default function ChicksPage() {
                       className="mt-1 h-4 w-4 rounded border-[color:var(--line)] text-[color:var(--accent)]"
                     />
                     <span>
-                      <span className="block font-semibold">Add Blue Gene testing</span>
+                      <span className="block font-semibold">
+                        Add Blue Gene testing
+                        {blueGeneTest ? ` · ${formatPrice(blueGeneTest.priceCents)}/sample` : ""}
+                      </span>
                       <span className="mt-1 block text-sm text-[color:var(--muted)]">
                         Applies to every selected chick in this order.
                       </span>
@@ -931,7 +908,10 @@ export default function ChicksPage() {
                       className="mt-1 h-4 w-4 rounded border-[color:var(--line)] text-[color:var(--accent)]"
                     />
                     <span>
-                      <span className="block font-semibold">Add Recessive White testing</span>
+                      <span className="block font-semibold">
+                        Add Recessive White testing
+                        {recessiveWhiteTest ? ` · ${formatPrice(recessiveWhiteTest.priceCents)}/sample` : ""}
+                      </span>
                       <span className="mt-1 block text-sm text-[color:var(--muted)]">
                         Applies to every selected chick in this order.
                       </span>
@@ -1063,25 +1043,16 @@ function formatDate(value: string) {
   }).format(date);
 }
 
+function formatPrice(value: number) {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+  }).format(value / 100);
+}
+
 function splitTraits(value: string) {
   return value
     .split(",")
     .map((item) => item.trim())
     .filter(Boolean);
-}
-
-function dnaStatusClassName(status: "None" | "Pending" | "Completed" | "Cancelled") {
-  if (status === "Completed") {
-    return "rounded-full bg-[#edf7f8] px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--teal)]";
-  }
-
-  if (status === "Pending") {
-    return "rounded-full bg-[#ece7fb] px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--accent)]";
-  }
-
-  if (status === "Cancelled") {
-    return "rounded-full bg-[#f9e7ef] px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[#b34b75]";
-  }
-
-  return "rounded-full bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--muted)] border border-[color:var(--line)]";
 }

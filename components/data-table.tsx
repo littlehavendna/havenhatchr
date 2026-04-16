@@ -12,6 +12,8 @@ type DataTableProps<T extends Record<string, RowValue>> = {
   description?: string;
   columns: Column<T>[];
   rows: T[];
+  leadingLabel?: string;
+  renderLeading?: (row: T, index: number) => ReactNode;
   renderActions?: (row: T, index: number) => ReactNode;
   emptyState?: {
     title: string;
@@ -26,6 +28,8 @@ export function DataTable<T extends Record<string, RowValue>>({
   description,
   columns,
   rows,
+  leadingLabel,
+  renderLeading,
   renderActions,
   emptyState,
 }: DataTableProps<T>) {
@@ -45,6 +49,14 @@ export function DataTable<T extends Record<string, RowValue>>({
               key={index}
               className="rounded-[24px] border border-[color:var(--line)] bg-[#fcfbff] p-4"
             >
+              {renderLeading ? (
+                <div className="mb-4 flex items-center justify-between gap-4 border-b border-[color:var(--line)] pb-3">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)]">
+                    {leadingLabel ?? "Select"}
+                  </span>
+                  <span>{renderLeading(row, index)}</span>
+                </div>
+              ) : null}
               <div className="grid gap-3">
                 {columns.map((column) => (
                   <div
@@ -92,6 +104,11 @@ export function DataTable<T extends Record<string, RowValue>>({
         <table className="min-w-full text-left">
           <thead className="bg-[#f5f3fd]">
             <tr>
+              {renderLeading ? (
+                <th className="px-5 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-[color:var(--muted)] sm:px-6">
+                  {leadingLabel ?? "Select"}
+                </th>
+              ) : null}
               {columns.map((column) => (
                 <th
                   key={String(column.key)}
@@ -114,6 +131,11 @@ export function DataTable<T extends Record<string, RowValue>>({
                   key={index}
                   className="border-t border-[color:var(--line)] transition hover:bg-[#f8f7fe]"
                 >
+                  {renderLeading ? (
+                    <td className="px-5 py-4 text-sm text-foreground sm:px-6">
+                      {renderLeading(row, index)}
+                    </td>
+                  ) : null}
                   {columns.map((column) => (
                     <td
                       key={String(column.key)}
@@ -132,7 +154,7 @@ export function DataTable<T extends Record<string, RowValue>>({
             ) : (
               <tr>
                 <td
-                  colSpan={columns.length + (renderActions ? 1 : 0)}
+                  colSpan={columns.length + (renderLeading ? 1 : 0) + (renderActions ? 1 : 0)}
                   className="border-t border-[color:var(--line)] px-5 py-10 sm:px-6"
                 >
                   <div className="mx-auto max-w-xl text-center">

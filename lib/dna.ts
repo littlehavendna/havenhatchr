@@ -38,6 +38,18 @@ export type DnaOrderSelections = {
   includeRecessiveWhite: boolean;
 };
 
+export type DnaBulkTier = {
+  minQuantity: number;
+  unitPriceCents: number;
+  label: string;
+};
+
+export const DNA_SEX_BULK_TIERS: DnaBulkTier[] = [
+  { minQuantity: 50, unitPriceCents: 700, label: "Bulk tier 50+" },
+  { minQuantity: 100, unitPriceCents: 650, label: "Bulk tier 100+" },
+  { minQuantity: 150, unitPriceCents: 600, label: "Bulk tier 150+" },
+];
+
 export function getSelectedDnaTests(selections: DnaOrderSelections) {
   const selectedTests: DnaTestCode[] = ["chicken_sex"];
 
@@ -52,18 +64,65 @@ export function getSelectedDnaTests(selections: DnaOrderSelections) {
   return selectedTests;
 }
 
+export function getDnaSexUnitPriceCents(chickCount: number) {
+  if (chickCount >= 150) {
+    return 600;
+  }
+
+  if (chickCount >= 100) {
+    return 650;
+  }
+
+  if (chickCount >= 50) {
+    return 700;
+  }
+
+  return DNA_TEST_CATALOG.chicken_sex.priceCents;
+}
+
+export function getDnaSexBulkTier(chickCount: number) {
+  if (chickCount >= 150) {
+    return DNA_SEX_BULK_TIERS[2];
+  }
+
+  if (chickCount >= 100) {
+    return DNA_SEX_BULK_TIERS[1];
+  }
+
+  if (chickCount >= 50) {
+    return DNA_SEX_BULK_TIERS[0];
+  }
+
+  return null;
+}
+
+export function getDnaUnitPriceCents(code: DnaTestCode, chickCount: number) {
+  if (code === "chicken_sex") {
+    return getDnaSexUnitPriceCents(chickCount);
+  }
+
+  return DNA_TEST_CATALOG[code].priceCents;
+}
+
 export function calculateDnaOrderTotal(chickCount: number, selectedTests: DnaTestCode[]) {
-  return selectedTests.reduce((sum, code) => sum + DNA_TEST_CATALOG[code].priceCents * chickCount, 0);
+  return selectedTests.reduce((sum, code) => sum + getDnaUnitPriceCents(code, chickCount) * chickCount, 0);
 }
 
 export function getDnaOrderLineItems(chickCount: number, selectedTests: DnaTestCode[]) {
-  return selectedTests.map((code) => ({
-    code,
-    label: DNA_TEST_CATALOG[code].label,
-    quantity: chickCount,
-    unitPriceCents: DNA_TEST_CATALOG[code].priceCents,
-    totalPriceCents: DNA_TEST_CATALOG[code].priceCents * chickCount,
-  }));
+  return selectedTests.map((code) => {
+    const unitPriceCents = getDnaUnitPriceCents(code, chickCount);
+    const bulkTier = code === "chicken_sex" ? getDnaSexBulkTier(chickCount) : null;
+
+    return {
+      code,
+      label: DNA_TEST_CATALOG[code].label,
+      quantity: chickCount,
+      unitPriceCents,
+      totalPriceCents: unitPriceCents * chickCount,
+      baseUnitPriceCents: DNA_TEST_CATALOG[code].priceCents,
+      bulkTierLabel: bulkTier?.label || "",
+    };
+  });
 }
 
 export function formatCurrencyFromCents(value: number) {
