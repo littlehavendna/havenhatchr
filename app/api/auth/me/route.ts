@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { formatBillingDate, getPlanBadge, hasBillingAccess } from "@/lib/billing";
-import { defaultModuleVisibility, normalizeModuleVisibility } from "@/lib/module-visibility";
+import {
+  defaultModuleVisibility,
+  getModuleVisibilitySettingKey,
+  normalizeModuleVisibility,
+} from "@/lib/module-visibility";
 import { prisma } from "@/lib/prisma";
 
 export async function GET() {
@@ -14,11 +18,11 @@ export async function GET() {
   let moduleVisibility = defaultModuleVisibility;
 
   try {
-    const moduleSettings = await prisma.user.findUnique({
-      where: { id: user.id },
-      select: { moduleVisibility: true },
+    const moduleSettings = await prisma.systemSetting.findUnique({
+      where: { key: getModuleVisibilitySettingKey(user.id) },
+      select: { value: true },
     });
-    moduleVisibility = normalizeModuleVisibility(moduleSettings?.moduleVisibility);
+    moduleVisibility = normalizeModuleVisibility(moduleSettings?.value);
   } catch {
     moduleVisibility = defaultModuleVisibility;
   }

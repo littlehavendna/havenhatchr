@@ -44,6 +44,10 @@ export const moduleLabels: Record<OptionalModuleKey, string> = {
   storefront: "Storefront",
 };
 
+export function getModuleVisibilitySettingKey(userId: string) {
+  return `user.moduleVisibility.${userId}`;
+}
+
 export function normalizeModuleVisibility(value: unknown): ModuleVisibility {
   const normalized = { ...defaultModuleVisibility };
 

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser, requireCurrentUser } from "@/lib/auth";
 import {
   defaultModuleVisibility,
+  getModuleVisibilitySettingKey,
   normalizeModuleVisibility,
   optionalModuleKeys,
 } from "@/lib/module-visibility";
@@ -23,13 +24,13 @@ export async function GET() {
   }
 
   try {
-    const settings = await prisma.user.findUnique({
-      where: { id: user.id },
-      select: { moduleVisibility: true },
+    const settings = await prisma.systemSetting.findUnique({
+      where: { key: getModuleVisibilitySettingKey(user.id) },
+      select: { value: true },
     });
 
     return NextResponse.json({
-      moduleVisibility: normalizeModuleVisibility(settings?.moduleVisibility),
+      moduleVisibility: normalizeModuleVisibility(settings?.value),
     });
   } catch {
     return NextResponse.json({
@@ -50,14 +51,25 @@ export async function PUT(request: Request) {
       return current;
     }, {});
 
-    const updatedUser = await prisma.user.update({
-      where: { id: user.id },
-      data: { moduleVisibility },
-      select: { moduleVisibility: true },
+    const updatedSetting = await prisma.systemSetting.upsert({
+      where: { key: getModuleVisibilitySettingKey(user.id) },
+      update: {
+        label: "User Module Visibility",
+        description: "Per-account workspace module visibility preferences.",
+        value: moduleVisibility,
+        updatedById: user.id,
+      },
+      create: {
+        key: getModuleVisibilitySettingKey(user.id),
+        label: "User Module Visibility",
+        description: "Per-account workspace module visibility preferences.",
+        value: moduleVisibility,
+        updatedById: user.id,
+      },
     });
 
     return NextResponse.json({
-      moduleVisibility: normalizeModuleVisibility(updatedUser.moduleVisibility),
+      moduleVisibility: normalizeModuleVisibility(updatedSetting.value),
     });
   } catch (error) {
     const status = getErrorStatus(error);
