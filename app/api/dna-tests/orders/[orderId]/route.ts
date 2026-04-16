@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { requireCurrentUser } from "@/lib/auth";
-import { getDnaOrderForUser, getDnaPublishableKey } from "@/lib/dna-server";
-import { getStripe } from "@/lib/billing";
+import {
+  getDnaOrderForUser,
+  getDnaPublishableKey,
+  getDnaStripe,
+} from "@/lib/dna-server";
 import { getClientErrorMessage, getErrorStatus, logServerError } from "@/lib/security";
 
 type RouteContext = {
@@ -19,7 +22,7 @@ export async function GET(_request: Request, context: RouteContext) {
     let clientSecret: string | null = null;
 
     if (order.status === "PendingPayment" && order.stripeCheckoutSessionId) {
-      const stripe = getStripe();
+      const stripe = getDnaStripe();
       const session = await stripe.checkout.sessions.retrieve(order.stripeCheckoutSessionId);
 
       clientSecret = session.client_secret || null;

@@ -7,10 +7,15 @@ Set these in HavenHatchr on Railway:
 - `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
 - `STRIPE_SECRET_KEY`
 - `STRIPE_WEBHOOK_SECRET`
+- `NEXT_PUBLIC_DNA_STRIPE_PUBLISHABLE_KEY` (optional override for DNA checkout)
+- `DNA_STRIPE_SECRET_KEY` (optional override for DNA checkout)
+- `DNA_STRIPE_WEBHOOK_SECRET` (optional override for the DNA webhook)
 - `LITTLEHAVEN_DNA_API_URL`
 - `LITTLEHAVEN_DNA_API_SECRET`
 - `DNA_RESULTS_WEBHOOK_SECRET`
 - `NEXT_PUBLIC_APP_URL`
+
+If the optional `DNA_STRIPE_*` values are set, HavenHatchr subscriptions continue using the normal `STRIPE_*` keys while DNA orders use the DNA-specific Stripe account or mode.
 
 ## Admin settings
 
@@ -111,3 +116,13 @@ Body:
   ]
 }
 ```
+
+## DNA Stripe webhook
+
+When using split Stripe mode, point the DNA Stripe webhook to:
+
+`{NEXT_PUBLIC_APP_URL}/api/dna-tests/webhook`
+
+Keep the subscription Stripe webhook pointed to:
+
+`{NEXT_PUBLIC_APP_URL}/api/stripe/webhook`

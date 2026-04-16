@@ -12,7 +12,7 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:seed": "tsx prisma/seed.ts",
     "railway:build": "prisma generate && prisma migrate deploy && next build",
-    "railway:start": "next start -H 0.0.0.0 -p ${PORT:-3000}"
+    "railway:start": "next start -H 0.0.0.0"
   },
   "dependencies": {
     "@prisma/client": "^6.16.3",

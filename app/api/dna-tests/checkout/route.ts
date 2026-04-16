@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
 import { logAuditAction, logUsageEvent } from "@/lib/admin";
 import { requireCurrentUser } from "@/lib/auth";
-import { createDnaCheckoutOrder, getDnaOrderForUser } from "@/lib/dna-server";
-import { getStripe } from "@/lib/billing";
+import {
+  createDnaCheckoutOrder,
+  getDnaOrderForUser,
+  getDnaStripe,
+} from "@/lib/dna-server";
 import { getAppOrigin } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
 import {
@@ -39,7 +42,7 @@ export async function POST(request: Request) {
       },
     });
 
-    const stripe = getStripe();
+    const stripe = getDnaStripe();
     const session = await stripe.checkout.sessions.create({
       ui_mode: "embedded" as never,
       mode: "payment",

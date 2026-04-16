@@ -1,6 +1,7 @@
 import "server-only";
 
 import { DnaTestOrderStatus, DnaTestStatus, type Prisma } from "@prisma/client";
+import Stripe from "stripe";
 import { getAppOrigin, getRequiredEnv } from "@/lib/env";
 import {
   DEFAULT_DNA_TESTING_INSTRUCTIONS,
@@ -19,6 +20,8 @@ import { createHttpError } from "@/lib/security";
 function formatDateTime(value: Date) {
   return value.toISOString();
 }
+
+let dnaStripeClient: Stripe | null = null;
 
 async function requireOwnedChicks(userId: string, chickIds: string[]) {
   const records = await prisma.chick.findMany({
@@ -259,7 +262,19 @@ export async function getDnaOrderForUser(userId: string, orderId: string) {
 }
 
 export function getDnaPublishableKey() {
-  return getRequiredEnv("NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY");
+  return process.env.NEXT_PUBLIC_DNA_STRIPE_PUBLISHABLE_KEY
+    || getRequiredEnv("NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY");
+}
+
+export function getDnaStripe() {
+  const secretKey = process.env.DNA_STRIPE_SECRET_KEY || getRequiredEnv("STRIPE_SECRET_KEY");
+
+  dnaStripeClient ??= new Stripe(secretKey);
+  return dnaStripeClient;
+}
+
+export function getDnaStripeWebhookSecret() {
+  return process.env.DNA_STRIPE_WEBHOOK_SECRET || getRequiredEnv("STRIPE_WEBHOOK_SECRET");
 }
 
 export function getLittleHavenApiUrl() {
