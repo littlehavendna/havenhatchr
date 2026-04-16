@@ -589,7 +589,7 @@ export default function ChicksPage() {
                 </label>
                 <Link
                   href={`/chicks/${chick.id}`}
-                  className="inline-flex rounded-full border border-[color:var(--line)] bg-white px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-[color:var(--accent)] transition hover:bg-[#f8f7fe]"
+                  className="inline-flex min-w-[108px] items-center justify-center rounded-full border border-[color:var(--line)] bg-[#f5f1ff] px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-[color:var(--accent)] transition hover:bg-[#ece6ff]"
                 >
                   Edit Chick
                 </Link>
