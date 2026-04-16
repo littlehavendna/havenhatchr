@@ -19,7 +19,7 @@ const links = [
   { href: "/traits", label: "Traits", moduleKey: "traits" },
   { href: "/genetics", label: "Genetics", moduleKey: "genetics" },
   { href: "/analytics", label: "Analytics", moduleKey: "analytics" },
-  { href: "/ai", label: "AI Tools", moduleKey: "aiTools" },
+  { href: "/ai", label: "AI Tools" },
   { href: "/reservations", label: "Reservations", moduleKey: "reservations" },
   { href: "/orders", label: "Orders", moduleKey: "orders" },
   { href: "/egg-sales", label: "Egg Sales", moduleKey: "eggSales" },
