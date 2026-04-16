@@ -14,6 +14,7 @@ type DataTableProps<T extends Record<string, RowValue>> = {
   rows: T[];
   leadingLabel?: string;
   renderLeading?: (row: T, index: number) => ReactNode;
+  renderCell?: (row: T, column: Column<T>, index: number) => ReactNode;
   renderActions?: (row: T, index: number) => ReactNode;
   emptyState?: {
     title: string;
@@ -30,6 +31,7 @@ export function DataTable<T extends Record<string, RowValue>>({
   rows,
   leadingLabel,
   renderLeading,
+  renderCell,
   renderActions,
   emptyState,
 }: DataTableProps<T>) {
@@ -67,7 +69,7 @@ export function DataTable<T extends Record<string, RowValue>>({
                       {column.label}
                     </span>
                     <span className="max-w-[60%] text-right text-sm font-medium text-foreground">
-                      {row[column.key]}
+                      {renderCell ? renderCell(row, column, index) : row[column.key]}
                     </span>
                   </div>
                 ))}
@@ -141,7 +143,7 @@ export function DataTable<T extends Record<string, RowValue>>({
                       key={String(column.key)}
                       className="px-5 py-4 text-sm text-foreground sm:px-6"
                     >
-                      {row[column.key]}
+                      {renderCell ? renderCell(row, column, index) : row[column.key]}
                     </td>
                   ))}
                   {renderActions ? (

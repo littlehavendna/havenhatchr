@@ -540,6 +540,25 @@ export default function ChicksPage() {
           ]}
           rows={rows}
           leadingLabel="DNA"
+          renderCell={(row, column) => {
+            if (column.key !== "bandNumber") {
+              return row[column.key];
+            }
+
+            const chick = filteredChicks.find((entry) => entry.bandNumber === row.bandNumber);
+            if (!chick) {
+              return row.bandNumber;
+            }
+
+            return (
+              <Link
+                href={`/chicks/${chick.id}`}
+                className="font-semibold text-[color:var(--accent)] underline-offset-4 transition hover:underline"
+              >
+                {row.bandNumber}
+              </Link>
+            );
+          }}
           renderLeading={(row) => {
             const chick = filteredChicks.find((entry) => entry.bandNumber === row.bandNumber);
             if (!chick) return null;
