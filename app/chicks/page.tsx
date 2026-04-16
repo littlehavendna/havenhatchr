@@ -565,19 +565,27 @@ export default function ChicksPage() {
 
             const isSelected = selectedDnaChickIds.includes(chick.id);
             return (
-              <label className="inline-flex items-center gap-3">
-                <input
-                  type="checkbox"
-                  checked={isSelected}
-                  onChange={() => toggleDnaSelection(chick.id)}
-                  disabled={!dnaConfig?.enabled}
-                  aria-label={`Select ${chick.bandNumber} for DNA testing`}
-                  className="h-4 w-4 rounded border-[color:var(--line)] text-[color:var(--accent)] focus:ring-[color:var(--accent-soft)]"
-                />
-                <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--muted)]">
-                  {isSelected ? `Sample ${selectedDnaChickIds.indexOf(chick.id) + 1}` : "Select"}
-                </span>
-              </label>
+              <div className="flex flex-col items-start gap-2">
+                <label className="inline-flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => toggleDnaSelection(chick.id)}
+                    disabled={!dnaConfig?.enabled}
+                    aria-label={`Select ${chick.bandNumber} for DNA testing`}
+                    className="h-4 w-4 rounded border-[color:var(--line)] text-[color:var(--accent)] focus:ring-[color:var(--accent-soft)]"
+                  />
+                  <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--muted)]">
+                    {isSelected ? `Sample ${selectedDnaChickIds.indexOf(chick.id) + 1}` : "Select"}
+                  </span>
+                </label>
+                <Link
+                  href={`/chicks/${chick.id}`}
+                  className="inline-flex rounded-full border border-[color:var(--line)] bg-white px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-[color:var(--accent)] transition hover:bg-[#f8f7fe]"
+                >
+                  Edit Chick
+                </Link>
+              </div>
             );
           }}
           renderActions={(row) => {
