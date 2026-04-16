@@ -1,12 +1,39 @@
 import "server-only";
 
 import { randomBytes, scryptSync, timingSafeEqual } from "crypto";
+import type { Prisma } from "@prisma/client";
 import { cookies } from "next/headers";
 import { hasBillingAccess } from "@/lib/billing";
 import { prisma } from "@/lib/prisma";
 
 const SESSION_COOKIE_NAME = "havenhatchr_session";
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30;
+
+export const authUserSelect = {
+  id: true,
+  name: true,
+  email: true,
+  passwordHash: true,
+  plan: true,
+  stripeCustomerId: true,
+  stripeSubscriptionId: true,
+  subscriptionStatus: true,
+  trialEnd: true,
+  currentPeriodEnd: true,
+  isBetaUser: true,
+  isAdmin: true,
+  isFounder: true,
+  aiAccessEnabled: true,
+  hasCompletedTutorial: true,
+  hasSkippedTutorial: true,
+  tutorialCompletedAt: true,
+  lastLoginAt: true,
+  accountDisabledAt: true,
+  createdAt: true,
+  updatedAt: true,
+} satisfies Prisma.UserSelect;
+
+export type AuthUser = Prisma.UserGetPayload<{ select: typeof authUserSelect }>;
 
 export async function hashPassword(password: string) {
   const salt = randomBytes(16).toString("hex");
@@ -88,7 +115,7 @@ export async function getCurrentSession() {
 
   const session = await prisma.session.findUnique({
     where: { token },
-    include: { user: true },
+    include: { user: { select: authUserSelect } },
   });
 
   if (!session || session.expiresAt <= new Date()) {

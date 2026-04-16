@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser, requireCurrentUser } from "@/lib/auth";
-import { normalizeModuleVisibility, optionalModuleKeys } from "@/lib/module-visibility";
+import {
+  defaultModuleVisibility,
+  normalizeModuleVisibility,
+  optionalModuleKeys,
+} from "@/lib/module-visibility";
 import { prisma } from "@/lib/prisma";
 import { reportRequestEvent } from "@/lib/monitoring";
 import {
@@ -18,9 +22,20 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  return NextResponse.json({
-    moduleVisibility: normalizeModuleVisibility(user.moduleVisibility),
-  });
+  try {
+    const settings = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { moduleVisibility: true },
+    });
+
+    return NextResponse.json({
+      moduleVisibility: normalizeModuleVisibility(settings?.moduleVisibility),
+    });
+  } catch {
+    return NextResponse.json({
+      moduleVisibility: defaultModuleVisibility,
+    });
+  }
 }
 
 export async function PUT(request: Request) {

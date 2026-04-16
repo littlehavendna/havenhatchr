@@ -1,13 +1,26 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { formatBillingDate, getPlanBadge, hasBillingAccess } from "@/lib/billing";
-import { normalizeModuleVisibility } from "@/lib/module-visibility";
+import { defaultModuleVisibility, normalizeModuleVisibility } from "@/lib/module-visibility";
+import { prisma } from "@/lib/prisma";
 
 export async function GET() {
   const user = await getCurrentUser();
 
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  let moduleVisibility = defaultModuleVisibility;
+
+  try {
+    const moduleSettings = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { moduleVisibility: true },
+    });
+    moduleVisibility = normalizeModuleVisibility(moduleSettings?.moduleVisibility);
+  } catch {
+    moduleVisibility = defaultModuleVisibility;
   }
 
   return NextResponse.json({
@@ -27,7 +40,7 @@ export async function GET() {
       isAdmin: user.isAdmin,
       isFounder: user.isFounder,
       aiAccessEnabled: user.aiAccessEnabled,
-      moduleVisibility: normalizeModuleVisibility(user.moduleVisibility),
+      moduleVisibility,
       hasCompletedTutorial: user.hasCompletedTutorial,
       hasSkippedTutorial: user.hasSkippedTutorial,
       tutorialCompletedAt: formatBillingDate(user.tutorialCompletedAt),

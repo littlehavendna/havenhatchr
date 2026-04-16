@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { logUsageEvent } from "@/lib/admin";
-import { createSession, hashPassword } from "@/lib/auth";
+import { authUserSelect, createSession, hashPassword } from "@/lib/auth";
 import { reportRequestEvent } from "@/lib/monitoring";
 import { prisma } from "@/lib/prisma";
 import {
@@ -37,6 +37,7 @@ export async function POST(request: Request) {
 
     const existingUser = await prisma.user.findUnique({
       where: { email },
+      select: { id: true },
     });
 
     if (existingUser) {
@@ -57,6 +58,7 @@ export async function POST(request: Request) {
         passwordHash: await hashPassword(password),
         plan: "starter",
       },
+      select: authUserSelect,
     });
 
     await createSession(user.id);

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { logUsageEvent } from "@/lib/admin";
-import { createSession, verifyPassword } from "@/lib/auth";
+import { authUserSelect, createSession, verifyPassword } from "@/lib/auth";
 import { reportRequestEvent } from "@/lib/monitoring";
 import { prisma } from "@/lib/prisma";
 import {
@@ -31,6 +31,7 @@ export async function POST(request: Request) {
 
     const user = await prisma.user.findUnique({
       where: { email },
+      select: authUserSelect,
     });
 
     if (!user || !(await verifyPassword(password, user.passwordHash))) {
