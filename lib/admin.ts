@@ -17,6 +17,7 @@ import {
 } from "@/lib/mock-data";
 import { reportOperationalEvent } from "@/lib/monitoring";
 import { prisma } from "@/lib/prisma";
+import { getDefaultDnaSystemSettings } from "@/lib/dna-server";
 
 function formatDateTime(value: Date | null) {
   return value ? value.toISOString() : null;
@@ -977,8 +978,25 @@ export async function getSystemSettingsData() {
   const settings = await prisma.systemSetting.findMany({
     orderBy: { key: "asc" },
   });
+  const defaults = getDefaultDnaSystemSettings();
+  const missingDefaults = defaults.filter(
+    (defaultSetting) => !settings.some((setting) => setting.key === defaultSetting.key),
+  );
+  const mergedSettings = [
+    ...settings,
+    ...missingDefaults.map((setting) => ({
+      id: `virtual-${setting.key}`,
+      key: setting.key,
+      label: setting.label,
+      description: setting.description,
+      value: setting.value,
+      updatedById: null,
+      createdAt: new Date(0),
+      updatedAt: new Date(0),
+    })),
+  ].sort((left, right) => left.key.localeCompare(right.key));
 
-  return settings.map((setting) => ({
+  return mergedSettings.map((setting) => ({
     id: setting.id,
     key: setting.key,
     label: setting.label,

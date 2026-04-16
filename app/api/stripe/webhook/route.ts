@@ -8,6 +8,7 @@ import {
   syncStripeSubscription,
   syncStripeSubscriptionByCustomer,
 } from "@/lib/billing";
+import { syncDnaOrderToLittleHaven } from "@/lib/dna-sync";
 import { prisma } from "@/lib/prisma";
 import { logServerError } from "@/lib/security";
 
@@ -32,6 +33,31 @@ export async function POST(request: Request) {
   try {
     if (event.type === "checkout.session.completed") {
       const session = event.data.object as Stripe.Checkout.Session;
+      const flow = session.metadata?.flow;
+
+      if (flow === "dna_test_order") {
+        const dnaOrderId = session.metadata?.dnaOrderId;
+
+        if (dnaOrderId) {
+          await prisma.dnaTestOrder.update({
+            where: { id: dnaOrderId },
+            data: {
+              status: "Paid",
+              stripeCheckoutSessionId: session.id,
+              stripePaymentIntentId:
+                typeof session.payment_intent === "string"
+                  ? session.payment_intent
+                  : session.payment_intent?.id || null,
+              syncError: "",
+            },
+          });
+
+          await syncDnaOrderToLittleHaven(dnaOrderId);
+        }
+
+        return NextResponse.json({ received: true });
+      }
+
       const subscriptionId =
         typeof session.subscription === "string" ? session.subscription : session.subscription?.id;
       const userId = session.client_reference_id || session.metadata?.userId;

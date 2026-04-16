@@ -41,6 +41,15 @@ enum DnaTestStatus {
   Cancelled
 }
 
+enum DnaTestOrderStatus {
+  PendingPayment
+  Paid
+  Synced
+  Completed
+  Cancelled
+  SyncFailed
+}
+
 enum FeedbackType {
   Bug
   FeatureRequest
@@ -163,6 +172,7 @@ model User {
   updatedSystemSettings SystemSetting[]
   usageEvents           UsageEvent[]
   aiUsageLogs           AiUsageLog[]
+  dnaTestOrders         DnaTestOrder[]
   dnaTestRequests       DnaTestRequest[]
   operationalEvents     OperationalEvent[]
   feedbackEntries       Feedback[]
@@ -345,22 +355,55 @@ model Chick {
   @@unique([userId, bandNumber])
 }
 
+model DnaTestOrder {
+  id                     String             @id @default(cuid())
+  userId                 String
+  contactName            String
+  contactEmail           String
+  notes                  String             @default("")
+  selectedTests          String[]           @default([])
+  totalAmountCents       Int                @default(0)
+  status                 DnaTestOrderStatus @default(PendingPayment)
+  stripeCheckoutSessionId String?           @unique
+  stripePaymentIntentId  String?            @unique
+  externalOrderId        String?            @default("")
+  externalOrderCode      String?            @default("")
+  externalCustomerId     String?            @default("")
+  syncError              String?            @default("")
+  syncedAt               DateTime?
+  completedAt            DateTime?
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+  user                   User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  requests               DnaTestRequest[]
+
+  @@index([userId])
+  @@index([status])
+}
+
 model DnaTestRequest {
   id                String        @id @default(cuid())
   userId            String
+  dnaTestOrderId    String?
   chickId           String
+  sampleNumber      Int?
   bandNumber        String
   testType          String
+  selectedTests     String[]      @default([])
   status            DnaTestStatus @default(Pending)
   externalOrderId   String?       @default("")
+  externalSampleId   String?      @default("")
   resultSummary     String?       @default("")
+  resultPayload     Json?
   completedAt       DateTime?
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
   user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dnaTestOrder      DnaTestOrder? @relation(fields: [dnaTestOrderId], references: [id], onDelete: SetNull)
   chick             Chick         @relation(fields: [chickId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([dnaTestOrderId])
   @@index([chickId])
   @@index([status])
 }
