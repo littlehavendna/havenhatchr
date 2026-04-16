@@ -583,8 +583,13 @@ export default function ChicksPage() {
                     aria-label={`Select ${chick.bandNumber} for DNA testing`}
                     className="h-4 w-4 rounded border-[color:var(--line)] text-[color:var(--accent)] focus:ring-[color:var(--accent-soft)]"
                   />
-                  <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--muted)]">
-                    {isSelected ? `Sample ${selectedDnaChickIds.indexOf(chick.id) + 1}` : "Select"}
+                  <span className="flex flex-col">
+                    <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--muted)]">
+                      {isSelected ? `Sample ${selectedDnaChickIds.indexOf(chick.id) + 1}` : "SELECT"}
+                    </span>
+                    <span className="text-[10px] font-medium text-[color:var(--muted)]/80">
+                      for DNA testing
+                    </span>
                   </span>
                 </label>
                 <Link
