@@ -336,6 +336,14 @@ export default function ChicksPage() {
     event.preventDefault();
 
     try {
+      if (!dnaOrderForm.contactName.trim()) {
+        throw new Error("Contact name is required.");
+      }
+
+      if (!dnaOrderForm.contactEmail.trim()) {
+        throw new Error("Contact email is required.");
+      }
+
       setIsCreatingDnaCheckout(true);
       setRequestError("");
 
@@ -607,7 +615,7 @@ export default function ChicksPage() {
                   href={`/chicks/${chick.id}`}
                   className="inline-flex rounded-full border border-[color:var(--line)] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--accent)] transition hover:bg-[#f8f7fe]"
                 >
-                  Open
+                  Edit Chick
                 </Link>
               </div>
             );
@@ -947,7 +955,7 @@ export default function ChicksPage() {
                 </div>
               </div>
               <FormField
-                label="Lab Notes"
+                label="Optional notes for the lab"
                 input={
                   <textarea
                     value={dnaOrderForm.notes}

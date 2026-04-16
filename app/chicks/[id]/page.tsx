@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import type { ChickDeathReason } from "@/lib/types";
+import type { BirdSex, ChickDeathReason, ChickStatus } from "@/lib/types";
 
 type ChickProfileResponse = {
   chick: {
@@ -47,6 +47,26 @@ type ChickProfileResponse = {
     notes: string;
     createdAt: string;
   }>;
+  flocks: Array<{
+    id: string;
+    name: string;
+  }>;
+  hatchGroups: Array<{
+    id: string;
+    name: string;
+  }>;
+};
+
+type EditFormState = {
+  bandNumber: string;
+  hatchDate: string;
+  flockId: string;
+  hatchGroupId: string;
+  status: ChickStatus;
+  sex: BirdSex;
+  color: string;
+  observedTraits: string;
+  notes: string;
 };
 
 const dnaTestOptions = ["Sexing", "Color", "Trait Panel"];
@@ -61,6 +81,8 @@ const deathReasonOptions: Array<{ value: ChickDeathReason; label: string }> = [
   { value: "Unknown", label: "Unknown" },
   { value: "Other", label: "Other" },
 ];
+const chickStatusOptions: ChickStatus[] = ["Available", "Reserved", "Sold", "Holdback", "Deceased"];
+const sexOptions: BirdSex[] = ["Male", "Female", "Unknown"];
 
 export default function ChickProfilePage() {
   const params = useParams<{ id: string }>();
@@ -69,13 +91,26 @@ export default function ChickProfilePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [requestError, setRequestError] = useState("");
   const [isDnaModalOpen, setIsDnaModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
   const [testType, setTestType] = useState("Sexing");
   const [isDeathModalOpen, setIsDeathModalOpen] = useState(false);
   const [isSavingDeath, setIsSavingDeath] = useState(false);
   const [deathDate, setDeathDate] = useState(new Date().toISOString().slice(0, 10));
   const [deathReason, setDeathReason] = useState<ChickDeathReason>("Unknown");
   const [deathNotes, setDeathNotes] = useState("");
+  const [editForm, setEditForm] = useState<EditFormState>({
+    bandNumber: "",
+    hatchDate: "",
+    flockId: "",
+    hatchGroupId: "",
+    status: "Available",
+    sex: "Unknown",
+    color: "",
+    observedTraits: "",
+    notes: "",
+  });
 
   const loadProfile = useCallback(async () => {
     try {
@@ -125,6 +160,59 @@ export default function ChickProfilePage() {
       setRequestError(error instanceof Error ? error.message : "Unable to request DNA test.");
     } finally {
       setIsSubmitting(false);
+    }
+  }
+
+  function openEditModal() {
+    if (!profile) return;
+
+    setEditForm({
+      bandNumber: profile.chick.bandNumber,
+      hatchDate: profile.chick.hatchDate,
+      flockId: profile.chick.flockId,
+      hatchGroupId: profile.chick.hatchGroupId || "",
+      status: profile.chick.status as ChickStatus,
+      sex: profile.chick.sex as BirdSex,
+      color: profile.chick.color,
+      observedTraits: profile.chick.observedTraits.join(", "),
+      notes: profile.chick.notes,
+    });
+    setRequestError("");
+    setIsEditModalOpen(true);
+  }
+
+  async function handleEditSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!profile) return;
+
+    try {
+      setIsSavingEdit(true);
+      setRequestError("");
+      const response = await fetch(`/api/chicks/${profile.chick.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          bandNumber: editForm.bandNumber.trim(),
+          hatchDate: editForm.hatchDate,
+          flockId: editForm.flockId,
+          hatchGroupId: editForm.hatchGroupId || undefined,
+          status: editForm.status,
+          sex: editForm.sex,
+          color: editForm.color.trim(),
+          observedTraits: splitTraits(editForm.observedTraits),
+          notes: editForm.notes.trim(),
+        }),
+      });
+      const payload = (await response.json().catch(() => ({}))) as { error?: string };
+      if (!response.ok) {
+        throw new Error(payload.error || "Unable to update chick.");
+      }
+      await loadProfile();
+      setIsEditModalOpen(false);
+    } catch (error) {
+      setRequestError(error instanceof Error ? error.message : "Unable to update chick.");
+    } finally {
+      setIsSavingEdit(false);
     }
   }
 
@@ -191,6 +279,13 @@ export default function ChickProfilePage() {
             <div>
               <div className="flex flex-wrap items-center gap-3">
                 <Link href="/chicks" className="rounded-full border border-[color:var(--line)] bg-white/75 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--muted)]">Back to Chicks</Link>
+                <button
+                  type="button"
+                  onClick={openEditModal}
+                  className="rounded-full border border-[color:var(--line)] bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--accent)] transition hover:bg-[#f8f7fe]"
+                >
+                  Edit Chick
+                </button>
                 <span className="rounded-full bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--accent)]">{chick.status}</span>
                 <span className={dnaStatusClassName(chick.dnaStatus)}>{chick.dnaStatus} DNA</span>
               </div>
@@ -391,6 +486,100 @@ export default function ChickProfilePage() {
         </div>
       ) : null}
 
+      {isEditModalOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#221c3f]/40 px-4 backdrop-blur-sm">
+          <div className="soft-shadow w-full max-w-3xl rounded-[30px] border border-[color:var(--line)] bg-white p-6 sm:p-7">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-2xl font-semibold tracking-tight">Edit Chick</h3>
+                <p className="mt-1 text-sm text-[color:var(--muted)]">
+                  Update this chick record and save the changes back to HavenHatchr.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsEditModalOpen(false)}
+                className="rounded-2xl border border-[color:var(--line)] px-3 py-2 text-sm text-[color:var(--muted)] transition hover:bg-[#f8f7fe]"
+              >
+                Cancel
+              </button>
+            </div>
+            <form onSubmit={handleEditSubmit} className="mt-6 grid gap-4 sm:grid-cols-2">
+              <label className="block">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)]">Band Number</span>
+                <input type="text" value={editForm.bandNumber} onChange={(event) => setEditForm((current) => ({ ...current, bandNumber: event.target.value }))} className={inputClassName()} />
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)]">Hatch Date</span>
+                <input type="date" value={editForm.hatchDate} onChange={(event) => setEditForm((current) => ({ ...current, hatchDate: event.target.value }))} className={inputClassName()} />
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)]">Flock</span>
+                <select value={editForm.flockId} onChange={(event) => setEditForm((current) => ({ ...current, flockId: event.target.value }))} className={inputClassName()}>
+                  <option value="">Select flock</option>
+                  {profile.flocks.map((flock) => (
+                    <option key={flock.id} value={flock.id}>{flock.name}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)]">Hatch Group</span>
+                <select value={editForm.hatchGroupId} onChange={(event) => setEditForm((current) => ({ ...current, hatchGroupId: event.target.value }))} className={inputClassName()}>
+                  <option value="">Optional hatch group</option>
+                  {profile.hatchGroups.map((group) => (
+                    <option key={group.id} value={group.id}>{group.name}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)]">Status</span>
+                <select value={editForm.status} onChange={(event) => setEditForm((current) => ({ ...current, status: event.target.value as ChickStatus }))} className={inputClassName()}>
+                  {chickStatusOptions.map((option) => (
+                    <option key={option} value={option}>{option}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)]">Sex</span>
+                <select value={editForm.sex} onChange={(event) => setEditForm((current) => ({ ...current, sex: event.target.value as BirdSex }))} className={inputClassName()}>
+                  {sexOptions.map((option) => (
+                    <option key={option} value={option}>{option}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)]">Color</span>
+                <input type="text" value={editForm.color} onChange={(event) => setEditForm((current) => ({ ...current, color: event.target.value }))} className={inputClassName()} />
+              </label>
+              <label className="block sm:col-span-2">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)]">Observed Traits</span>
+                <input type="text" value={editForm.observedTraits} onChange={(event) => setEditForm((current) => ({ ...current, observedTraits: event.target.value }))} className={inputClassName()} />
+              </label>
+              <label className="block sm:col-span-2">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)]">Notes</span>
+                <textarea value={editForm.notes} onChange={(event) => setEditForm((current) => ({ ...current, notes: event.target.value }))} rows={4} className={`${inputClassName()} resize-none`} />
+              </label>
+              <div className="sm:col-span-2 flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsEditModalOpen(false)}
+                  className="inline-flex items-center justify-center rounded-full border border-[color:var(--line)] bg-white px-5 py-3 text-sm font-semibold text-foreground transition hover:bg-[#f8f7fe]"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingEdit}
+                  className="inline-flex items-center justify-center rounded-full bg-[color:var(--accent)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#4f3fa0] disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {isSavingEdit ? "Saving..." : "Save Chick"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
+
       {isDeathModalOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#221c3f]/40 px-4 backdrop-blur-sm">
           <div className="soft-shadow w-full max-w-xl rounded-[30px] border border-[color:var(--line)] bg-white p-6 sm:p-7">
@@ -478,4 +667,11 @@ function dnaStatusClassName(status: "None" | "Pending" | "Completed" | "Cancelle
 function formatDate(value: string) {
   const date = value.includes("T") ? new Date(value) : new Date(`${value}T00:00:00`);
   return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(date);
+}
+
+function splitTraits(value: string) {
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
 }

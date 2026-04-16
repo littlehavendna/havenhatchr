@@ -3,12 +3,12 @@ import { logAuditAction, logUsageEvent } from "@/lib/admin";
 import { requireCurrentUser } from "@/lib/auth";
 import {
   createDnaCheckoutOrder,
-  getDnaOrderForUser,
   getDnaStripe,
 } from "@/lib/dna-server";
 import { getAppOrigin } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
 import {
+  createHttpError,
   getClientErrorMessage,
   getErrorStatus,
   logServerError,
@@ -72,27 +72,35 @@ export async function POST(request: Request) {
       },
     });
 
-    await logUsageEvent({
-      userId: user.id,
-      eventType: "dna.checkout_started",
-      route: "/api/dna-tests/checkout",
-      metadata: { dnaOrderId: order.id, chickCount: order.chicks.length },
-    });
-    await logAuditAction({
-      actorUserId: user.id,
-      subjectUserId: user.id,
-      action: "dna.checkout_started",
-      entityType: "dna_order",
-      entityId: order.id,
-      summary: `Started DNA checkout for ${order.chicks.length} chick${order.chicks.length === 1 ? "" : "s"}.`,
-      metadata: {
-        selectedTests: order.selectedTests,
-        totalAmountCents: order.totalAmountCents,
-      },
-    });
+    if (!session.client_secret) {
+      throw createHttpError("Stripe checkout could not be prepared. Please try again.", 502);
+    }
+
+    try {
+      await logUsageEvent({
+        userId: user.id,
+        eventType: "dna.checkout_started",
+        route: "/api/dna-tests/checkout",
+        metadata: { dnaOrderId: order.id, chickCount: order.chicks.length },
+      });
+      await logAuditAction({
+        actorUserId: user.id,
+        subjectUserId: user.id,
+        action: "dna.checkout_started",
+        entityType: "dna_order",
+        entityId: order.id,
+        summary: `Started DNA checkout for ${order.chicks.length} chick${order.chicks.length === 1 ? "" : "s"}.`,
+        metadata: {
+          selectedTests: order.selectedTests,
+          totalAmountCents: order.totalAmountCents,
+        },
+      });
+    } catch (error) {
+      logServerError("dna.checkout.audit", error, { dnaOrderId: order.id });
+    }
 
     return NextResponse.json({
-      order: await getDnaOrderForUser(user.id, order.id),
+      order: { id: order.id },
       clientSecret: session.client_secret,
     });
   } catch (error) {

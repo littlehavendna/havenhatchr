@@ -1046,40 +1046,50 @@ export async function getChicksData(userId: string) {
 }
 
 export async function getChickProfileData(userId: string, chickId: string) {
-  const chick = await prisma.chick.findFirst({
-    where: { id: chickId, userId },
-    include: {
-      flock: true,
-      hatchGroup: {
-        include: {
-          pairing: {
-            include: {
-              sire: true,
-              dam: true,
+  const [chick, flocks, hatchGroups] = await Promise.all([
+    prisma.chick.findFirst({
+      where: { id: chickId, userId },
+      include: {
+        flock: true,
+        hatchGroup: {
+          include: {
+            pairing: {
+              include: {
+                sire: true,
+                dam: true,
+              },
             },
           },
         },
+        noteEntries: {
+          where: { userId },
+          orderBy: { createdAt: "desc" },
+        },
+        photoEntries: {
+          where: { userId },
+          orderBy: { createdAt: "desc" },
+        },
+        dnaTestRequests: {
+          where: { userId },
+          orderBy: { createdAt: "desc" },
+        },
+        deathRecords: {
+          where: { userId },
+          orderBy: { deathDate: "desc" },
+        },
+        sire: true,
+        dam: true,
       },
-      noteEntries: {
-        where: { userId },
-        orderBy: { createdAt: "desc" },
-      },
-      photoEntries: {
-        where: { userId },
-        orderBy: { createdAt: "desc" },
-      },
-      dnaTestRequests: {
-        where: { userId },
-        orderBy: { createdAt: "desc" },
-      },
-      deathRecords: {
-        where: { userId },
-        orderBy: { deathDate: "desc" },
-      },
-      sire: true,
-      dam: true,
-    },
-  });
+    }),
+    prisma.flock.findMany({
+      where: { userId },
+      orderBy: { name: "asc" },
+    }),
+    prisma.hatchGroup.findMany({
+      where: { userId },
+      orderBy: { name: "asc" },
+    }),
+  ]);
 
   if (!chick) {
     return null;
@@ -1139,6 +1149,14 @@ export async function getChickProfileData(userId: string, chickId: string) {
       deathReasonLabel: formatDeathReason(record.deathReason),
       notes: record.notes,
       createdAt: formatDateTime(record.createdAt),
+    })),
+    flocks: flocks.map((flock) => ({
+      id: flock.id,
+      name: flock.name,
+    })),
+    hatchGroups: hatchGroups.map((group) => ({
+      id: group.id,
+      name: group.name,
     })),
   };
 }
@@ -1211,6 +1229,65 @@ export async function createChick(
       sireId: pairingIds.sireId,
       damId: pairingIds.damId,
       photoUrl: "",
+    },
+  });
+}
+
+export async function updateChick(
+  userId: string,
+  chickId: string,
+  data: {
+    bandNumber: string;
+    hatchDate: string;
+    flockId: string;
+    hatchGroupId?: string;
+    status: "Available" | "Reserved" | "Sold" | "Holdback" | "Deceased";
+    sex: "Male" | "Female" | "Unknown";
+    color: string;
+    observedTraits: string[];
+    notes: string;
+  },
+) {
+  await requireOwnedChick(userId, chickId);
+  await requireOwnedFlock(userId, data.flockId);
+
+  let pairingIds: { sireId: string | null; damId: string | null } = {
+    sireId: null,
+    damId: null,
+  };
+
+  if (data.hatchGroupId) {
+    const hatchGroup = await prisma.hatchGroup.findFirst({
+      where: { id: data.hatchGroupId, userId },
+      include: {
+        pairing: true,
+      },
+    });
+
+    if (!hatchGroup) {
+      throw new Error("Hatch group not found.");
+    }
+
+    pairingIds = {
+      sireId: hatchGroup.pairing?.sireId ?? null,
+      damId: hatchGroup.pairing?.damId ?? null,
+    };
+  }
+
+  return prisma.chick.update({
+    where: { id: chickId },
+    data: {
+      bandNumber: data.bandNumber,
+      hatchDate: new Date(`${data.hatchDate}T00:00:00`),
+      flockId: data.flockId,
+      hatchGroupId: data.hatchGroupId || null,
+      status: data.status,
+      sex: data.sex,
+      color: data.color,
+      observedTraits: data.observedTraits,
+      notes: data.notes,
+      sireId: pairingIds.sireId,
+      damId: pairingIds.damId,
     },
   });
 }
