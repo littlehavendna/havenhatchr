@@ -86,8 +86,8 @@ const walkthroughSteps: WalkthroughStep[] = [
   {
     title: "Settings",
     href: "/settings",
-    summary: "Manage billing, access, and account-level actions here.",
-    benefit: "You can also restart this tutorial whenever you want a fresh walkthrough.",
+    summary: "Manage billing, access, and account-level actions here, including turning unused features on or off.",
+    benefit: "Turning a feature off only hides it from your workspace. Your saved data stays in place and can be shown again anytime.",
   },
 ];
 

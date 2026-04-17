@@ -19,14 +19,14 @@ export const DNA_TEST_CATALOG = {
   },
   chicken_blue_egg: {
     code: "chicken_blue_egg",
-    label: "Blue Gene",
-    description: "Optional blue egg gene result for each selected chick.",
+    label: "Blue Egg Gene",
+    description: "Checks whether a chick carries the blue egg gene tied to blue or green shell color.",
     priceCents: 1500,
   },
   chicken_recessive_white: {
     code: "chicken_recessive_white",
     label: "Recessive White",
-    description: "Optional recessive white gene result for each selected chick.",
+    description: "Checks for the recessive white gene that can hide plumage color when inherited from both parents.",
     priceCents: 1500,
   },
 } as const;
@@ -36,6 +36,18 @@ export type DnaTestCode = keyof typeof DNA_TEST_CATALOG;
 export type DnaOrderSelections = {
   includeBlueEgg: boolean;
   includeRecessiveWhite: boolean;
+};
+
+export type DnaSelectionsByChick = Record<string, DnaOrderSelections>;
+
+export type DnaLineItem = {
+  code: DnaTestCode;
+  label: string;
+  quantity: number;
+  unitPriceCents: number;
+  totalPriceCents: number;
+  baseUnitPriceCents: number;
+  bulkTierLabel: string;
 };
 
 export type DnaBulkTier = {
@@ -62,6 +74,65 @@ export function getSelectedDnaTests(selections: DnaOrderSelections) {
   }
 
   return selectedTests;
+}
+
+export function getDnaTestQuantities(
+  chickIds: string[],
+  selectionsByChick: DnaSelectionsByChick,
+) {
+  const quantities: Record<DnaTestCode, number> = {
+    chicken_sex: chickIds.length,
+    chicken_blue_egg: 0,
+    chicken_recessive_white: 0,
+  };
+
+  for (const chickId of chickIds) {
+    const selections = selectionsByChick[chickId];
+
+    if (selections?.includeBlueEgg) {
+      quantities.chicken_blue_egg += 1;
+    }
+
+    if (selections?.includeRecessiveWhite) {
+      quantities.chicken_recessive_white += 1;
+    }
+  }
+
+  return quantities;
+}
+
+export function getDnaTestQuantitiesFromRequestTests(requestTests: DnaTestCode[][]) {
+  const quantities: Record<DnaTestCode, number> = {
+    chicken_sex: 0,
+    chicken_blue_egg: 0,
+    chicken_recessive_white: 0,
+  };
+
+  for (const tests of requestTests) {
+    for (const code of tests) {
+      quantities[code] += 1;
+    }
+  }
+
+  return quantities;
+}
+
+export function getOrderSelectedDnaTests(
+  chickIds: string[],
+  selectionsByChick: DnaSelectionsByChick,
+) {
+  const codes = new Set<DnaTestCode>(["chicken_sex"]);
+
+  for (const chickId of chickIds) {
+    for (const code of getSelectedDnaTests(selectionsByChick[chickId] ?? {
+      includeBlueEgg: false,
+      includeRecessiveWhite: false,
+    })) {
+      codes.add(code);
+    }
+  }
+
+  return Array.from(codes);
 }
 
 export function getDnaSexUnitPriceCents(chickCount: number) {
@@ -104,25 +175,47 @@ export function getDnaUnitPriceCents(code: DnaTestCode, chickCount: number) {
   return DNA_TEST_CATALOG[code].priceCents;
 }
 
-export function calculateDnaOrderTotal(chickCount: number, selectedTests: DnaTestCode[]) {
-  return selectedTests.reduce((sum, code) => sum + getDnaUnitPriceCents(code, chickCount) * chickCount, 0);
+export function getDnaOrderLineItemsFromQuantities(
+  chickCount: number,
+  quantities: Record<DnaTestCode, number>,
+) {
+  return (Object.entries(quantities) as Array<[DnaTestCode, number]>)
+    .filter(([, quantity]) => quantity > 0)
+    .map(([code, quantity]) => {
+      const unitPriceCents = getDnaUnitPriceCents(code, chickCount);
+      const bulkTier = code === "chicken_sex" ? getDnaSexBulkTier(chickCount) : null;
+
+      return {
+        code,
+        label: DNA_TEST_CATALOG[code].label,
+        quantity,
+        unitPriceCents,
+        totalPriceCents: unitPriceCents * quantity,
+        baseUnitPriceCents: DNA_TEST_CATALOG[code].priceCents,
+        bulkTierLabel: bulkTier?.label || "",
+      } satisfies DnaLineItem;
+    });
 }
 
-export function getDnaOrderLineItems(chickCount: number, selectedTests: DnaTestCode[]) {
-  return selectedTests.map((code) => {
-    const unitPriceCents = getDnaUnitPriceCents(code, chickCount);
-    const bulkTier = code === "chicken_sex" ? getDnaSexBulkTier(chickCount) : null;
+export function calculateDnaOrderTotal(
+  chickIds: string[],
+  selectionsByChick: DnaSelectionsByChick,
+) {
+  const quantities = getDnaTestQuantities(chickIds, selectionsByChick);
+  return getDnaOrderLineItemsFromQuantities(chickIds.length, quantities).reduce(
+    (sum, item) => sum + item.totalPriceCents,
+    0,
+  );
+}
 
-    return {
-      code,
-      label: DNA_TEST_CATALOG[code].label,
-      quantity: chickCount,
-      unitPriceCents,
-      totalPriceCents: unitPriceCents * chickCount,
-      baseUnitPriceCents: DNA_TEST_CATALOG[code].priceCents,
-      bulkTierLabel: bulkTier?.label || "",
-    };
-  });
+export function getDnaOrderLineItems(
+  chickIds: string[],
+  selectionsByChick: DnaSelectionsByChick,
+) {
+  return getDnaOrderLineItemsFromQuantities(
+    chickIds.length,
+    getDnaTestQuantities(chickIds, selectionsByChick),
+  );
 }
 
 export function formatCurrencyFromCents(value: number) {

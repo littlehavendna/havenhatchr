@@ -19,6 +19,61 @@ import {
   validateAuthenticatedMutation,
 } from "@/lib/security";
 
+function readSelectionsByChick(
+  body: Record<string, unknown>,
+  chickIds: string[],
+) {
+  const raw = body.selectionsByChick;
+
+  if (raw === undefined || raw === null) {
+    return Object.fromEntries(
+      chickIds.map((chickId) => [
+        chickId,
+        {
+          includeBlueEgg: false,
+          includeRecessiveWhite: false,
+        },
+      ]),
+    );
+  }
+
+  if (typeof raw !== "object" || Array.isArray(raw)) {
+    throw createHttpError("selectionsByChick is invalid.", 400);
+  }
+
+  const selectionsByChick = Object.create(null) as Record<
+    string,
+    { includeBlueEgg: boolean; includeRecessiveWhite: boolean }
+  >;
+
+  for (const chickId of chickIds) {
+    const entry = (raw as Record<string, unknown>)[chickId];
+
+    if (entry === undefined || entry === null) {
+      selectionsByChick[chickId] = {
+        includeBlueEgg: false,
+        includeRecessiveWhite: false,
+      };
+      continue;
+    }
+
+    if (typeof entry !== "object" || Array.isArray(entry)) {
+      throw createHttpError(`selectionsByChick.${chickId} is invalid.`, 400);
+    }
+
+    selectionsByChick[chickId] = {
+      includeBlueEgg: readBoolean(entry as Record<string, unknown>, "includeBlueEgg", false),
+      includeRecessiveWhite: readBoolean(
+        entry as Record<string, unknown>,
+        "includeRecessiveWhite",
+        false,
+      ),
+    };
+  }
+
+  return selectionsByChick;
+}
+
 export async function POST(request: Request) {
   try {
     validateAuthenticatedMutation(request, {
@@ -36,10 +91,7 @@ export async function POST(request: Request) {
       contactName: readString(body, "contactName", { required: true, maxLength: 120 }),
       contactEmail: readString(body, "contactEmail", { required: true, maxLength: 255 }),
       notes: readString(body, "notes", { maxLength: 2000 }),
-      selections: {
-        includeBlueEgg: readBoolean(body, "includeBlueEgg", false),
-        includeRecessiveWhite: readBoolean(body, "includeRecessiveWhite", false),
-      },
+      selectionsByChick: readSelectionsByChick(body, chickIds),
     });
 
     const stripe = getDnaStripe();

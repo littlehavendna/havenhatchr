@@ -7,7 +7,10 @@ import {
   DEFAULT_DNA_TESTING_INSTRUCTIONS,
   DNA_SYSTEM_SETTING_KEYS,
   DNA_TEST_CATALOG,
-  type DnaOrderSelections,
+  type DnaSelectionsByChick,
+  getDnaOrderLineItemsFromQuantities,
+  getDnaTestQuantitiesFromRequestTests,
+  getOrderSelectedDnaTests,
   calculateDnaOrderTotal,
   getDnaOrderLineItems,
   getSelectedDnaTests,
@@ -126,7 +129,7 @@ export async function createDnaCheckoutOrder(
     contactName: string;
     contactEmail: string;
     notes: string;
-    selections: DnaOrderSelections;
+    selectionsByChick: DnaSelectionsByChick;
   },
 ) {
   const settings = await getDnaSettings();
@@ -136,8 +139,8 @@ export async function createDnaCheckoutOrder(
   }
 
   const chicks = await requireOwnedChicks(userId, data.chickIds);
-  const selectedTests = getSelectedDnaTests(data.selections);
-  const totalAmountCents = calculateDnaOrderTotal(chicks.length, selectedTests);
+  const selectedTests = getOrderSelectedDnaTests(data.chickIds, data.selectionsByChick);
+  const totalAmountCents = calculateDnaOrderTotal(data.chickIds, data.selectionsByChick);
 
   if (chicks.length === 0) {
     throw createHttpError("Select at least one chick for DNA testing.", 400);
@@ -153,15 +156,22 @@ export async function createDnaCheckoutOrder(
       totalAmountCents,
       status: DnaTestOrderStatus.PendingPayment,
       requests: {
-        create: chicks.map((chick, index) => ({
-          userId,
-          chickId: chick.id,
-          bandNumber: chick.bandNumber,
-          sampleNumber: index + 1,
-          testType: selectedTests.map((code) => DNA_TEST_CATALOG[code].label).join(", "),
-          selectedTests,
-          status: DnaTestStatus.Pending,
-        })),
+        create: chicks.map((chick, index) => {
+          const requestSelectedTests = getSelectedDnaTests(data.selectionsByChick[chick.id] ?? {
+            includeBlueEgg: false,
+            includeRecessiveWhite: false,
+          });
+
+          return {
+            userId,
+            chickId: chick.id,
+            bandNumber: chick.bandNumber,
+            sampleNumber: index + 1,
+            testType: requestSelectedTests.map((code) => DNA_TEST_CATALOG[code].label).join(", "),
+            selectedTests: requestSelectedTests,
+            status: DnaTestStatus.Pending,
+          };
+        }),
       },
     },
     include: {
@@ -190,12 +200,13 @@ export async function createDnaCheckoutOrder(
     contactEmail: order.contactEmail,
     totalAmountCents: order.totalAmountCents,
     selectedTests: order.selectedTests,
-    lineItems: getDnaOrderLineItems(chicks.length, selectedTests),
+    lineItems: getDnaOrderLineItems(data.chickIds, data.selectionsByChick),
     chicks: order.requests.map((request) => ({
       id: request.chickId,
       bandNumber: request.bandNumber,
       flockName: request.chick.flock.name,
       sampleNumber: request.sampleNumber ?? 0,
+      selectedTests: request.selectedTests,
     })),
     instructions: settings.instructions,
   };
@@ -249,7 +260,12 @@ export async function getDnaOrderForUser(userId: string, orderId: string) {
     syncedAt: order.syncedAt ? formatDateTime(order.syncedAt) : null,
     completedAt: order.completedAt ? formatDateTime(order.completedAt) : null,
     instructions: settings.instructions,
-    lineItems: getDnaOrderLineItems(order.requests.length, order.selectedTests as Array<keyof typeof DNA_TEST_CATALOG>),
+    lineItems: getDnaOrderLineItemsFromQuantities(
+      order.requests.length,
+      getDnaTestQuantitiesFromRequestTests(
+        order.requests.map((request) => request.selectedTests as Array<keyof typeof DNA_TEST_CATALOG>),
+      ),
+    ),
     chicks: order.requests.map((request) => ({
       id: request.chickId,
       bandNumber: request.bandNumber,
@@ -257,6 +273,7 @@ export async function getDnaOrderForUser(userId: string, orderId: string) {
       sampleNumber: request.sampleNumber ?? 0,
       status: request.status,
       resultSummary: request.resultSummary || "",
+      selectedTests: request.selectedTests,
     })),
   };
 }

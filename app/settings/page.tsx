@@ -237,7 +237,7 @@ export default function SettingsPage() {
                 Workspace Features
               </p>
               <p className="mt-2 text-sm leading-7 text-[color:var(--muted)]">
-                Turn optional sections on or off in the app menu for this account.
+                Turn optional sections on or off in the app menu for this account. Turning a feature off only hides it from view and does not delete any of your saved data.
               </p>
             </div>
             <p className="text-xs text-[color:var(--muted)]">

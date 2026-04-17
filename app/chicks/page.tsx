@@ -4,7 +4,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, type ReactNode, useEffect, useState } from "react";
 import { DataTable } from "@/components/data-table";
-import { DNA_SEX_BULK_TIERS, getDnaSexBulkTier, getDnaSexUnitPriceCents } from "@/lib/dna";
+import {
+  DNA_SEX_BULK_TIERS,
+  formatCurrencyFromCents,
+  getDnaOrderLineItems,
+  getDnaSexBulkTier,
+  getDnaSexUnitPriceCents,
+  type DnaSelectionsByChick,
+} from "@/lib/dna";
 import type { BirdSex, ChickDeathReason, ChickStatus } from "@/lib/types";
 
 type ChickRow = {
@@ -78,6 +85,7 @@ type DnaOrderForm = {
   contactEmail: string;
   includeBlueEgg: boolean;
   includeRecessiveWhite: boolean;
+  selectionsByChick: DnaSelectionsByChick;
   notes: string;
 };
 
@@ -143,6 +151,7 @@ export default function ChicksPage() {
     contactEmail: "",
     includeBlueEgg: false,
     includeRecessiveWhite: false,
+    selectionsByChick: {},
     notes: "",
   });
   const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({});
@@ -222,6 +231,22 @@ export default function ChicksPage() {
   const recessiveWhiteTest = dnaConfig?.tests.find((test) => test.code === "chicken_recessive_white");
   const dnaSexBulkTier = getDnaSexBulkTier(selectedDnaChickIds.length);
   const dnaSexUnitPrice = getDnaSexUnitPriceCents(selectedDnaChickIds.length);
+  const allSelectedChicksHaveBlueEgg =
+    selectedDnaChickIds.length > 0 &&
+    selectedDnaChickIds.every((chickId) => dnaOrderForm.selectionsByChick[chickId]?.includeBlueEgg);
+  const allSelectedChicksHaveRecessiveWhite =
+    selectedDnaChickIds.length > 0 &&
+    selectedDnaChickIds.every(
+      (chickId) => dnaOrderForm.selectionsByChick[chickId]?.includeRecessiveWhite,
+    );
+  const dnaPreviewLineItems = getDnaOrderLineItems(
+    selectedDnaChickIds,
+    dnaOrderForm.selectionsByChick,
+  );
+  const dnaPreviewTotal = dnaPreviewLineItems.reduce(
+    (sum, item) => sum + item.totalPriceCents,
+    0,
+  );
 
   function openModal() {
     setErrors({});
@@ -255,6 +280,15 @@ export default function ChicksPage() {
       ...current,
       contactName: current.contactName || dnaConfig?.defaultContactName || "",
       contactEmail: current.contactEmail || dnaConfig?.defaultContactEmail || "",
+      selectionsByChick: Object.fromEntries(
+        selectedDnaChickIds.map((chickId) => [
+          chickId,
+          current.selectionsByChick[chickId] ?? {
+            includeBlueEgg: current.includeBlueEgg,
+            includeRecessiveWhite: current.includeRecessiveWhite,
+          },
+        ]),
+      ),
     }));
     setRequestError("");
     setIsDnaModalOpen(true);
@@ -354,8 +388,7 @@ export default function ChicksPage() {
           chickIds: selectedDnaChickIds,
           contactName: dnaOrderForm.contactName.trim(),
           contactEmail: dnaOrderForm.contactEmail.trim(),
-          includeBlueEgg: dnaOrderForm.includeBlueEgg,
-          includeRecessiveWhite: dnaOrderForm.includeRecessiveWhite,
+          selectionsByChick: dnaOrderForm.selectionsByChick,
           notes: dnaOrderForm.notes.trim(),
         }),
       });
@@ -916,47 +949,213 @@ export default function ChicksPage() {
                   <label className="flex items-start gap-3 rounded-2xl border border-[color:var(--line)] bg-white px-4 py-4">
                     <input
                       type="checkbox"
-                      checked={dnaOrderForm.includeBlueEgg}
+                      checked={allSelectedChicksHaveBlueEgg}
                       onChange={(event) =>
                         setDnaOrderForm((current) => ({
                           ...current,
                           includeBlueEgg: event.target.checked,
+                          selectionsByChick: Object.fromEntries(
+                            selectedDnaChickIds.map((chickId) => [
+                              chickId,
+                              {
+                                ...(current.selectionsByChick[chickId] ?? {
+                                  includeBlueEgg: false,
+                                  includeRecessiveWhite: false,
+                                }),
+                                includeBlueEgg: event.target.checked,
+                              },
+                            ]),
+                          ),
                         }))
                       }
                       className="mt-1 h-4 w-4 rounded border-[color:var(--line)] text-[color:var(--accent)]"
                     />
                     <span>
                       <span className="block font-semibold">
-                        Add Blue Gene testing
+                        Apply Blue Egg Gene to all selected chicks
                         {blueGeneTest ? ` · ${formatPrice(blueGeneTest.priceCents)}/sample` : ""}
                       </span>
                       <span className="mt-1 block text-sm text-[color:var(--muted)]">
-                        Applies to every selected chick in this order.
+                        Quick apply for this whole order. You can still adjust each chick separately below.
+                      </span>
+                      <span className="mt-2 block text-xs text-[color:var(--muted)]">
+                        Checks whether a chick carries the blue egg gene tied to blue or green shell color.
                       </span>
                     </span>
                   </label>
                   <label className="flex items-start gap-3 rounded-2xl border border-[color:var(--line)] bg-white px-4 py-4">
                     <input
                       type="checkbox"
-                      checked={dnaOrderForm.includeRecessiveWhite}
+                      checked={allSelectedChicksHaveRecessiveWhite}
                       onChange={(event) =>
                         setDnaOrderForm((current) => ({
                           ...current,
                           includeRecessiveWhite: event.target.checked,
+                          selectionsByChick: Object.fromEntries(
+                            selectedDnaChickIds.map((chickId) => [
+                              chickId,
+                              {
+                                ...(current.selectionsByChick[chickId] ?? {
+                                  includeBlueEgg: false,
+                                  includeRecessiveWhite: false,
+                                }),
+                                includeRecessiveWhite: event.target.checked,
+                              },
+                            ]),
+                          ),
                         }))
                       }
                       className="mt-1 h-4 w-4 rounded border-[color:var(--line)] text-[color:var(--accent)]"
                     />
                     <span>
                       <span className="block font-semibold">
-                        Add Recessive White testing
+                        Apply Recessive White to all selected chicks
                         {recessiveWhiteTest ? ` · ${formatPrice(recessiveWhiteTest.priceCents)}/sample` : ""}
                       </span>
                       <span className="mt-1 block text-sm text-[color:var(--muted)]">
-                        Applies to every selected chick in this order.
+                        Quick apply for this whole order. You can still adjust each chick separately below.
+                      </span>
+                      <span className="mt-2 block text-xs text-[color:var(--muted)]">
+                        Checks for the recessive white gene that can hide normal plumage color when inherited from both parents.
                       </span>
                     </span>
                   </label>
+                </div>
+              </div>
+              <div className="rounded-[24px] border border-[color:var(--line)] bg-[#fcfbff] p-5">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)]">
+                      Per Chick Add-Ons
+                    </p>
+                    <p className="mt-1 text-sm text-[color:var(--muted)]">
+                      DNA Sexing is included for every sample. Add Blue Egg Gene or Recessive White only where needed.
+                    </p>
+                  </div>
+                  <span className="rounded-full border border-[color:var(--line)] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--muted)]">
+                    {selectedDnaChickIds.length} sample{selectedDnaChickIds.length === 1 ? "" : "s"}
+                  </span>
+                </div>
+                <div className="mt-4 space-y-3">
+                  {selectedDnaChicks.map((chick) => {
+                    const selections = dnaOrderForm.selectionsByChick[chick.id] ?? {
+                      includeBlueEgg: false,
+                      includeRecessiveWhite: false,
+                    };
+
+                    return (
+                      <div
+                        key={chick.id}
+                        className="rounded-2xl border border-[color:var(--line)] bg-white px-4 py-4"
+                      >
+                        <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+                          <div>
+                            <p className="font-semibold">
+                              Sample #{selectedDnaChickIds.indexOf(chick.id) + 1} · {chick.bandNumber}
+                            </p>
+                            <p className="text-sm text-[color:var(--muted)]">{chick.flockName}</p>
+                          </div>
+                          <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--muted)]">
+                            DNA Sexing included
+                          </span>
+                        </div>
+                        <div className="mt-4 grid gap-3 lg:grid-cols-2">
+                          <label className="flex items-start gap-3 rounded-2xl border border-[color:var(--line)] bg-[#fcfbff] px-4 py-4">
+                            <input
+                              type="checkbox"
+                              checked={selections.includeBlueEgg}
+                              onChange={(event) =>
+                                setDnaOrderForm((current) => ({
+                                  ...current,
+                                  selectionsByChick: {
+                                    ...current.selectionsByChick,
+                                    [chick.id]: {
+                                      ...(current.selectionsByChick[chick.id] ?? {
+                                        includeBlueEgg: false,
+                                        includeRecessiveWhite: false,
+                                      }),
+                                      includeBlueEgg: event.target.checked,
+                                    },
+                                  },
+                                }))
+                              }
+                              className="mt-1 h-4 w-4 rounded border-[color:var(--line)] text-[color:var(--accent)]"
+                            />
+                            <span>
+                              <span className="block font-semibold">
+                                Blue Egg Gene
+                                {blueGeneTest ? ` · ${formatPrice(blueGeneTest.priceCents)}` : ""}
+                              </span>
+                              <span className="mt-1 block text-sm text-[color:var(--muted)]">
+                                Shows whether this chick carries the blue egg gene tied to blue or green shell color.
+                              </span>
+                            </span>
+                          </label>
+                          <label className="flex items-start gap-3 rounded-2xl border border-[color:var(--line)] bg-[#fcfbff] px-4 py-4">
+                            <input
+                              type="checkbox"
+                              checked={selections.includeRecessiveWhite}
+                              onChange={(event) =>
+                                setDnaOrderForm((current) => ({
+                                  ...current,
+                                  selectionsByChick: {
+                                    ...current.selectionsByChick,
+                                    [chick.id]: {
+                                      ...(current.selectionsByChick[chick.id] ?? {
+                                        includeBlueEgg: false,
+                                        includeRecessiveWhite: false,
+                                      }),
+                                      includeRecessiveWhite: event.target.checked,
+                                    },
+                                  },
+                                }))
+                              }
+                              className="mt-1 h-4 w-4 rounded border-[color:var(--line)] text-[color:var(--accent)]"
+                            />
+                            <span>
+                              <span className="block font-semibold">
+                                Recessive White
+                                {recessiveWhiteTest
+                                  ? ` · ${formatPrice(recessiveWhiteTest.priceCents)}`
+                                  : ""}
+                              </span>
+                              <span className="mt-1 block text-sm text-[color:var(--muted)]">
+                                Checks for the recessive white gene that can hide normal plumage color when inherited from both parents.
+                              </span>
+                            </span>
+                          </label>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="rounded-[24px] border border-[color:var(--line)] bg-[#fcfbff] p-5">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)]">
+                  Order Summary
+                </p>
+                <div className="mt-3 space-y-3">
+                  {dnaPreviewLineItems.map((item) => (
+                    <div
+                      key={item.code}
+                      className="flex items-start justify-between gap-4 rounded-2xl border border-[color:var(--line)] bg-white px-4 py-3 text-sm"
+                    >
+                      <div>
+                        <p className="font-semibold">{item.label}</p>
+                        <p className="mt-1 text-[color:var(--muted)]">
+                          {item.quantity} × {formatCurrencyFromCents(item.unitPriceCents)}
+                          {item.bulkTierLabel ? ` · ${item.bulkTierLabel}` : ""}
+                        </p>
+                      </div>
+                      <p className="font-semibold">{formatCurrencyFromCents(item.totalPriceCents)}</p>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-4 flex items-center justify-between border-t border-[color:var(--line)] pt-4">
+                  <span className="text-sm font-semibold uppercase tracking-[0.16em] text-[color:var(--muted)]">
+                    Estimated total
+                  </span>
+                  <span className="text-lg font-semibold">{formatCurrencyFromCents(dnaPreviewTotal)}</span>
                 </div>
               </div>
               <FormField
