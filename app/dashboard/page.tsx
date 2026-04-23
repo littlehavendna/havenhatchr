@@ -177,7 +177,7 @@ export default function DashboardPage() {
         {requestError ? <p className="mt-4 text-sm text-[#b34b75]">{requestError}</p> : null}
       </section>
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
         {(dashboard?.stats ?? []).map((card) => (
           <StatCard key={card.label} label={card.label} value={card.value} detail={card.detail} />
         ))}

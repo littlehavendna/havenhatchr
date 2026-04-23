@@ -23,6 +23,7 @@ const links = [
   { href: "/reservations", label: "Reservations", moduleKey: "reservations" },
   { href: "/orders", label: "Orders", moduleKey: "orders" },
   { href: "/egg-sales", label: "Egg Sales", moduleKey: "eggSales" },
+  { href: "/inventory", label: "Inventory", moduleKey: "inventory" },
   { href: "/storefront", label: "Storefront", moduleKey: "storefront" },
   { href: "/settings", label: "Settings" },
 ] as Array<{ href: string; label: string; moduleKey?: OptionalModuleKey }>;

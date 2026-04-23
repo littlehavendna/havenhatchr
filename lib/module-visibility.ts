@@ -8,6 +8,7 @@ export const optionalModuleKeys = [
   "reservations",
   "orders",
   "eggSales",
+  "inventory",
   "storefront",
 ] as const;
 
@@ -25,6 +26,7 @@ export const defaultModuleVisibility: ModuleVisibility = {
   reservations: true,
   orders: true,
   eggSales: true,
+  inventory: true,
   storefront: true,
 };
 
@@ -38,6 +40,7 @@ export const moduleLabels: Record<OptionalModuleKey, string> = {
   reservations: "Reservations",
   orders: "Orders",
   eggSales: "Egg Sales",
+  inventory: "Inventory",
   storefront: "Storefront",
 };
 

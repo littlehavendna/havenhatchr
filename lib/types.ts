@@ -24,6 +24,8 @@ export type PhotoEntityType = "bird" | "chick" | "flock" | "hatchGroup";
 export type DnaTestStatus = "Pending" | "Completed" | "Cancelled";
 export type TaskStatus = "Open" | "InProgress" | "Completed";
 export type TaskPriority = "Low" | "Medium" | "High";
+export type InventoryCategory = "Feed" | "Bedding" | "Medical" | "Other";
+export type InventoryMovementType = "StockIn" | "Usage" | "Adjustment";
 export type TaskRelatedEntityType =
   | "Bird"
   | "Chick"
@@ -210,6 +212,30 @@ export interface Task {
   dueDate: string;
   relatedEntityType: TaskRelatedEntityType;
   relatedEntityId: string;
+  notes: string;
+  createdAt: string;
+}
+
+export interface InventoryItem {
+  id: string;
+  name: string;
+  category: InventoryCategory;
+  currentQuantity: number;
+  unit: string;
+  lowStockThreshold: number | null;
+  notes: string;
+  createdAt: string;
+}
+
+export interface InventoryMovement {
+  id: string;
+  itemId: string;
+  itemName: string;
+  itemCategory: InventoryCategory;
+  type: InventoryMovementType;
+  quantity: number;
+  unit: string;
+  occurredAt: string;
   notes: string;
   createdAt: string;
 }

@@ -155,6 +155,18 @@ async function requireOwnedShow(userId: string, showId: string) {
   return show;
 }
 
+async function requireOwnedInventoryItem(userId: string, itemId: string) {
+  const item = await prisma.inventoryItem.findFirst({
+    where: { id: itemId, userId },
+  });
+
+  if (!item) {
+    throw new Error("Inventory item not found.");
+  }
+
+  return item;
+}
+
 function mapTrait(trait: { id: string; name: string; category: string; description: string }) {
   return {
     id: trait.id,
@@ -2290,6 +2302,205 @@ export async function createFeedback(
   });
 }
 
+export async function getInventoryData(userId: string) {
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+  const [items, movements] = await Promise.all([
+    prisma.inventoryItem.findMany({
+      where: { userId },
+      include: {
+        movements: {
+          orderBy: { occurredAt: "desc" },
+          take: 5,
+        },
+      },
+      orderBy: [{ category: "asc" }, { name: "asc" }],
+    }),
+    prisma.inventoryMovement.findMany({
+      where: { userId },
+      include: { item: true },
+      orderBy: { occurredAt: "desc" },
+      take: 75,
+    }),
+  ]);
+
+  const lowStockItems = items.filter(
+    (item) =>
+      item.lowStockThreshold !== null && item.currentQuantity <= item.lowStockThreshold,
+  );
+  const recentUsage = movements.filter(
+    (movement) => movement.type === "Usage" && movement.occurredAt >= thirtyDaysAgo,
+  );
+  const totalUsageByCategory = recentUsage.reduce(
+    (totals, movement) => {
+      totals[movement.item.category] += movement.quantity;
+      return totals;
+    },
+    { Feed: 0, Bedding: 0, Medical: 0, Other: 0 },
+  );
+  const feedUsageByItem = recentUsage
+    .filter((movement) => movement.item.category === "Feed")
+    .reduce((totals, movement) => {
+      const current = totals.get(movement.itemId) ?? {
+        itemId: movement.itemId,
+        itemName: movement.item.name,
+        quantity: 0,
+        unit: movement.item.unit,
+      };
+      current.quantity += movement.quantity;
+      totals.set(movement.itemId, current);
+      return totals;
+    }, new Map<string, { itemId: string; itemName: string; quantity: number; unit: string }>());
+
+  return {
+    stats: {
+      totalItems: items.length,
+      lowStockCount: lowStockItems.length,
+      feedItems: items.filter((item) => item.category === "Feed").length,
+      usageEntries30Days: recentUsage.length,
+    },
+    analytics: {
+      totalUsageByCategory,
+      feedUsageByItem: Array.from(feedUsageByItem.values()).sort(
+        (left, right) => right.quantity - left.quantity,
+      ),
+    },
+    lowStockItems: lowStockItems.map((item) => ({
+      id: item.id,
+      name: item.name,
+      category: item.category,
+      currentQuantity: item.currentQuantity,
+      unit: item.unit,
+      lowStockThreshold: item.lowStockThreshold,
+    })),
+    items: items.map((item) => ({
+      id: item.id,
+      name: item.name,
+      category: item.category,
+      currentQuantity: item.currentQuantity,
+      unit: item.unit,
+      lowStockThreshold: item.lowStockThreshold,
+      notes: item.notes,
+      createdAt: formatDateTime(item.createdAt),
+      recentMovements: item.movements.map((movement) => ({
+        id: movement.id,
+        type: movement.type,
+        quantity: movement.quantity,
+        occurredAt: formatDateOnly(movement.occurredAt),
+        notes: movement.notes,
+      })),
+    })),
+    movements: movements.map((movement) => ({
+      id: movement.id,
+      itemId: movement.itemId,
+      itemName: movement.item.name,
+      itemCategory: movement.item.category,
+      type: movement.type,
+      quantity: movement.quantity,
+      unit: movement.item.unit,
+      occurredAt: formatDateOnly(movement.occurredAt),
+      notes: movement.notes,
+      createdAt: formatDateTime(movement.createdAt),
+    })),
+    feedLog: movements
+      .filter((movement) => movement.type === "Usage" && movement.item.category === "Feed")
+      .map((movement) => ({
+        id: movement.id,
+        itemId: movement.itemId,
+        itemName: movement.item.name,
+        quantity: movement.quantity,
+        unit: movement.item.unit,
+        occurredAt: formatDateOnly(movement.occurredAt),
+        notes: movement.notes,
+      })),
+  };
+}
+
+export async function createInventoryItem(
+  userId: string,
+  data: {
+    name: string;
+    category: "Feed" | "Bedding" | "Medical" | "Other";
+    currentQuantity: number;
+    unit: string;
+    lowStockThreshold: number | null;
+    notes: string;
+  },
+) {
+  return prisma.$transaction(async (tx) => {
+    const item = await tx.inventoryItem.create({
+      data: {
+        userId,
+        name: data.name,
+        category: data.category,
+        currentQuantity: data.currentQuantity,
+        unit: data.unit,
+        lowStockThreshold: data.lowStockThreshold,
+        notes: data.notes,
+      },
+    });
+
+    if (data.currentQuantity > 0) {
+      await tx.inventoryMovement.create({
+        data: {
+          userId,
+          itemId: item.id,
+          type: "StockIn",
+          quantity: data.currentQuantity,
+          occurredAt: new Date(),
+          notes: "Initial stock",
+        },
+      });
+    }
+
+    return item;
+  });
+}
+
+export async function createInventoryMovement(
+  userId: string,
+  data: {
+    itemId: string;
+    type: "StockIn" | "Usage" | "Adjustment";
+    quantity: number;
+    occurredAt: string;
+    notes: string;
+  },
+) {
+  const item = await requireOwnedInventoryItem(userId, data.itemId);
+  const nextQuantity =
+    data.type === "Usage"
+      ? item.currentQuantity - data.quantity
+      : data.type === "Adjustment"
+        ? data.quantity
+        : item.currentQuantity + data.quantity;
+
+  if (nextQuantity < 0) {
+    throw new Error("Usage cannot reduce stock below zero.");
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const movement = await tx.inventoryMovement.create({
+      data: {
+        userId,
+        itemId: data.itemId,
+        type: data.type,
+        quantity: data.quantity,
+        occurredAt: new Date(`${data.occurredAt}T00:00:00`),
+        notes: data.notes,
+      },
+    });
+
+    await tx.inventoryItem.update({
+      where: { id: data.itemId },
+      data: { currentQuantity: nextQuantity },
+    });
+
+    return movement;
+  });
+}
+
 export async function getTasksData(userId: string) {
   const [hatchGroups, orders, reservations, tasks] = await Promise.all([
     prisma.hatchGroup.findMany({
@@ -3008,8 +3219,18 @@ export async function getStorefrontData(userId: string) {
 }
 
 export async function getDashboardData(userId: string) {
-  const [customers, flocks, chicks, reservations, orders, hatchGroups, birds, pairings, incubators] =
-    await Promise.all([
+  const [
+    customers,
+    flocks,
+    chicks,
+    reservations,
+    orders,
+    hatchGroups,
+    birds,
+    pairings,
+    incubators,
+    inventoryItems,
+  ] = await Promise.all([
       prisma.customer.findMany({ where: { userId } }),
       prisma.flock.findMany({ where: { userId } }),
       prisma.chick.findMany({
@@ -3071,9 +3292,22 @@ export async function getDashboardData(userId: string) {
           },
         },
       }),
+      prisma.inventoryItem.findMany({ where: { userId } }),
     ]);
 
   const reviewAlerts = [
+    ...inventoryItems
+      .filter(
+        (item) =>
+          item.lowStockThreshold !== null && item.currentQuantity <= item.lowStockThreshold,
+      )
+      .map((item) => ({
+        key: `inventory-low-${item.id}`,
+        title: `${item.name} is low`,
+        detail: `${item.category} stock is ${item.currentQuantity} ${item.unit}, at or below the ${item.lowStockThreshold} reorder threshold.`,
+        href: "/inventory",
+        tone: "warning" as const,
+      })),
     ...hatchGroups
       .map((group) => {
         const deathCount = group.chicks.reduce(
@@ -3202,6 +3436,17 @@ export async function getDashboardData(userId: string) {
           ).length,
         ),
         detail: "Breeder requests still waiting on matches or fulfillment",
+      },
+      {
+        label: "Supply Alerts",
+        value: String(
+          inventoryItems.filter(
+            (item) =>
+              item.lowStockThreshold !== null &&
+              item.currentQuantity <= item.lowStockThreshold,
+          ).length,
+        ),
+        detail: "Inventory items at or below their reorder threshold",
       },
     ],
     onboardingChecklist: {
