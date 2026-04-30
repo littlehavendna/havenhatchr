@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 
 export const metadata: Metadata = {
@@ -18,24 +19,24 @@ export const metadata: Metadata = {
 
 const features = [
   {
-    title: "Track band numbers",
+    title: "Flock and bird records",
     description:
-      "Attach every bird to a clean record with lineage, notes, and breeder history in one place.",
+      "Keep each bird tied to lineage, breeding notes, performance history, and identification records.",
   },
   {
-    title: "Manage hatch groups",
+    title: "Hatch planning and outcomes",
     description:
-      "Keep incubator runs, hatch dates, and outcomes organized from setting eggs to pickup day.",
+      "Manage incubator runs, hatch groups, timelines, and results from set date through pickup.",
   },
   {
-    title: "Organize customers",
+    title: "Reservations and customers",
     description:
-      "Store reservations, contact notes, and repeat buyers without relying on messy spreadsheets.",
+      "Track reservations, buyer details, communication notes, and repeat orders without spreadsheet sprawl.",
   },
   {
-    title: "Track chick availability",
+    title: "Chick availability",
     description:
-      "See what is reserved, what is open, and what is ready across upcoming hatches.",
+      "See what is reserved, what is available, and what is ready across active and upcoming hatches.",
   },
 ];
 
@@ -43,6 +44,54 @@ const workflow = [
   "Flocks and breeding groups stay tied to the birds that produced each hatch.",
   "Band numbers make it easy to identify, sort, and reference birds later.",
   "Reservations connect customers directly to available chicks and hatch groups.",
+];
+
+const audiences = [
+  {
+    title: "Breeders",
+    description:
+      "Maintain breeding groups, lineage, hatch outcomes, and buyer commitments with records that stay connected.",
+    image: "/images/eggsinhand.jpeg",
+  },
+  {
+    title: "Homesteaders",
+    description:
+      "Keep a smaller operation organized with a simple system for birds, chicks, notes, and planned pickups.",
+    image: "/images/chicksongourd.jpeg",
+  },
+  {
+    title: "Growing farms",
+    description:
+      "Standardize daily flock management as your hatch volume, customer list, and breeding program expand.",
+    image: "/images/chicksinincubator.jpeg",
+  },
+];
+
+const capabilities = [
+  {
+    title: "Bird and flock management",
+    items: [
+      "Record birds, flocks, and breeding groups in one place.",
+      "Track band numbers, lineage, notes, and historical context.",
+      "Keep important breeder details searchable instead of buried in notebooks.",
+    ],
+  },
+  {
+    title: "Hatch operations",
+    items: [
+      "Organize incubator runs, hatch groups, dates, and results.",
+      "Follow each chick from hatch through availability and pickup.",
+      "Reduce missed details when managing multiple batches at once.",
+    ],
+  },
+  {
+    title: "Sales and reservations",
+    items: [
+      "Connect customers to specific chicks, hatches, and reservations.",
+      "Store contact notes and promised availability clearly.",
+      "See open inventory and reserved inventory at a glance.",
+    ],
+  },
 ];
 
 export default function Home() {
@@ -85,8 +134,9 @@ export default function Home() {
                 Organize Your Flock. Track Every Chick.
               </h1>
               <p className="mt-6 max-w-xl text-lg leading-8 text-[color:var(--muted)] sm:text-xl">
-                The all-in-one system for breeders to track flocks, chicks, and
-                customers.
+                Built for breeders, homesteaders, and growing farms that need a
+                more professional way to manage flock records, hatch activity,
+                chick availability, and customer reservations.
               </p>
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                 <Link
@@ -180,6 +230,50 @@ export default function Home() {
           </div>
         </section>
 
+        <section className="px-4 py-6 sm:px-6 lg:px-8 lg:py-10">
+          <div className="mx-auto max-w-7xl">
+            <div className="max-w-3xl">
+              <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[color:var(--muted)]">
+                Built for your operation
+              </p>
+              <h2 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">
+                A better fit for independent hatcheries and hands-on farm teams.
+              </h2>
+              <p className="mt-4 text-base leading-8 text-[color:var(--muted)]">
+                HavenHatchr is designed for the day-to-day work of managing birds,
+                hatches, and buyers without forcing your operation into generic farm
+                software.
+              </p>
+            </div>
+
+            <div className="mt-8 grid gap-5 lg:grid-cols-3">
+              {audiences.map((audience) => (
+                <article
+                  key={audience.title}
+                  className="soft-shadow overflow-hidden rounded-[30px] border border-[color:var(--line)] bg-white/86"
+                >
+                  <div className="relative aspect-[4/3]">
+                    <Image
+                      src={audience.image}
+                      alt={audience.title}
+                      fill
+                      className="object-cover"
+                    />
+                  </div>
+                  <div className="p-6">
+                    <h3 className="text-xl font-semibold tracking-tight">
+                      {audience.title}
+                    </h3>
+                    <p className="mt-3 text-sm leading-7 text-[color:var(--muted)]">
+                      {audience.description}
+                    </p>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+
         <section className="px-4 py-8 sm:px-6 lg:px-8 lg:py-14">
           <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[0.95fr_1.05fr]">
             <div className="rounded-[34px] border border-[color:var(--line)] bg-[#2f2558] p-8 text-white">
@@ -222,8 +316,12 @@ export default function Home() {
                 Features
               </p>
               <h2 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">
-                The same calm, organized feeling your breeding records should have.
+                Organized tools for breeding records, hatch planning, and customer coordination.
               </h2>
+              <p className="mt-4 text-base leading-8 text-[color:var(--muted)]">
+                Every section is designed to support the operational side of running
+                a breeding program, from bird records to pickup day.
+              </p>
             </div>
 
             <div className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
@@ -243,6 +341,29 @@ export default function Home() {
                   <p className="mt-3 text-sm leading-7 text-[color:var(--muted)]">
                     {feature.description}
                   </p>
+                </article>
+              ))}
+            </div>
+
+            <div className="mt-10 grid gap-5 lg:grid-cols-3">
+              {capabilities.map((group, index) => (
+                <article
+                  key={group.title}
+                  className={`rounded-[30px] border border-[color:var(--line)] p-6 ${
+                    index === 1 ? "bg-[#edf7f8]" : "bg-white/82"
+                  }`}
+                >
+                  <h3 className="text-xl font-semibold tracking-tight">{group.title}</h3>
+                  <div className="mt-4 space-y-3">
+                    {group.items.map((item) => (
+                      <p
+                        key={item}
+                        className="rounded-2xl border border-[color:var(--line)] bg-white/72 px-4 py-3 text-sm leading-7 text-[color:var(--muted)]"
+                      >
+                        {item}
+                      </p>
+                    ))}
+                  </div>
                 </article>
               ))}
             </div>
