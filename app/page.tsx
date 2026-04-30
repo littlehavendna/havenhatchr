@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
+import { PublicPageShell } from "@/components/public-page-shell";
 
 export const metadata: Metadata = {
   title: "Breeder Software for Flocks, Hatch Groups, and Chick Tracking",
@@ -96,33 +97,7 @@ const capabilities = [
 
 export default function Home() {
   return (
-    <div className="min-h-screen overflow-x-hidden">
-      <header className="px-4 pt-4 sm:px-6 lg:px-8">
-        <div className="glass-panel soft-shadow mx-auto flex max-w-7xl items-center justify-between rounded-[30px] border border-[color:var(--line)] px-5 py-4 sm:px-6">
-          <Link href="/" className="text-xl font-semibold tracking-tight">
-            HavenHatchr
-          </Link>
-          <nav className="hidden items-center gap-8 text-sm font-medium text-[color:var(--muted)] md:flex">
-            <a href="#features" className="transition hover:text-foreground">
-              Features
-            </a>
-            <Link href="/pricing" className="transition hover:text-foreground">
-              Pricing
-            </Link>
-            <Link href="/login" className="transition hover:text-foreground">
-              Login
-            </Link>
-          </nav>
-          <Link
-            href="/login"
-            className="rounded-full bg-[color:var(--accent)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#4f3fa0]"
-          >
-            Login
-          </Link>
-        </div>
-      </header>
-
-      <main>
+    <PublicPageShell>
         <section className="relative px-4 pb-14 pt-10 sm:px-6 sm:pt-16 lg:px-8 lg:pt-24">
           <div className="pointer-events-none absolute inset-x-0 top-8 -z-10 mx-auto h-[420px] max-w-6xl rounded-full bg-[radial-gradient(circle,rgba(184,167,240,0.82)_0%,rgba(60,169,164,0.22)_46%,transparent_72%)]" />
           <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[1.02fr_0.98fr] lg:items-center">
@@ -433,7 +408,7 @@ export default function Home() {
                 </h2>
                 <p className="mt-4 max-w-2xl text-base leading-8 text-[color:var(--muted)]">
                   Start with one clean workspace for flocks, chicks, band
-                  numbers, hatch groups, and customer reservations with a 14 day free trial.
+                  numbers, hatch groups, and customer reservations with a 7 day free trial.
                 </p>
               </div>
 
@@ -441,7 +416,7 @@ export default function Home() {
                 <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)]">
                   Starter
                 </p>
-                <p className="mt-3 text-4xl font-semibold tracking-tight">14 days free</p>
+                <p className="mt-3 text-4xl font-semibold tracking-tight">7 days free</p>
                 <p className="mt-1 text-sm text-[color:var(--muted)]">$10/month after trial</p>
                 <p className="mt-4 text-sm leading-7 text-[color:var(--muted)]">
                   For breeders who want records, hatch planning, reservation
@@ -457,14 +432,6 @@ export default function Home() {
             </div>
           </div>
         </section>
-      </main>
-
-      <footer className="px-4 pb-8 pt-4 sm:px-6 lg:px-8">
-        <div className="mx-auto flex max-w-7xl flex-col gap-3 border-t border-[color:var(--line)] py-6 text-sm text-[color:var(--muted)] sm:flex-row sm:items-center sm:justify-between">
-          <p>HavenHatchr</p>
-          <p>Breeder software for flocks, chicks, hatch groups, and reservations.</p>
-        </div>
-      </footer>
-    </div>
+    </PublicPageShell>
   );
 }

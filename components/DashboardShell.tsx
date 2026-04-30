@@ -13,7 +13,15 @@ type DashboardShellProps = {
   children: ReactNode;
 };
 
-const PUBLIC_SHELLLESS_ROUTES = new Set(["/", "/login", "/signup", "/pricing"]);
+const PUBLIC_SHELLLESS_ROUTES = new Set([
+  "/",
+  "/features",
+  "/guides",
+  "/pricing",
+  "/about",
+  "/login",
+  "/signup",
+]);
 
 export function DashboardShell({ children }: DashboardShellProps) {
   const pathname = usePathname();

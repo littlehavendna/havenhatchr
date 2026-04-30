@@ -273,7 +273,7 @@ export default function SettingsPage() {
         </p>
         <div className="mt-5 grid gap-4">
           <div className="rounded-[20px] border border-[color:var(--line)] bg-[#fcfaff] p-4 text-sm text-[color:var(--muted)]">
-            14 day free trial, then $10 per month. No commitment, cancel anytime.
+            7 day free trial, then $10 per month. No commitment, cancel anytime.
           </div>
           {user?.isBetaUser ? (
             <div className="rounded-[20px] border border-[color:var(--line)] bg-[#edf7f8] p-4 text-sm text-[color:var(--muted)]">

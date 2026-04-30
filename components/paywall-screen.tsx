@@ -47,15 +47,15 @@ export function PaywallScreen({ isBetaUser = false }: PaywallScreenProps) {
           Billing Required
         </p>
         <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">
-          Start your 14 day free trial
+          Start your 7 day free trial
         </h1>
         <p className="mt-4 max-w-2xl text-sm leading-7 text-[color:var(--muted)] sm:text-base">
-          HavenHatchr includes full breeder workflow access during your 14 day trial, then
+          HavenHatchr includes full breeder workflow access during your 7 day trial, then
           continues at $10 per month. Cancel anytime through the billing portal.
         </p>
 
         <div className="mt-8 grid gap-4 md:grid-cols-3">
-          <PricingPill label="Trial" value="14 days free" />
+          <PricingPill label="Trial" value="7 days free" />
           <PricingPill label="After Trial" value="$10/month" />
           <PricingPill label="Commitment" value="Cancel anytime" />
         </div>
