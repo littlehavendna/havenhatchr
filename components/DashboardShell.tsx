@@ -16,7 +16,6 @@ type DashboardShellProps = {
 const PUBLIC_SHELLLESS_ROUTES = new Set([
   "/",
   "/features",
-  "/guides",
   "/pricing",
   "/about",
   "/login",

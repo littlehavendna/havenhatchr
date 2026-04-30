@@ -176,14 +176,15 @@ export default function FeaturesPage() {
 
           <section className="soft-shadow rounded-[36px] border border-[color:var(--line)] bg-white/90 p-8 sm:p-10">
             <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[color:var(--muted)]">
-              Ready to build this out
+              One organized system
             </p>
             <h2 className="mt-3 max-w-3xl text-3xl font-semibold tracking-tight sm:text-4xl">
-              This page is now structured so we can expand each feature area in detail.
+              Built to support the full breeder workflow from records to reservations.
             </h2>
             <p className="mt-4 max-w-3xl text-base leading-8 text-[color:var(--muted)]">
-              Next, we can add screenshots, deeper product explanations, or dedicated
-              subsections for breeders, hatch management, reservations, and optional AI tools.
+              HavenHatchr brings together the parts of the operation that matter most:
+              bird history, hatch planning, customer coordination, and optional AI support
+              in a workspace that stays practical, polished, and easy to manage.
             </p>
           </section>
         </div>

@@ -95,6 +95,21 @@ const capabilities = [
   },
 ];
 
+const homeGallery = [
+  {
+    title: "Blue eggs and breeder detail",
+    image: "/images/brightblueeggs.jpeg",
+  },
+  {
+    title: "Show-quality birds",
+    image: "/images/chickenshowbest.JPG",
+  },
+  {
+    title: "Breeding stock and flock planning",
+    image: "/images/hen_and_dom_white.JPG",
+  },
+];
+
 export default function Home() {
   return (
     <PublicPageShell>
@@ -146,25 +161,25 @@ export default function Home() {
                         This week at the hatchery
                       </p>
                       <p className="mt-2 text-3xl font-semibold tracking-tight">
-                        148 chicks tracked
+                        Hatch activity at a glance
                       </p>
                     </div>
                     <div className="rounded-full bg-[color:var(--teal-soft)] px-4 py-2 text-sm font-semibold text-[color:var(--teal)]">
-                      24 reserved
+                      Records connected
                     </div>
                   </div>
 
                   <div className="mt-6 grid gap-4 sm:grid-cols-2">
                     <div className="rounded-[26px] border border-[color:var(--line)] bg-[#fbfaff] p-4">
                       <p className="text-sm text-[color:var(--muted)]">Breeding groups</p>
-                      <p className="mt-2 text-2xl font-semibold">18 active</p>
+                      <p className="mt-2 text-2xl font-semibold">Grouped clearly</p>
                       <p className="mt-1 text-sm text-[color:var(--teal)]">
                         Lineage and notes connected
                       </p>
                     </div>
                     <div className="rounded-[26px] border border-[color:var(--line)] bg-[#fbfaff] p-4">
                       <p className="text-sm text-[color:var(--muted)]">Band registry</p>
-                      <p className="mt-2 text-2xl font-semibold">96% complete</p>
+                      <p className="mt-2 text-2xl font-semibold">Easy to search</p>
                       <p className="mt-1 text-sm text-[color:var(--teal)]">
                         Searchable by bird or hatch
                       </p>
@@ -175,26 +190,26 @@ export default function Home() {
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm text-[color:var(--muted)]">
-                          Upcoming pickup list
+                          Reservation visibility
                         </p>
-                        <p className="mt-1 text-lg font-semibold">Saturday hatch group</p>
+                        <p className="mt-1 text-lg font-semibold">Track what is promised and available</p>
                       </div>
                       <p className="text-sm font-medium text-[color:var(--teal)]">
-                        9 reservations
+                        Better follow-through
                       </p>
                     </div>
                     <div className="mt-4 space-y-3">
                       {[
-                        "Blue laced red Wyandotte",
-                        "Olive Egger",
-                        "Buff Orpington",
+                        "Available chicks",
+                        "Reserved pickups",
+                        "Customer notes",
                       ].map((breed) => (
                         <div
                           key={breed}
                           className="flex items-center justify-between rounded-2xl bg-white px-4 py-3 text-sm"
                         >
                           <span>{breed}</span>
-                          <span className="text-[color:var(--muted)]">Available</span>
+                          <span className="text-[color:var(--muted)]">Visible</span>
                         </div>
                       ))}
                     </div>
@@ -280,6 +295,45 @@ export default function Home() {
                   </div>
                 ))}
               </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="px-4 py-4 sm:px-6 lg:px-8 lg:py-8">
+          <div className="mx-auto max-w-7xl">
+            <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr_0.9fr]">
+              {homeGallery.map((item, index) => (
+                <article
+                  key={item.title}
+                  className={`soft-shadow overflow-hidden rounded-[32px] border border-[color:var(--line)] ${
+                    index === 0 ? "lg:row-span-2" : ""
+                  }`}
+                >
+                  <div className={`relative ${index === 0 ? "aspect-[4/5]" : "aspect-[4/3]"}`}>
+                    <Image
+                      src={item.image}
+                      alt={item.title}
+                      fill
+                      className="object-cover"
+                    />
+                  </div>
+                  <div className="bg-white/90 p-5">
+                    <p className="text-sm font-medium text-[color:var(--muted)]">{item.title}</p>
+                  </div>
+                </article>
+              ))}
+              <article className="rounded-[32px] border border-[color:var(--line)] bg-[linear-gradient(180deg,#efeafd_0%,#dff4f1_100%)] p-7">
+                <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[color:var(--muted)]">
+                  Breeder-centered
+                </p>
+                <h2 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">
+                  Built around the birds and the work behind them.
+                </h2>
+                <p className="mt-4 text-base leading-8 text-[color:var(--muted)]">
+                  HavenHatchr is designed for operations that care about hatch quality,
+                  breeding records, and customer follow-through, not just generic inventory.
+                </p>
+              </article>
             </div>
           </div>
         </section>
@@ -374,24 +428,34 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="rounded-[36px] border border-[color:var(--line)] bg-[linear-gradient(180deg,#eee7ff_0%,#daf4f2_100%)] p-7 sm:p-8">
-              <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[color:var(--muted)]">
-                Made for small farms and growing hatcheries
-              </p>
-              <h2 className="mt-4 text-3xl font-semibold tracking-tight sm:text-4xl">
-                Keep the operation tidy without making it feel corporate.
-              </h2>
-              <p className="mt-5 text-base leading-8 text-[color:var(--muted)]">
-                The visual direction is intentionally calm, polished, and practical.
-                It feels more like a thoughtful breeding workspace than generic
-                software.
-              </p>
-              <Link
-                href="/login"
-                className="mt-8 inline-flex items-center justify-center rounded-full bg-[color:var(--accent)] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#4f3fa0]"
-              >
-                Open HavenHatchr
-              </Link>
+            <div className="soft-shadow overflow-hidden rounded-[36px] border border-[color:var(--line)] bg-white/88">
+              <div className="relative aspect-[4/3]">
+                <Image
+                  src="/images/ermine_chicks.jpg"
+                  alt="Ermine chicks"
+                  fill
+                  className="object-cover"
+                />
+              </div>
+              <div className="bg-[linear-gradient(180deg,#eee7ff_0%,#daf4f2_100%)] p-7 sm:p-8">
+                <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[color:var(--muted)]">
+                  Made for small farms and growing hatcheries
+                </p>
+                <h2 className="mt-4 text-3xl font-semibold tracking-tight sm:text-4xl">
+                  Keep the operation tidy without making it feel corporate.
+                </h2>
+                <p className="mt-5 text-base leading-8 text-[color:var(--muted)]">
+                  The visual direction is intentionally calm, polished, and practical.
+                  It feels more like a thoughtful breeding workspace than generic
+                  software.
+                </p>
+                <Link
+                  href="/login"
+                  className="mt-8 inline-flex items-center justify-center rounded-full bg-[color:var(--accent)] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#4f3fa0]"
+                >
+                  Open HavenHatchr
+                </Link>
+              </div>
             </div>
           </div>
         </section>

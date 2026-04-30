@@ -6,33 +6,33 @@ import { PublicPageShell } from "@/components/public-page-shell";
 export const metadata: Metadata = {
   title: "About",
   description:
-    "Learn why HavenHatchr was built for breeders, homesteaders, and growing farms that want cleaner records and more personal tools.",
+    "Learn about the breeder behind HavenHatchr and the vision for a more personal, practical software platform for breeders, homesteaders, and growing farms.",
   alternates: {
     canonical: "/about",
   },
   openGraph: {
     title: "About HavenHatchr",
     description:
-      "HavenHatchr is a breeder-focused software project built around practical flock, hatch, reservation, and customer workflows.",
+      "HavenHatchr is a breeder-built software platform created to give breeders clearer records, calmer workflows, and a more personal experience.",
     url: "/about",
   },
 };
 
-const principles = [
+const values = [
   {
-    title: "Built from real breeder work",
+    title: "Breeder built",
     description:
-      "HavenHatchr is shaped by the kind of daily flock management, hatch planning, and customer coordination that happens in real breeding programs.",
+      "HavenHatchr comes from real experience with breeding projects, flock management, genetics, and the daily details that matter.",
   },
   {
-    title: "Clear before complicated",
+    title: "Family rooted",
     description:
-      "The goal is not to bury breeders in enterprise software. The goal is to make important records easier to follow, search, and trust.",
+      "This work is part of a larger family life built around homesteading, raising animals, and teaching the next generation through hands-on work.",
   },
   {
-    title: "Personal, not generic",
+    title: "Personal by design",
     description:
-      "This is meant to feel like a thoughtful working system for people who actually raise birds, not a stripped-down copy of software built for somebody else.",
+      "The goal is not to create cold, corporate software. The goal is to build something clear, approachable, and genuinely useful for real breeders.",
   },
 ];
 
@@ -49,16 +49,18 @@ export default function AboutPage() {
                   About HavenHatchr
                 </p>
                 <h1 className="mt-3 max-w-3xl text-4xl font-semibold tracking-tight sm:text-5xl">
-                  A breeder-built system for clear records and calmer daily work.
+                  Software built by someone who understands breeding from the inside.
                 </h1>
                 <p className="mt-4 max-w-2xl text-base leading-8 text-[color:var(--muted)]">
-                  HavenHatchr was created for breeders, homesteaders, and growing farms
-                  that need more than scattered notes, text messages, and spreadsheets,
-                  but still want something personal, practical, and easy to live in.
+                  HavenHatchr was created to give breeders, homesteaders, and growing
+                  farms a better way to manage the records, hatch planning, and customer
+                  communication that so often gets scattered across notebooks, spreadsheets,
+                  and memory.
                 </p>
                 <p className="mt-4 max-w-2xl text-base leading-8 text-[color:var(--muted)]">
-                  It is built around the real work of managing birds, hatches, reservations,
-                  and customer communication in a way that feels organized without feeling corporate.
+                  This is not software dreamed up by a detached team that has never raised
+                  birds. It is rooted in the real work of breeding, genetics, flock planning,
+                  and building something reliable enough to use year after year.
                 </p>
               </div>
 
@@ -79,33 +81,35 @@ export default function AboutPage() {
                 Our story
               </p>
               <h2 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">
-                Built from the needs of small, serious poultry operations.
+                HavenHatchr grew out of the same passion that built Little Haven DNA.
               </h2>
               <p className="mt-4 text-base leading-8 text-white/72">
-                HavenHatchr comes from the same world as the breeders it serves:
-                people who care deeply about their birds, their hatch plans, their
-                customer commitments, and the details that make a breeding program work.
+                A lifelong fascination with genetics, breeding projects, and how traits
+                move from one generation to the next eventually led to a bigger vision:
+                not just testing and understanding birds better, but giving breeders better
+                tools to run their programs.
               </p>
             </div>
 
             <div className="soft-shadow rounded-[34px] border border-[color:var(--line)] bg-white/88 p-8 sm:p-10">
               <div className="space-y-5 text-base leading-8 text-[color:var(--muted)]">
                 <p>
-                  The idea behind HavenHatchr is simple. Breeders deserve software
-                  that understands how their work actually happens. Birds connect to
-                  flocks. Flocks connect to hatch outcomes. Hatch outcomes connect to
-                  availability, reservations, and customer follow-through.
+                  Breeding ermine Ameraucanas pushed that fascination into something much
+                  deeper. Learning dominant white, co-dominance, and recessive white pathways
+                  required real study, careful observation, and a commitment to understanding
+                  the flock with confidence. That process shaped not only the lab side of the
+                  work, but the recordkeeping side too.
                 </p>
                 <p>
-                  Too often, that information ends up spread across paper records,
-                  phone notes, social messages, and memory. HavenHatchr exists to bring
-                  those moving parts into one organized workspace that supports real
-                  operations without making them feel oversized or impersonal.
+                  Over time, it became obvious that breeders need more than passion and memory
+                  to stay organized. They need a place to connect birds, hatches, notes,
+                  reservations, and customer promises without losing track of the details that
+                  make a breeding program successful.
                 </p>
                 <p>
-                  The vision is professional software with a human feel. Clean enough
-                  for growing farms. Approachable enough for homesteaders. Useful enough
-                  for breeders who need to trust their records year after year.
+                  HavenHatchr was created from that need. It is meant to feel like a thoughtful,
+                  dependable breeding workspace for the people doing this work every day, whether
+                  they are managing a small homestead flock or building a growing farm operation.
                 </p>
               </div>
             </div>
@@ -114,15 +118,15 @@ export default function AboutPage() {
           <section>
             <div className="max-w-2xl">
               <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[color:var(--muted)]">
-                What matters here
+                Why this matters
               </p>
               <h2 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">
-                The product is guided by practical breeder priorities.
+                Built for real breeders, not generic agriculture software.
               </h2>
             </div>
 
             <div className="mt-8 grid gap-6 lg:grid-cols-3">
-              {principles.map((item, index) => (
+              {values.map((item, index) => (
                 <article
                   key={item.title}
                   className={`soft-shadow rounded-[32px] border border-[color:var(--line)] p-7 ${
@@ -141,30 +145,46 @@ export default function AboutPage() {
           <section className="grid gap-6 lg:grid-cols-[1.04fr_0.96fr]">
             <div className="soft-shadow rounded-[34px] border border-[color:var(--line)] bg-white/90 p-8 sm:p-10">
               <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[color:var(--muted)]">
-                How we think about tools
+                The vision
               </p>
               <h2 className="mt-3 max-w-2xl text-3xl font-semibold tracking-tight sm:text-4xl">
-                Strong records first. Helpful extras second.
+                Better systems, clearer records, and software that still feels human.
               </h2>
               <div className="mt-5 space-y-4 text-sm leading-7 text-[color:var(--muted)]">
-                <p>Bird records should stay connected to flock history and breeding decisions.</p>
-                <p>Hatch planning should be easier to follow from incubation through pickup.</p>
-                <p>Reservations and customer notes should support clearer communication.</p>
-                <p>Optional AI should help where useful, but never be required for the product to work well.</p>
+                <p>
+                  Just like Little Haven DNA was built to make testing more approachable and
+                  more personal, HavenHatchr is built to make breeder recordkeeping more
+                  organized without making it cold or overwhelming.
+                </p>
+                <p>
+                  It matters that the software is accessible. It matters that it feels calm.
+                  It matters that breeders can trust what they put into it and find what they
+                  need later when breeding decisions, hatch planning, and customer follow-through
+                  are on the line.
+                </p>
+                <p>
+                  Optional AI can support parts of the workflow, but the heart of HavenHatchr
+                  is still strong records, thoughtful organization, and tools that respect the
+                  way real breeders work.
+                </p>
               </div>
             </div>
 
             <div className="rounded-[34px] border border-[color:var(--line)] bg-[linear-gradient(180deg,#efeafd_0%,#dff4f1_100%)] p-8 sm:p-10">
               <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[color:var(--muted)]">
-                Looking ahead
+                From my family to yours
               </p>
               <h2 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">
-                Built to grow with the people using it.
+                A real business built around work that matters.
               </h2>
               <p className="mt-4 text-base leading-8 text-[color:var(--muted)]">
-                HavenHatchr is meant to keep evolving around the real needs of breeders
-                and farm families who want better systems without losing the personal side
-                of what they do.
+                As a homeschooling mother of three and someone whose work is deeply tied to
+                family, animals, and education, I care about building tools that are useful,
+                honest, and worth trusting. HavenHatchr is part of that larger vision.
+              </p>
+              <p className="mt-4 text-base leading-8 text-[color:var(--muted)]">
+                When you use HavenHatchr, you are supporting a breeder-built, family-rooted
+                business that believes accuracy matters, but so does connection.
               </p>
               <Link
                 href="/signup"
