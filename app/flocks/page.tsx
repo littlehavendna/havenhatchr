@@ -137,7 +137,7 @@ export default function FlocksPage() {
               <h2 className="text-lg font-semibold tracking-tight">Flocks</h2>
               <p className="mt-1 text-sm text-[color:var(--muted)]">
                 Breeding groups organized for pairing outcomes, hatch analysis, and genetics
-                workflows, now backed by PostgreSQL.
+                workflows.
               </p>
             </div>
             <button

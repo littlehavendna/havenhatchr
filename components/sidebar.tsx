@@ -10,7 +10,6 @@ const links = [
   { href: "/flocks", label: "Flocks" },
   { href: "/birds", label: "Birds" },
   { href: "/chicks", label: "Chicks" },
-  { href: "/hatch-groups", label: "Hatch Groups" },
   { href: "/incubation", label: "Incubation", moduleKey: "incubation" },
   { href: "/tasks", label: "Tasks", moduleKey: "tasks" },
   { href: "/shows", label: "Shows", moduleKey: "shows" },
@@ -36,6 +35,7 @@ type SidebarProps = {
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
   const [isAdmin, setIsAdmin] = useState(false);
+  const [aiAccessEnabled, setAiAccessEnabled] = useState(true);
   const [moduleVisibility, setModuleVisibility] = useState<ModuleVisibility>(defaultModuleVisibility);
 
   useEffect(() => {
@@ -43,8 +43,9 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
       const response = await fetch("/api/auth/me", { cache: "no-store" });
       if (!response.ok) return;
       const data = (await response.json()) as {
-        user: { isAdmin?: boolean; moduleVisibility?: ModuleVisibility };
+        user: { aiAccessEnabled?: boolean; isAdmin?: boolean; moduleVisibility?: ModuleVisibility };
       };
+      setAiAccessEnabled(data.user.aiAccessEnabled ?? true);
       setIsAdmin(Boolean(data.user.isAdmin));
       setModuleVisibility(data.user.moduleVisibility ?? defaultModuleVisibility);
     }
@@ -87,7 +88,13 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
         <nav className="mt-6 flex flex-1 flex-col gap-2 overflow-y-auto pr-1">
           {links
-            .filter((link) => (link.moduleKey ? moduleVisibility[link.moduleKey] : true))
+            .filter((link) => {
+              if (link.href === "/ai") {
+                return aiAccessEnabled;
+              }
+
+              return link.moduleKey ? moduleVisibility[link.moduleKey] : true;
+            })
             .map((link) => {
             const active = pathname === link.href;
 
@@ -122,9 +129,9 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         </nav>
 
         <div className="rounded-[24px] border border-[color:var(--line)] bg-white/72 p-4">
-          <p className="text-sm font-semibold">Future Workspace</p>
+          <p className="text-sm font-semibold">Workspace Tools</p>
           <p className="mt-2 text-sm leading-6 text-[color:var(--muted)]">
-            Ready for genetics, AI drafting, analytics, and waitlist automation.
+            Show only the sections you use from Settings. Hidden tools keep their saved data.
           </p>
         </div>
       </aside>

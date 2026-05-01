@@ -16,8 +16,10 @@ type DashboardShellProps = {
 const PUBLIC_SHELLLESS_ROUTES = new Set([
   "/",
   "/features",
+  "/forgot-password",
   "/pricing",
   "/about",
+  "/reset-password",
   "/login",
   "/signup",
 ]);
@@ -31,6 +33,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
     isBetaUser: boolean;
     hasCompletedTutorial: boolean;
     hasSkippedTutorial: boolean;
+    aiAccessEnabled: boolean;
   } | null>(null);
   const [isBillingLoading, setIsBillingLoading] = useState(true);
   useEffect(() => {
@@ -54,6 +57,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
             isBetaUser: boolean;
             hasCompletedTutorial: boolean;
             hasSkippedTutorial: boolean;
+            aiAccessEnabled: boolean;
           };
         };
 
@@ -62,6 +66,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
           isBetaUser: data.user.isBetaUser,
           hasCompletedTutorial: data.user.hasCompletedTutorial,
           hasSkippedTutorial: data.user.hasSkippedTutorial,
+          aiAccessEnabled: data.user.aiAccessEnabled,
         });
       } finally {
         setIsBillingLoading(false);
@@ -108,7 +113,11 @@ export function DashboardShell({ children }: DashboardShellProps) {
           </main>
         </div>
       </div>
-      <OnboardingWalkthrough pathname={pathname} isEnabled={showWalkthrough} />
+      <OnboardingWalkthrough
+        pathname={pathname}
+        isEnabled={showWalkthrough}
+        aiAccessEnabled={billingState?.aiAccessEnabled ?? true}
+      />
       <FeedbackModal
         isOpen={isFeedbackOpen}
         pathname={pathname}

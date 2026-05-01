@@ -5,11 +5,8 @@ import { useRouter } from "next/navigation";
 import { FormEvent, type ReactNode, useEffect, useState } from "react";
 import { DataTable } from "@/components/data-table";
 import {
-  DNA_SEX_BULK_TIERS,
   formatCurrencyFromCents,
   getDnaOrderLineItems,
-  getDnaSexBulkTier,
-  getDnaSexUnitPriceCents,
   type DnaSelectionsByChick,
 } from "@/lib/dna";
 import type { BirdSex, ChickDeathReason, ChickStatus } from "@/lib/types";
@@ -42,6 +39,7 @@ type ChickRow = {
 type FlockOption = {
   id: string;
   name: string;
+  breed: string;
 };
 
 type HatchGroupOption = {
@@ -83,8 +81,6 @@ type DnaConfig = {
 type DnaOrderForm = {
   contactName: string;
   contactEmail: string;
-  includeBlueEgg: boolean;
-  includeRecessiveWhite: boolean;
   selectionsByChick: DnaSelectionsByChick;
   notes: string;
 };
@@ -95,6 +91,12 @@ type DeathForm = {
   deathDate: string;
   deathReason: ChickDeathReason;
   notes: string;
+};
+
+type ImportResult = {
+  importedCount: number;
+  failedCount: number;
+  errors: Array<{ row: number; message: string }>;
 };
 
 const emptyForm: FormState = {
@@ -144,13 +146,14 @@ export default function ChicksPage() {
   );
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm);
   const [dnaOrderForm, setDnaOrderForm] = useState<DnaOrderForm>({
     contactName: "",
     contactEmail: "",
-    includeBlueEgg: false,
-    includeRecessiveWhite: false,
     selectionsByChick: {},
     notes: "",
   });
@@ -229,16 +232,6 @@ export default function ChicksPage() {
   const dnaSexTest = dnaConfig?.tests.find((test) => test.code === "chicken_sex");
   const blueGeneTest = dnaConfig?.tests.find((test) => test.code === "chicken_blue_egg");
   const recessiveWhiteTest = dnaConfig?.tests.find((test) => test.code === "chicken_recessive_white");
-  const dnaSexBulkTier = getDnaSexBulkTier(selectedDnaChickIds.length);
-  const dnaSexUnitPrice = getDnaSexUnitPriceCents(selectedDnaChickIds.length);
-  const allSelectedChicksHaveBlueEgg =
-    selectedDnaChickIds.length > 0 &&
-    selectedDnaChickIds.every((chickId) => dnaOrderForm.selectionsByChick[chickId]?.includeBlueEgg);
-  const allSelectedChicksHaveRecessiveWhite =
-    selectedDnaChickIds.length > 0 &&
-    selectedDnaChickIds.every(
-      (chickId) => dnaOrderForm.selectionsByChick[chickId]?.includeRecessiveWhite,
-    );
   const dnaPreviewLineItems = getDnaOrderLineItems(
     selectedDnaChickIds,
     dnaOrderForm.selectionsByChick,
@@ -247,6 +240,7 @@ export default function ChicksPage() {
     (sum, item) => sum + item.totalPriceCents,
     0,
   );
+  const selectedFlock = flocks.find((flock) => flock.id === form.flockId);
 
   function openModal() {
     setErrors({});
@@ -284,8 +278,9 @@ export default function ChicksPage() {
         selectedDnaChickIds.map((chickId) => [
           chickId,
           current.selectionsByChick[chickId] ?? {
-            includeBlueEgg: current.includeBlueEgg,
-            includeRecessiveWhite: current.includeRecessiveWhite,
+            includeSex: true,
+            includeBlueEgg: false,
+            includeRecessiveWhite: false,
           },
         ]),
       ),
@@ -363,6 +358,48 @@ export default function ChicksPage() {
       setRequestError(error instanceof Error ? error.message : "Failed to save chick.");
     } finally {
       setIsSaving(false);
+    }
+  }
+
+  async function handleCsvImport(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!importFile) {
+      setRequestError("Choose a CSV file before importing chicks.");
+      return;
+    }
+
+    try {
+      setIsImporting(true);
+      setRequestError("");
+      setImportResult(null);
+
+      const body = new FormData();
+      body.append("file", importFile);
+
+      const response = await fetch("/api/chicks/import", {
+        method: "POST",
+        body,
+      });
+      const payload = (await response.json().catch(() => ({}))) as Partial<ImportResult> & {
+        error?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(payload.error || "Unable to import chicks.");
+      }
+
+      setImportResult({
+        importedCount: payload.importedCount ?? 0,
+        failedCount: payload.failedCount ?? 0,
+        errors: payload.errors ?? [],
+      });
+      setImportFile(null);
+      await loadChicks();
+    } catch (error) {
+      setRequestError(error instanceof Error ? error.message : "Unable to import chicks.");
+    } finally {
+      setIsImporting(false);
     }
   }
 
@@ -460,6 +497,67 @@ export default function ChicksPage() {
     notes: chick.notes || "-",
   }));
 
+  const bulkImportSection = (
+    <section className="rounded-[24px] border border-dashed border-[color:var(--line)] bg-white/70 p-4">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)]">
+            Bulk Import
+          </p>
+          <h3 className="mt-1 text-sm font-semibold tracking-tight">Upload chicks from CSV</h3>
+          <p className="mt-1 max-w-2xl text-xs leading-6 text-[color:var(--muted)]">
+            Required: bandNumber, hatchDate, flock. Optional: hatchGroup, status, sex, color,
+            observedTraits, notes.
+          </p>
+        </div>
+        <form onSubmit={handleCsvImport} className="w-full max-w-md">
+          <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+            <label className="block">
+              <span className="sr-only">CSV file</span>
+              <input
+                type="file"
+                accept=".csv,text/csv"
+                onChange={(event) => {
+                  setImportFile(event.target.files?.[0] ?? null);
+                  setImportResult(null);
+                  setRequestError("");
+                }}
+                className="w-full rounded-2xl border border-[color:var(--line)] bg-white px-3 py-2 text-xs file:mr-3 file:rounded-full file:border-0 file:bg-[color:var(--accent-soft)] file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-[color:var(--accent)]"
+              />
+            </label>
+            <button
+              type="submit"
+              disabled={isImporting || !importFile}
+              className="inline-flex items-center justify-center rounded-full bg-[color:var(--accent)] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#4f3fa0] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isImporting ? "Importing..." : "Import"}
+            </button>
+          </div>
+        </form>
+      </div>
+      {importResult ? (
+        <div className="mt-3 rounded-[18px] border border-[color:var(--line)] bg-white px-4 py-3">
+          <p className="text-sm font-semibold text-foreground">
+            Imported {importResult.importedCount} chick
+            {importResult.importedCount === 1 ? "" : "s"}
+            {importResult.failedCount > 0
+              ? `, with ${importResult.failedCount} row${importResult.failedCount === 1 ? "" : "s"} needing review.`
+              : "."}
+          </p>
+          {importResult.errors.length > 0 ? (
+            <div className="mt-2 space-y-1">
+              {importResult.errors.map((error) => (
+                <p key={`${error.row}-${error.message}`} className="text-sm text-[#9b4768]">
+                  Row {error.row}: {error.message}
+                </p>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </section>
+  );
+
   return (
     <>
       <div className="space-y-6">
@@ -524,9 +622,9 @@ export default function ChicksPage() {
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)]">
                 DNA Orders
               </p>
-              <h3 className="mt-2 text-lg font-semibold tracking-tight">Select which chicks to DNA test</h3>
+              <h3 className="mt-2 text-lg font-semibold tracking-tight">Choose chicks for DNA testing</h3>
               <p className="mt-1 text-sm text-[color:var(--muted)]">
-                Use the checkboxes in the chick list, then start one DNA order for a single bird or a batch.
+                Select one chick or a batch, then choose Sexing, Blue Egg Gene, or Recessive White per chick.
               </p>
             </div>
             <button
@@ -535,7 +633,7 @@ export default function ChicksPage() {
               disabled={!dnaConfig?.enabled || selectedDnaChickIds.length === 0}
               className="inline-flex items-center justify-center rounded-full bg-[color:var(--accent)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#4f3fa0] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Start DNA Order ({selectedDnaChickIds.length})
+              Order DNA Tests ({selectedDnaChickIds.length})
             </button>
           </div>
           {!dnaConfig?.enabled ? (
@@ -669,6 +767,8 @@ export default function ChicksPage() {
             onAction: search || statusFilter !== "All Statuses" ? undefined : openModal,
           }}
         />
+
+        {bulkImportSection}
       </div>
 
       {isModalOpen ? (
@@ -678,7 +778,7 @@ export default function ChicksPage() {
               <div>
                 <h3 className="text-2xl font-semibold tracking-tight">Add Chick</h3>
                 <p className="mt-1 text-sm text-[color:var(--muted)]">
-                  Create a new chick record and store it in PostgreSQL immediately.
+                  Create a new chick record with hatch, flock, breed, and status details.
                 </p>
               </div>
               <button
@@ -734,6 +834,18 @@ export default function ChicksPage() {
                       </option>
                     ))}
                   </select>
+                }
+              />
+              <FormField
+                label="Breed"
+                input={
+                  <input
+                    type="text"
+                    value={selectedFlock?.breed || ""}
+                    readOnly
+                    placeholder="Select a flock to fill breed"
+                    className={`${inputClassName()} bg-[#f7f5ff] text-[color:var(--muted)]`}
+                  />
                 }
               />
               <FormField
@@ -856,7 +968,7 @@ export default function ChicksPage() {
           <div className="soft-shadow w-full max-w-2xl rounded-[30px] border border-[color:var(--line)] bg-white p-6 sm:p-7">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h3 className="text-2xl font-semibold tracking-tight">Start DNA Order</h3>
+                <h3 className="text-2xl font-semibold tracking-tight">Order DNA Tests</h3>
                 <p className="mt-1 text-sm text-[color:var(--muted)]">
                   Little Haven DNA will receive the paid order automatically after checkout and email the customer from their lab portal.
                 </p>
@@ -916,7 +1028,7 @@ export default function ChicksPage() {
                       className="rounded-2xl border border-[color:var(--line)] bg-white px-4 py-3 text-sm"
                     >
                       <p className="font-semibold">
-                        Sample #{selectedDnaChickIds.indexOf(chick.id) + 1} · {chick.bandNumber}
+                        Sample #{selectedDnaChickIds.indexOf(chick.id) + 1} - {chick.bandNumber}
                       </p>
                       <p className="mt-1 text-[color:var(--muted)]">{chick.flockName}</p>
                     </div>
@@ -924,112 +1036,13 @@ export default function ChicksPage() {
                 </div>
               </div>
               <div className="rounded-[24px] border border-[color:var(--line)] bg-[#fcfbff] p-5">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)]">
-                  Tests
-                </p>
-                <div className="mt-3 space-y-3">
-                  <label className="flex items-start gap-3 rounded-2xl border border-[color:var(--line)] bg-white px-4 py-4">
-                    <input type="checkbox" checked readOnly className="mt-1 h-4 w-4 rounded border-[color:var(--line)] text-[color:var(--accent)]" />
-                    <span>
-                      <span className="block font-semibold">
-                        DNA Sexing
-                        {dnaSexTest ? ` · ${formatPrice(dnaSexUnitPrice)}/sample` : ""}
-                      </span>
-                      <span className="mt-1 block text-sm text-[color:var(--muted)]">
-                        Included for every selected chick.
-                        {dnaSexBulkTier
-                          ? ` ${dnaSexBulkTier.label} is active for this order.`
-                          : " Bulk pricing starts at 50 samples."}
-                      </span>
-                      <span className="mt-2 block text-xs text-[color:var(--muted)]">
-                        {DNA_SEX_BULK_TIERS.map((tier) => `${tier.label}: ${formatPrice(tier.unitPriceCents)}/sample`).join(" · ")}
-                      </span>
-                    </span>
-                  </label>
-                  <label className="flex items-start gap-3 rounded-2xl border border-[color:var(--line)] bg-white px-4 py-4">
-                    <input
-                      type="checkbox"
-                      checked={allSelectedChicksHaveBlueEgg}
-                      onChange={(event) =>
-                        setDnaOrderForm((current) => ({
-                          ...current,
-                          includeBlueEgg: event.target.checked,
-                          selectionsByChick: Object.fromEntries(
-                            selectedDnaChickIds.map((chickId) => [
-                              chickId,
-                              {
-                                ...(current.selectionsByChick[chickId] ?? {
-                                  includeBlueEgg: false,
-                                  includeRecessiveWhite: false,
-                                }),
-                                includeBlueEgg: event.target.checked,
-                              },
-                            ]),
-                          ),
-                        }))
-                      }
-                      className="mt-1 h-4 w-4 rounded border-[color:var(--line)] text-[color:var(--accent)]"
-                    />
-                    <span>
-                      <span className="block font-semibold">
-                        Apply Blue Egg Gene to all selected chicks
-                        {blueGeneTest ? ` · ${formatPrice(blueGeneTest.priceCents)}/sample` : ""}
-                      </span>
-                      <span className="mt-1 block text-sm text-[color:var(--muted)]">
-                        Quick apply for this whole order. You can still adjust each chick separately below.
-                      </span>
-                      <span className="mt-2 block text-xs text-[color:var(--muted)]">
-                        Checks whether a chick carries the blue egg gene tied to blue or green shell color.
-                      </span>
-                    </span>
-                  </label>
-                  <label className="flex items-start gap-3 rounded-2xl border border-[color:var(--line)] bg-white px-4 py-4">
-                    <input
-                      type="checkbox"
-                      checked={allSelectedChicksHaveRecessiveWhite}
-                      onChange={(event) =>
-                        setDnaOrderForm((current) => ({
-                          ...current,
-                          includeRecessiveWhite: event.target.checked,
-                          selectionsByChick: Object.fromEntries(
-                            selectedDnaChickIds.map((chickId) => [
-                              chickId,
-                              {
-                                ...(current.selectionsByChick[chickId] ?? {
-                                  includeBlueEgg: false,
-                                  includeRecessiveWhite: false,
-                                }),
-                                includeRecessiveWhite: event.target.checked,
-                              },
-                            ]),
-                          ),
-                        }))
-                      }
-                      className="mt-1 h-4 w-4 rounded border-[color:var(--line)] text-[color:var(--accent)]"
-                    />
-                    <span>
-                      <span className="block font-semibold">
-                        Apply Recessive White to all selected chicks
-                        {recessiveWhiteTest ? ` · ${formatPrice(recessiveWhiteTest.priceCents)}/sample` : ""}
-                      </span>
-                      <span className="mt-1 block text-sm text-[color:var(--muted)]">
-                        Quick apply for this whole order. You can still adjust each chick separately below.
-                      </span>
-                      <span className="mt-2 block text-xs text-[color:var(--muted)]">
-                        Checks for the recessive white gene that can hide normal plumage color when inherited from both parents.
-                      </span>
-                    </span>
-                  </label>
-                </div>
-              </div>
-              <div className="rounded-[24px] border border-[color:var(--line)] bg-[#fcfbff] p-5">
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)]">
-                      Per Chick Add-Ons
+                      Per Chick Tests
                     </p>
                     <p className="mt-1 text-sm text-[color:var(--muted)]">
-                      DNA Sexing is included for every sample. Add Blue Egg Gene or Recessive White only where needed.
+                      Sex is selected by default. Uncheck it when you only need Blue Egg Gene or Recessive White for that chick.
                     </p>
                   </div>
                   <span className="rounded-full border border-[color:var(--line)] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--muted)]">
@@ -1039,6 +1052,7 @@ export default function ChicksPage() {
                 <div className="mt-4 space-y-3">
                   {selectedDnaChicks.map((chick) => {
                     const selections = dnaOrderForm.selectionsByChick[chick.id] ?? {
+                      includeSex: true,
                       includeBlueEgg: false,
                       includeRecessiveWhite: false,
                     };
@@ -1051,15 +1065,47 @@ export default function ChicksPage() {
                         <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
                           <div>
                             <p className="font-semibold">
-                              Sample #{selectedDnaChickIds.indexOf(chick.id) + 1} · {chick.bandNumber}
+                              Sample #{selectedDnaChickIds.indexOf(chick.id) + 1} - {chick.bandNumber}
                             </p>
                             <p className="text-sm text-[color:var(--muted)]">{chick.flockName}</p>
                           </div>
                           <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--muted)]">
-                            DNA Sexing included
+                            Choose tests
                           </span>
                         </div>
-                        <div className="mt-4 grid gap-3 lg:grid-cols-2">
+                        <div className="mt-4 grid gap-3 lg:grid-cols-3">
+                          <label className="flex items-start gap-3 rounded-2xl border border-[color:var(--line)] bg-[#fcfbff] px-4 py-4">
+                            <input
+                              type="checkbox"
+                              checked={selections.includeSex}
+                              onChange={(event) =>
+                                setDnaOrderForm((current) => ({
+                                  ...current,
+                                  selectionsByChick: {
+                                    ...current.selectionsByChick,
+                                    [chick.id]: {
+                                      ...(current.selectionsByChick[chick.id] ?? {
+                                        includeSex: true,
+                                        includeBlueEgg: false,
+                                        includeRecessiveWhite: false,
+                                      }),
+                                      includeSex: event.target.checked,
+                                    },
+                                  },
+                                }))
+                              }
+                              className="mt-1 h-4 w-4 rounded border-[color:var(--line)] text-[color:var(--accent)]"
+                            />
+                            <span>
+                              <span className="block font-semibold">
+                                Sexing
+                                {dnaSexTest ? ` - ${formatPrice(dnaSexTest.priceCents)}` : ""}
+                              </span>
+                              <span className="mt-1 block text-sm text-[color:var(--muted)]">
+                                Identifies whether this chick is male or female.
+                              </span>
+                            </span>
+                          </label>
                           <label className="flex items-start gap-3 rounded-2xl border border-[color:var(--line)] bg-[#fcfbff] px-4 py-4">
                             <input
                               type="checkbox"
@@ -1071,6 +1117,7 @@ export default function ChicksPage() {
                                     ...current.selectionsByChick,
                                     [chick.id]: {
                                       ...(current.selectionsByChick[chick.id] ?? {
+                                        includeSex: true,
                                         includeBlueEgg: false,
                                         includeRecessiveWhite: false,
                                       }),
@@ -1084,7 +1131,7 @@ export default function ChicksPage() {
                             <span>
                               <span className="block font-semibold">
                                 Blue Egg Gene
-                                {blueGeneTest ? ` · ${formatPrice(blueGeneTest.priceCents)}` : ""}
+                                {blueGeneTest ? ` - ${formatPrice(blueGeneTest.priceCents)}` : ""}
                               </span>
                               <span className="mt-1 block text-sm text-[color:var(--muted)]">
                                 Shows whether this chick carries the blue egg gene tied to blue or green shell color.
@@ -1102,6 +1149,7 @@ export default function ChicksPage() {
                                     ...current.selectionsByChick,
                                     [chick.id]: {
                                       ...(current.selectionsByChick[chick.id] ?? {
+                                        includeSex: true,
                                         includeBlueEgg: false,
                                         includeRecessiveWhite: false,
                                       }),
@@ -1116,7 +1164,7 @@ export default function ChicksPage() {
                               <span className="block font-semibold">
                                 Recessive White
                                 {recessiveWhiteTest
-                                  ? ` · ${formatPrice(recessiveWhiteTest.priceCents)}`
+                                  ? ` - ${formatPrice(recessiveWhiteTest.priceCents)}`
                                   : ""}
                               </span>
                               <span className="mt-1 block text-sm text-[color:var(--muted)]">
@@ -1135,7 +1183,7 @@ export default function ChicksPage() {
                   Order Summary
                 </p>
                 <div className="mt-3 space-y-3">
-                  {dnaPreviewLineItems.map((item) => (
+                  {dnaPreviewLineItems.length > 0 ? dnaPreviewLineItems.map((item) => (
                     <div
                       key={item.code}
                       className="flex items-start justify-between gap-4 rounded-2xl border border-[color:var(--line)] bg-white px-4 py-3 text-sm"
@@ -1143,13 +1191,17 @@ export default function ChicksPage() {
                       <div>
                         <p className="font-semibold">{item.label}</p>
                         <p className="mt-1 text-[color:var(--muted)]">
-                          {item.quantity} × {formatCurrencyFromCents(item.unitPriceCents)}
-                          {item.bulkTierLabel ? ` · ${item.bulkTierLabel}` : ""}
+                          {item.quantity} x {formatCurrencyFromCents(item.unitPriceCents)}
+                          {item.bulkTierLabel ? ` - ${item.bulkTierLabel}` : ""}
                         </p>
                       </div>
                       <p className="font-semibold">{formatCurrencyFromCents(item.totalPriceCents)}</p>
                     </div>
-                  ))}
+                  )) : (
+                    <p className="rounded-2xl border border-dashed border-[color:var(--line)] bg-white px-4 py-3 text-sm text-[color:var(--muted)]">
+                      Choose at least one test to continue.
+                    </p>
+                  )}
                 </div>
                 <div className="mt-4 flex items-center justify-between border-t border-[color:var(--line)] pt-4">
                   <span className="text-sm font-semibold uppercase tracking-[0.16em] text-[color:var(--muted)]">
@@ -1174,10 +1226,10 @@ export default function ChicksPage() {
               />
               <button
                 type="submit"
-                disabled={isCreatingDnaCheckout}
+                disabled={isCreatingDnaCheckout || dnaPreviewTotal <= 0}
                 className="inline-flex w-full items-center justify-center rounded-full bg-[color:var(--accent)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#4f3fa0] disabled:cursor-not-allowed disabled:opacity-70"
               >
-                {isCreatingDnaCheckout ? "Preparing Checkout..." : "Continue to Payment"}
+                {isCreatingDnaCheckout ? "Preparing Checkout..." : "Order Now"}
               </button>
             </form>
           </div>

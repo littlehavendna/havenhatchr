@@ -104,6 +104,7 @@ export default function DashboardPage() {
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
   const [currentUser, setCurrentUser] = useState<{
     hasCompletedTutorial: boolean;
+    aiAccessEnabled: boolean;
   } | null>(null);
   const [requestError, setRequestError] = useState("");
 
@@ -123,7 +124,9 @@ export default function DashboardPage() {
         const [dashboardData, analyticsData, currentUserData] = await Promise.all([
           dashboardResponse.json() as Promise<DashboardData>,
           analyticsResponse.json() as Promise<AnalyticsData>,
-          currentUserResponse.json() as Promise<{ user: { hasCompletedTutorial: boolean } }>,
+          currentUserResponse.json() as Promise<{
+            user: { hasCompletedTutorial: boolean; aiAccessEnabled: boolean };
+          }>,
         ]);
 
         setDashboard(dashboardData);
@@ -145,6 +148,7 @@ export default function DashboardPage() {
   const dashboardInsights = analytics?.dashboardInsights;
   const checklist = dashboard?.onboardingChecklist;
   const reviewAlerts = dashboard?.reviewAlerts ?? [];
+  const aiAccessEnabled = currentUser?.aiAccessEnabled ?? true;
   const hasAnyOperationalData = Boolean(
     dashboard &&
       (dashboard.stats.some((stat) => Number(stat.value) > 0) ||
@@ -171,8 +175,8 @@ export default function DashboardPage() {
         </p>
         <h2 className="mt-2 text-2xl font-semibold tracking-tight">HavenHatchr</h2>
         <p className="mt-2 max-w-3xl text-sm leading-7 text-[color:var(--muted)]">
-          Your breeder workspace is running on live Prisma-backed data across flock, hatch, sales,
-          customer, and incubation workflows.
+          Your breeder workspace is connected across flock, hatch, sales, customer, and
+          incubation workflows.
         </p>
         {requestError ? <p className="mt-4 text-sm text-[#b34b75]">{requestError}</p> : null}
       </section>
@@ -501,22 +505,24 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      <section className="soft-shadow rounded-[28px] border border-[color:var(--line)] bg-white/88 p-5 sm:p-6">
-        <div className="flex flex-col gap-2">
-          <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[color:var(--muted)]">
-            AI Quick Tools
-          </p>
-          <h2 className="text-xl font-semibold tracking-tight">
-            Jump into the first breeder AI workflows
-          </h2>
-        </div>
-        <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <QuickToolLink href="/ai?tool=listing" label="Generate Listing" />
-          <QuickToolLink href="/ai?tool=notes" label="Summarize Notes" />
-          <QuickToolLink href="/ai?tool=reply" label="Draft Reply" />
-          <QuickToolLink href="/ai?tool=pairing" label="Suggest Pairing" />
-        </div>
-      </section>
+      {aiAccessEnabled ? (
+        <section className="soft-shadow rounded-[28px] border border-[color:var(--line)] bg-white/88 p-5 sm:p-6">
+          <div className="flex flex-col gap-2">
+            <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[color:var(--muted)]">
+              AI Quick Tools
+            </p>
+            <h2 className="text-xl font-semibold tracking-tight">
+              Jump into the first breeder AI workflows
+            </h2>
+          </div>
+          <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <QuickToolLink href="/ai?tool=listing" label="Generate Listing" />
+            <QuickToolLink href="/ai?tool=notes" label="Summarize Notes" />
+            <QuickToolLink href="/ai?tool=reply" label="Draft Reply" />
+            <QuickToolLink href="/ai?tool=pairing" label="Suggest Pairing" />
+          </div>
+        </section>
+      ) : null}
 
       <section className="soft-shadow rounded-[28px] border border-[color:var(--line)] bg-white/88 p-5 sm:p-6">
         <div className="flex flex-col gap-2">
@@ -550,7 +556,9 @@ export default function DashboardPage() {
             Product Lanes
           </p>
           <div className="mt-5 space-y-4">
-            {productLanes.map((module) => (
+            {productLanes
+              .filter((module) => aiAccessEnabled || module.title !== "AI Assistant")
+              .map((module) => (
               <div
                 key={module.title}
                 className="rounded-[22px] border border-[color:var(--line)] bg-[#fcfaff] p-4"
@@ -566,23 +574,33 @@ export default function DashboardPage() {
 
         <div className="soft-shadow rounded-[28px] border border-[color:var(--line)] bg-white/88 p-5 sm:p-6">
           <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[color:var(--muted)]">
-            AI & Automation Workbench
+            {aiAccessEnabled ? "AI & Automation Workbench" : "Automation Workbench"}
           </p>
           <div className="mt-5 space-y-4">
-            {aiWorkbench.map((item) => (
-              <div
-                key={item.lane}
-                className="rounded-[22px] border border-[color:var(--line)] bg-[#edf7f8] p-4"
-              >
-                <div className="flex items-center justify-between gap-4">
-                  <p className="text-base font-semibold tracking-tight">{item.lane}</p>
-                  <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--teal)]">
-                    {item.readiness}
-                  </span>
+            {aiAccessEnabled ? (
+              aiWorkbench.map((item) => (
+                <div
+                  key={item.lane}
+                  className="rounded-[22px] border border-[color:var(--line)] bg-[#edf7f8] p-4"
+                >
+                  <div className="flex items-center justify-between gap-4">
+                    <p className="text-base font-semibold tracking-tight">{item.lane}</p>
+                    <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--teal)]">
+                      {item.readiness}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-sm leading-7 text-[color:var(--muted)]">{item.summary}</p>
                 </div>
-                <p className="mt-2 text-sm leading-7 text-[color:var(--muted)]">{item.summary}</p>
+              ))
+            ) : (
+              <div className="rounded-[22px] border border-[color:var(--line)] bg-[#edf7f8] p-4">
+                <p className="text-base font-semibold tracking-tight">Workflow automation</p>
+                <p className="mt-2 text-sm leading-7 text-[color:var(--muted)]">
+                  Keep breeder records, reservations, orders, and hatch planning organized without
+                  AI tools enabled.
+                </p>
               </div>
-            ))}
+            )}
           </div>
         </div>
       </section>

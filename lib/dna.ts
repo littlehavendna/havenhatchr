@@ -34,6 +34,7 @@ export const DNA_TEST_CATALOG = {
 export type DnaTestCode = keyof typeof DNA_TEST_CATALOG;
 
 export type DnaOrderSelections = {
+  includeSex: boolean;
   includeBlueEgg: boolean;
   includeRecessiveWhite: boolean;
 };
@@ -63,7 +64,11 @@ export const DNA_SEX_BULK_TIERS: DnaBulkTier[] = [
 ];
 
 export function getSelectedDnaTests(selections: DnaOrderSelections) {
-  const selectedTests: DnaTestCode[] = ["chicken_sex"];
+  const selectedTests: DnaTestCode[] = [];
+
+  if (selections.includeSex) {
+    selectedTests.push("chicken_sex");
+  }
 
   if (selections.includeBlueEgg) {
     selectedTests.push("chicken_blue_egg");
@@ -81,13 +86,17 @@ export function getDnaTestQuantities(
   selectionsByChick: DnaSelectionsByChick,
 ) {
   const quantities: Record<DnaTestCode, number> = {
-    chicken_sex: chickIds.length,
+    chicken_sex: 0,
     chicken_blue_egg: 0,
     chicken_recessive_white: 0,
   };
 
   for (const chickId of chickIds) {
     const selections = selectionsByChick[chickId];
+
+    if (selections?.includeSex ?? true) {
+      quantities.chicken_sex += 1;
+    }
 
     if (selections?.includeBlueEgg) {
       quantities.chicken_blue_egg += 1;
@@ -121,10 +130,11 @@ export function getOrderSelectedDnaTests(
   chickIds: string[],
   selectionsByChick: DnaSelectionsByChick,
 ) {
-  const codes = new Set<DnaTestCode>(["chicken_sex"]);
+  const codes = new Set<DnaTestCode>();
 
   for (const chickId of chickIds) {
     for (const code of getSelectedDnaTests(selectionsByChick[chickId] ?? {
+      includeSex: true,
       includeBlueEgg: false,
       includeRecessiveWhite: false,
     })) {

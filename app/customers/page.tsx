@@ -67,12 +67,25 @@ export default function CustomersPage() {
     status: "Waiting" as ReservationStatus,
     notes: "",
   });
+  const [aiAccessEnabled, setAiAccessEnabled] = useState(true);
   const [errors, setErrors] = useState<Partial<Record<keyof CustomerForm, string>>>({});
   const [requestError, setRequestError] = useState("");
 
   useEffect(() => {
     void loadCustomers();
+    void loadCurrentUser();
   }, []);
+
+  async function loadCurrentUser() {
+    try {
+      const response = await fetch("/api/auth/me", { cache: "no-store" });
+      if (!response.ok) return;
+      const data = (await response.json()) as { user: { aiAccessEnabled?: boolean } };
+      setAiAccessEnabled(data.user.aiAccessEnabled ?? true);
+    } catch {
+      setAiAccessEnabled(true);
+    }
+  }
 
   async function loadCustomers() {
     try {
@@ -139,8 +152,9 @@ export default function CustomersPage() {
     event.preventDefault();
 
     const nextErrors: Partial<Record<keyof CustomerForm, string>> = {};
-    if (!form.name.trim()) nextErrors.name = "Name is required.";
-    if (!form.email.trim()) nextErrors.email = "Email is required.";
+    if (!form.name.trim() && !form.email.trim() && !form.phone.trim()) {
+      nextErrors.name = "Add a name, email, or phone number.";
+    }
 
     if (Object.keys(nextErrors).length > 0) {
       setErrors(nextErrors);
@@ -301,8 +315,7 @@ export default function CustomersPage() {
             <div>
               <h2 className="text-lg font-semibold tracking-tight">Customers</h2>
               <p className="mt-1 text-sm text-[color:var(--muted)]">
-                CRM-ready customer records mapped for reservations, notes, waitlists, and AI
-                reply drafting.
+                Customer records mapped for reservations, notes, waitlists, and follow-up.
               </p>
             </div>
             <button
@@ -319,7 +332,7 @@ export default function CustomersPage() {
           <div className="border-b border-[color:var(--line)] px-5 py-5 sm:px-6">
             <h2 className="text-lg font-semibold tracking-tight">Customer Directory</h2>
             <p className="mt-1 text-sm text-[color:var(--muted)]">
-              Reservation-linked customer records now loading from PostgreSQL through Prisma.
+              Customer records connected to reservations, orders, notes, and follow-up.
             </p>
           </div>
 
@@ -380,14 +393,16 @@ export default function CustomersPage() {
                         >
                           Manage List
                         </button>
-                        <Link
-                          href={`/ai?tool=reply&customerId=${customer.id}&customerName=${encodeURIComponent(
-                            customer.name,
-                          )}`}
-                          className="inline-flex rounded-full border border-[color:var(--line)] bg-white px-4 py-2 text-sm font-semibold text-[color:var(--accent)] transition hover:bg-[#f8f7fe]"
-                        >
-                          Draft Reply
-                        </Link>
+                        {aiAccessEnabled ? (
+                          <Link
+                            href={`/ai?tool=reply&customerId=${customer.id}&customerName=${encodeURIComponent(
+                              customer.name,
+                            )}`}
+                            className="inline-flex rounded-full border border-[color:var(--line)] bg-white px-4 py-2 text-sm font-semibold text-[color:var(--accent)] transition hover:bg-[#f8f7fe]"
+                          >
+                            Draft Reply
+                          </Link>
+                        ) : null}
                       </div>
                     </td>
                   </tr>

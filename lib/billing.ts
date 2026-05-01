@@ -38,6 +38,19 @@ export function getAppUrl() {
   return getAppOrigin();
 }
 
+export function getRequestAppUrl(request: Request) {
+  const forwardedProto = request.headers.get("x-forwarded-proto");
+  const forwardedHost = request.headers.get("x-forwarded-host");
+  const host = forwardedHost || request.headers.get("host");
+
+  if (host) {
+    const protocol = forwardedProto || new URL(request.url).protocol.replace(":", "") || "https";
+    return `${protocol}://${host}`;
+  }
+
+  return getAppUrl();
+}
+
 export function isSubscriptionActive(status: string) {
   return ["trialing", "active"].includes(status);
 }

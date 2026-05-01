@@ -30,6 +30,7 @@ function readSelectionsByChick(
       chickIds.map((chickId) => [
         chickId,
         {
+          includeSex: true,
           includeBlueEgg: false,
           includeRecessiveWhite: false,
         },
@@ -43,7 +44,7 @@ function readSelectionsByChick(
 
   const selectionsByChick = Object.create(null) as Record<
     string,
-    { includeBlueEgg: boolean; includeRecessiveWhite: boolean }
+    { includeSex: boolean; includeBlueEgg: boolean; includeRecessiveWhite: boolean }
   >;
 
   for (const chickId of chickIds) {
@@ -51,6 +52,7 @@ function readSelectionsByChick(
 
     if (entry === undefined || entry === null) {
       selectionsByChick[chickId] = {
+        includeSex: true,
         includeBlueEgg: false,
         includeRecessiveWhite: false,
       };
@@ -62,6 +64,7 @@ function readSelectionsByChick(
     }
 
     selectionsByChick[chickId] = {
+      includeSex: readBoolean(entry as Record<string, unknown>, "includeSex", true),
       includeBlueEgg: readBoolean(entry as Record<string, unknown>, "includeBlueEgg", false),
       includeRecessiveWhite: readBoolean(
         entry as Record<string, unknown>,

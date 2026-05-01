@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { randomUUID } from "node:crypto";
 import { trackFirstRunMilestone } from "@/lib/admin";
 import { getCurrentUserId } from "@/lib/auth";
 import { createBird, getBirdsData } from "@/lib/db";
@@ -32,10 +33,11 @@ export async function POST(request: Request) {
 
     validateAuthenticatedMutation(request);
     const body = await readJsonObject(request);
+    const bandNumber = readString(body, "bandNumber", { maxLength: 80 });
 
     const bird = await createBird(userId, {
       name: readString(body, "name", { required: true, maxLength: 120 }),
-      bandNumber: readString(body, "bandNumber", { required: true, maxLength: 80 }),
+      bandNumber: bandNumber || `NO-BAND-${randomUUID()}`,
       sex: readEnum(body, "sex", ["Male", "Female", "Unknown"] as const, { required: true }),
       breed: readString(body, "breed", { maxLength: 120 }),
       variety: readString(body, "variety", { maxLength: 120 }),

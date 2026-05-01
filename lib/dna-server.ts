@@ -146,6 +146,25 @@ export async function createDnaCheckoutOrder(
     throw createHttpError("Select at least one chick for DNA testing.", 400);
   }
 
+  if (totalAmountCents <= 0) {
+    throw createHttpError("Choose at least one DNA test before checkout.", 400);
+  }
+
+  const chickWithoutTests = chicks.find((chick) =>
+    getSelectedDnaTests(data.selectionsByChick[chick.id] ?? {
+      includeSex: true,
+      includeBlueEgg: false,
+      includeRecessiveWhite: false,
+    }).length === 0
+  );
+
+  if (chickWithoutTests) {
+    throw createHttpError(
+      `Choose at least one DNA test for chick ${chickWithoutTests.bandNumber}.`,
+      400,
+    );
+  }
+
   const order = await prisma.dnaTestOrder.create({
     data: {
       userId,
@@ -158,6 +177,7 @@ export async function createDnaCheckoutOrder(
       requests: {
         create: chicks.map((chick, index) => {
           const requestSelectedTests = getSelectedDnaTests(data.selectionsByChick[chick.id] ?? {
+            includeSex: true,
             includeBlueEgg: false,
             includeRecessiveWhite: false,
           });

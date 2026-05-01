@@ -10,7 +10,7 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  if (!user.isBetaUser && !user.aiAccessEnabled) {
+  if (!user.aiAccessEnabled) {
     return NextResponse.json({ error: "AI access is disabled for this account." }, { status: 403 });
   }
 

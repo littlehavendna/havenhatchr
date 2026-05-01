@@ -2,6 +2,11 @@ import "server-only";
 
 import { DnaTestOrderStatus, DnaTestStatus, type Prisma } from "@prisma/client";
 import {
+  DNA_TEST_CATALOG,
+  getDnaOrderLineItemsFromQuantities,
+  getDnaTestQuantitiesFromRequestTests,
+} from "@/lib/dna";
+import {
   getDnaResultsWebhookSecret,
   getHavenDnaResultsWebhookUrl,
   getLittleHavenApiSecret,
@@ -52,6 +57,15 @@ export async function syncDnaOrderToLittleHaven(orderId: string) {
   }
 
   try {
+    const lineItems = getDnaOrderLineItemsFromQuantities(
+      order.requests.length,
+      getDnaTestQuantitiesFromRequestTests(
+        order.requests.map(
+          (request) => request.selectedTests as Array<keyof typeof DNA_TEST_CATALOG>,
+        ),
+      ),
+    );
+
     const response = await fetch(`${getLittleHavenApiUrl().replace(/\/$/, "")}/api/integrations/havenhatchr/orders/`, {
       method: "POST",
       headers: {
@@ -67,6 +81,13 @@ export async function syncDnaOrderToLittleHaven(orderId: string) {
         notes: order.notes,
         totalAmountCents: order.totalAmountCents,
         selectedTests: order.selectedTests,
+        lineItems: lineItems.map((item) => ({
+          code: item.code,
+          label: item.label,
+          quantity: item.quantity,
+          unitPriceCents: item.unitPriceCents,
+          totalPriceCents: item.totalPriceCents,
+        })),
         callbackUrl: getHavenDnaResultsWebhookUrl(),
         callbackSecret: getDnaResultsWebhookSecret(),
         chicks: order.requests.map((request) => ({

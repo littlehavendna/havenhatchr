@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, Suspense, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
   analyzeHatchRates,
@@ -115,7 +116,8 @@ function AiToolsClientPage() {
       const response = await fetch("/api/ai", { cache: "no-store" });
 
       if (!response.ok) {
-        throw new Error("Failed to load AI tool context.");
+        const data = (await response.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(data?.error ?? "Failed to load AI tool context.");
       }
 
       const data = (await response.json()) as AiToolsResponse;
@@ -326,6 +328,27 @@ function AiToolsClientPage() {
         ? `${suggestion.recommendedNextStep} Existing pairing context found: ${existingContext.name}.`
         : suggestion.recommendedNextStep,
     });
+  }
+
+  if (!isLoading && requestError) {
+    return (
+      <section className="soft-shadow rounded-[32px] border border-[color:var(--line)] bg-white/90 p-6">
+        <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[color:var(--muted)]">
+          Optional Workflow
+        </p>
+        <h1 className="mt-2 text-2xl font-semibold tracking-tight">AI Tools are off</h1>
+        <p className="mt-2 max-w-3xl text-sm leading-7 text-[color:var(--muted)]">
+          AI tools are disabled for this account. You can keep using the breeder workspace without
+          AI, or turn the feature back on from settings.
+        </p>
+        <Link
+          href="/settings"
+          className="mt-5 inline-flex rounded-full bg-[color:var(--accent)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#4f3fa0]"
+        >
+          Open Settings
+        </Link>
+      </section>
+    );
   }
 
   return (

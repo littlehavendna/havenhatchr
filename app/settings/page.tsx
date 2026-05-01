@@ -18,6 +18,7 @@ type CurrentUser = {
   trialEnd: string | null;
   currentPeriodEnd: string | null;
   stripeCustomerId: string | null;
+  aiAccessEnabled: boolean;
   hasCompletedTutorial: boolean;
   hasSkippedTutorial: boolean;
   moduleVisibility: ModuleVisibility;
@@ -39,6 +40,7 @@ export default function SettingsPage() {
   const [requestError, setRequestError] = useState("");
   const [moduleError, setModuleError] = useState("");
   const [moduleVisibility, setModuleVisibility] = useState<ModuleVisibility | null>(null);
+  const [aiAccessEnabled, setAiAccessEnabled] = useState(true);
 
   useEffect(() => {
     async function loadUser() {
@@ -53,6 +55,7 @@ export default function SettingsPage() {
         const data = (await response.json()) as { user: CurrentUser };
         setUser(data.user);
         setModuleVisibility(data.user.moduleVisibility);
+        setAiAccessEnabled(data.user.aiAccessEnabled);
       } catch (error) {
         setRequestError(
           error instanceof Error ? error.message : "Failed to load billing settings.",
@@ -170,6 +173,7 @@ export default function SettingsPage() {
       });
       const data = await readJsonSafely<{
         moduleVisibility?: ModuleVisibility;
+        aiAccessEnabled?: boolean;
         error?: string;
       }>(response);
 
@@ -178,11 +182,13 @@ export default function SettingsPage() {
       }
 
       setModuleVisibility(data.moduleVisibility);
+      setAiAccessEnabled(data.aiAccessEnabled ?? aiAccessEnabled);
       setUser((current) =>
         current
           ? {
               ...current,
               moduleVisibility: data.moduleVisibility as ModuleVisibility,
+              aiAccessEnabled: data.aiAccessEnabled ?? current.aiAccessEnabled,
             }
           : current,
       );
@@ -195,6 +201,61 @@ export default function SettingsPage() {
       setIsSavingModules(false);
     }
   }
+
+  async function handleAiAccessToggle() {
+    if (!moduleVisibility) {
+      return;
+    }
+
+    const nextAiAccessEnabled = !aiAccessEnabled;
+    setAiAccessEnabled(nextAiAccessEnabled);
+    setModuleError("");
+    setIsSavingModules(true);
+
+    try {
+      const response = await fetch("/api/settings/modules", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...moduleVisibility,
+          aiAccessEnabled: nextAiAccessEnabled,
+        }),
+      });
+      const data = await readJsonSafely<{
+        moduleVisibility?: ModuleVisibility;
+        aiAccessEnabled?: boolean;
+        error?: string;
+      }>(response);
+
+      if (!response.ok || !data.moduleVisibility || data.aiAccessEnabled === undefined) {
+        throw new Error(data.error || "Unable to save AI access.");
+      }
+
+      setModuleVisibility(data.moduleVisibility);
+      setAiAccessEnabled(data.aiAccessEnabled);
+      setUser((current) =>
+        current
+          ? {
+              ...current,
+              moduleVisibility: data.moduleVisibility as ModuleVisibility,
+              aiAccessEnabled: data.aiAccessEnabled as boolean,
+            }
+          : current,
+      );
+    } catch (error) {
+      setAiAccessEnabled(aiAccessEnabled);
+      setModuleError(error instanceof Error ? error.message : "Unable to save AI access.");
+    } finally {
+      setIsSavingModules(false);
+    }
+  }
+
+  const canStartTrial = Boolean(
+    user &&
+      !user.isBetaUser &&
+      !["trialing", "active"].includes(user.subscriptionStatus) &&
+      !(user.currentPeriodEnd && new Date(user.currentPeriodEnd) > new Date()),
+  );
 
   return (
     <div className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
@@ -248,6 +309,36 @@ export default function SettingsPage() {
           {moduleError ? <p className="mt-4 text-sm text-[#b34b75]">{moduleError}</p> : null}
 
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
+            <div className="flex items-center justify-between gap-4 rounded-[18px] border border-[color:var(--line)] bg-white px-4 py-3 sm:col-span-2">
+              <span>
+                <span className="block text-sm font-medium text-foreground">AI Tools</span>
+                <span className="mt-1 block text-xs leading-5 text-[color:var(--muted)]">
+                  Turn this off to hide AI navigation and block AI tool access for this account.
+                </span>
+              </span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={aiAccessEnabled}
+                onClick={() => void handleAiAccessToggle()}
+                disabled={isLoading || isSavingModules || !moduleVisibility}
+                className={`inline-flex h-8 w-20 shrink-0 items-center rounded-full border px-1 transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                  aiAccessEnabled
+                    ? "justify-end border-[color:var(--teal)] bg-[color:var(--teal-soft)]"
+                    : "justify-start border-[color:var(--line)] bg-[#f3f0fb]"
+                }`}
+              >
+                <span
+                  className={`flex h-6 w-9 items-center justify-center rounded-full text-[10px] font-semibold uppercase tracking-[0.12em] shadow-sm ${
+                    aiAccessEnabled
+                      ? "bg-[color:var(--teal)] text-white"
+                      : "bg-white text-[color:var(--muted)]"
+                  }`}
+                >
+                  {aiAccessEnabled ? "On" : "Off"}
+                </span>
+              </button>
+            </div>
             {optionalModuleKeys.map((key) => (
               <label
                 key={key}
@@ -281,14 +372,21 @@ export default function SettingsPage() {
             </div>
           ) : (
             <>
-              <button
-                type="button"
-                onClick={() => handleBillingAction("/api/billing/checkout")}
-                disabled={isRedirecting}
-                className="inline-flex items-center justify-center rounded-full bg-[color:var(--accent)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#4f3fa0] disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                {isRedirecting ? "Opening..." : "Start Free Trial"}
-              </button>
+              {canStartTrial ? (
+                <button
+                  type="button"
+                  onClick={() => handleBillingAction("/api/billing/checkout")}
+                  disabled={isRedirecting}
+                  className="inline-flex items-center justify-center rounded-full bg-[color:var(--accent)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#4f3fa0] disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {isRedirecting ? "Opening..." : "Start Free Trial"}
+                </button>
+              ) : (
+                <div className="rounded-[20px] border border-[color:var(--line)] bg-[#edf7f8] p-4 text-sm text-[color:var(--muted)]">
+                  Your trial or subscription is already active. Use the billing portal to manage
+                  payment details, invoices, or cancellation.
+                </div>
+              )}
               <button
                 type="button"
                 onClick={() => handleBillingAction("/api/billing/portal")}

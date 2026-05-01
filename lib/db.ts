@@ -14,6 +14,10 @@ function formatDateTime(value: Date) {
   return value.toISOString();
 }
 
+function formatBirdBandNumber(value: string) {
+  return value.startsWith("NO-BAND-") ? "No band" : value;
+}
+
 function parseDateOnly(value: string) {
   return new Date(`${value}T00:00:00Z`);
 }
@@ -353,7 +357,7 @@ export async function getBirdsData(userId: string) {
     birds: birds.map((bird) => ({
       id: bird.id,
       name: bird.name,
-      bandNumber: bird.bandNumber,
+      bandNumber: formatBirdBandNumber(bird.bandNumber),
       sex: bird.sex,
       breed: bird.breed,
       variety: bird.variety,
@@ -454,7 +458,7 @@ export async function getGeneticsData(userId: string) {
     birds: birds.map((bird) => ({
       id: bird.id,
       name: bird.name,
-      bandNumber: bird.bandNumber,
+      bandNumber: formatBirdBandNumber(bird.bandNumber),
       sex: bird.sex,
       breed: bird.breed,
       variety: bird.variety,
@@ -547,6 +551,11 @@ export async function getBirdProfileData(userId: string, birdId: string) {
     return null;
   }
 
+  const traitOptions = await prisma.trait.findMany({
+    where: { userId },
+    orderBy: [{ category: "asc" }, { name: "asc" }],
+  });
+
   const relatedPairingsRaw = [...bird.sirePairings, ...bird.damPairings];
   const relatedPairings = Array.from(
     new Map(relatedPairingsRaw.map((pairing) => [pairing.id, pairing])).values(),
@@ -605,7 +614,7 @@ export async function getBirdProfileData(userId: string, birdId: string) {
     bird: {
       id: bird.id,
       name: bird.name,
-      bandNumber: bird.bandNumber,
+      bandNumber: formatBirdBandNumber(bird.bandNumber),
       sex: bird.sex,
       breed: bird.breed,
       variety: bird.variety,
@@ -694,7 +703,48 @@ export async function getBirdProfileData(userId: string, birdId: string) {
       estimatedOffspringCount: offspring.length,
       averageHatchRate,
     },
+    traitOptions: traitOptions.map(mapTrait),
   };
+}
+
+export async function updateBirdGenetics(
+  userId: string,
+  birdId: string,
+  data: {
+    visualTraits: string[];
+    carriedTraits: string[];
+    projectTags: string[];
+    genotypeNotes: string;
+    traitIds: string[];
+  },
+) {
+  await requireOwnedBird(userId, birdId);
+
+  const traitIds = Array.from(new Set(data.traitIds));
+  const traits = await prisma.trait.findMany({
+    where: {
+      id: { in: traitIds },
+      userId,
+    },
+    select: { id: true },
+  });
+
+  if (traits.length !== traitIds.length) {
+    throw new Error("Trait selection is invalid.");
+  }
+
+  return prisma.bird.update({
+    where: { id: birdId },
+    data: {
+      visualTraits: data.visualTraits,
+      carriedTraits: data.carriedTraits,
+      projectTags: data.projectTags,
+      genotypeNotes: data.genotypeNotes,
+      traits: {
+        set: traitIds.map((id) => ({ id })),
+      },
+    },
+  });
 }
 
 export async function createBirdNote(userId: string, birdId: string, content: string) {
@@ -746,7 +796,7 @@ export async function getPairingsData(userId: string) {
     birds: birds.map((bird) => ({
       id: bird.id,
       name: bird.name,
-      bandNumber: bird.bandNumber,
+      bandNumber: formatBirdBandNumber(bird.bandNumber),
       sex: bird.sex,
     })),
   };
@@ -1052,7 +1102,7 @@ export async function getChicksData(userId: string) {
             }
           : null,
     })),
-    flocks: flocks.map((flock) => ({ id: flock.id, name: flock.name })),
+    flocks: flocks.map((flock) => ({ id: flock.id, name: flock.name, breed: flock.breed })),
     hatchGroups: hatchGroups.map((group) => ({ id: group.id, name: group.name })),
   };
 }
@@ -2283,6 +2333,49 @@ export async function createEggSale(
   });
 }
 
+export async function updateEggSale(
+  userId: string,
+  saleId: string,
+  data: {
+    saleDate: string;
+    locationId: string;
+    saleType: "TableEggs" | "HatchingEggs" | "Other";
+    quantity: number;
+    unitType: "PerEgg" | "PerDozen" | "Flat";
+    pricePerUnit: number;
+    notes: string;
+  },
+) {
+  const existingSale = await prisma.eggSale.findFirst({
+    where: { id: saleId, userId },
+  });
+
+  if (!existingSale) {
+    throw new Error("Egg sale not found.");
+  }
+
+  await requireOwnedEggSaleLocation(userId, data.locationId);
+  const quantity = data.unitType === "Flat" ? 1 : data.quantity;
+  const totalAmount = calculateEggSaleTotal(data.unitType, quantity, data.pricePerUnit);
+
+  return prisma.eggSale.update({
+    where: { id: saleId },
+    data: {
+      saleDate: new Date(`${data.saleDate}T00:00:00`),
+      locationId: data.locationId,
+      saleType: data.saleType,
+      quantity,
+      unitType: data.unitType,
+      pricePerUnit: data.pricePerUnit,
+      totalAmount,
+      notes: data.notes,
+    },
+    include: {
+      location: true,
+    },
+  });
+}
+
 export async function createFeedback(
   userId: string,
   data: {
@@ -2558,7 +2651,7 @@ export async function getTasksData(userId: string) {
           category: "Hatch Workflow",
           dueDate: lockdownDate,
           priority: daysUntilLockdown <= 0 ? "Today" : "Upcoming",
-          href: "/hatch-groups",
+          href: "/incubation",
         });
       }
 
@@ -2570,7 +2663,7 @@ export async function getTasksData(userId: string) {
           category: "Hatch Workflow",
           dueDate: hatchDate,
           priority: daysUntilHatch <= 0 ? "Today" : "Upcoming",
-          href: "/hatch-groups",
+          href: "/incubation",
         });
       }
 
@@ -2928,7 +3021,7 @@ export async function getShowsData(userId: string) {
     birds: birds.map((bird) => ({
       id: bird.id,
       name: bird.name,
-      bandNumber: bird.bandNumber,
+      bandNumber: formatBirdBandNumber(bird.bandNumber),
       breed: bird.breed,
       variety: bird.variety,
       sex: bird.sex,
@@ -3342,7 +3435,7 @@ export async function getDashboardData(userId: string) {
             key: `group-fertility-${group.id}`,
             title: `${group.name} is showing weak fertility`,
             detail: `${group.eggsCleared} clears logged with ${fertilityRate}% fertility. Review parent pairing and storage conditions.`,
-            href: "/hatch-groups",
+            href: "/incubation",
             tone: "watch",
           };
         }
@@ -3529,7 +3622,7 @@ export async function getDashboardData(userId: string) {
     })),
     recentBirds: birds.slice(0, 4).map((bird) => ({
       name: bird.name,
-      bandNumber: bird.bandNumber,
+      bandNumber: formatBirdBandNumber(bird.bandNumber),
       flock: bird.flock.name,
       sex: bird.sex,
       status: bird.status,
@@ -3624,7 +3717,7 @@ export async function getAiToolsData(userId: string) {
     birds: birds.map((bird) => ({
       id: bird.id,
       name: bird.name,
-      bandNumber: bird.bandNumber,
+      bandNumber: formatBirdBandNumber(bird.bandNumber),
       sex: bird.sex,
       breed: bird.breed,
       variety: bird.variety,

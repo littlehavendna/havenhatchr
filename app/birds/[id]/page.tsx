@@ -98,6 +98,7 @@ type BirdProfileResponse = {
     estimatedOffspringCount: number;
     averageHatchRate: number;
   };
+  traitOptions: Array<{ id: string; name: string; category: string; description: string }>;
 };
 
 type NoteForm = { content: string };
@@ -119,6 +120,10 @@ export default function BirdProfilePage() {
   const [requestError, setRequestError] = useState("");
   const [noteForm, setNoteForm] = useState<NoteForm>(emptyNoteForm);
   const [noteError, setNoteError] = useState("");
+  const [aiAccessEnabled, setAiAccessEnabled] = useState(true);
+  const [isSavingGenetics, setIsSavingGenetics] = useState(false);
+  const [geneticsError, setGeneticsError] = useState("");
+  const [selectedTraitIds, setSelectedTraitIds] = useState<string[]>([]);
   const [geneticsForm, setGeneticsForm] = useState<GeneticsForm>({
     visualTraits: "",
     carriedTraits: "",
@@ -143,6 +148,7 @@ export default function BirdProfilePage() {
         projectTags: data.bird.projectTags.join(", "),
         genotypeNotes: data.bird.genotypeNotes,
       });
+      setSelectedTraitIds(data.bird.traits.map((trait) => trait.id));
     } catch (error) {
       setRequestError(error instanceof Error ? error.message : "Failed to load bird profile.");
       setProfile(null);
@@ -155,6 +161,21 @@ export default function BirdProfilePage() {
     if (!birdId) return;
     void loadProfile();
   }, [birdId, loadProfile]);
+
+  useEffect(() => {
+    async function loadCurrentUser() {
+      try {
+        const response = await fetch("/api/auth/me", { cache: "no-store" });
+        if (!response.ok) return;
+        const data = (await response.json()) as { user: { aiAccessEnabled?: boolean } };
+        setAiAccessEnabled(data.user.aiAccessEnabled ?? true);
+      } catch {
+        setAiAccessEnabled(true);
+      }
+    }
+
+    void loadCurrentUser();
+  }, []);
 
   const bird = useMemo(() => {
     if (!profile) return null;
@@ -174,6 +195,7 @@ export default function BirdProfilePage() {
   const offspring = profile?.offspring ?? [];
   const showHistory = profile?.showHistory ?? [];
   const bestAwardsSummary = profile?.bestAwardsSummary ?? [];
+  const traitOptions = profile?.traitOptions ?? [];
   const performanceSnapshot = profile?.performanceSnapshot ?? {
     relatedHatchGroupsCount: 0,
     estimatedOffspringCount: 0,
@@ -208,18 +230,55 @@ export default function BirdProfilePage() {
     }
   }
 
-  function handleGeneticsSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleGeneticsSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setGeneticsForm((current) => ({
-      visualTraits: splitCommaSeparated(current.visualTraits).join(", "),
-      carriedTraits: splitCommaSeparated(current.carriedTraits).join(", "),
-      projectTags: splitCommaSeparated(current.projectTags).join(", "),
-      genotypeNotes: current.genotypeNotes.trim(),
-    }));
+    const visualTraits = splitCommaSeparated(geneticsForm.visualTraits);
+    const carriedTraits = splitCommaSeparated(geneticsForm.carriedTraits);
+    const projectTags = splitCommaSeparated(geneticsForm.projectTags);
+    const genotypeNotes = geneticsForm.genotypeNotes.trim();
+
+    try {
+      setIsSavingGenetics(true);
+      setGeneticsError("");
+      setRequestError("");
+      const response = await fetch(`/api/birds/${birdId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          visualTraits,
+          carriedTraits,
+          projectTags,
+          genotypeNotes,
+          traitIds: selectedTraitIds,
+        }),
+      });
+
+      if (!response.ok) throw new Error("Failed to save genetics.");
+
+      setGeneticsForm({
+        visualTraits: visualTraits.join(", "),
+        carriedTraits: carriedTraits.join(", "),
+        projectTags: projectTags.join(", "),
+        genotypeNotes,
+      });
+      await loadProfile();
+    } catch (error) {
+      setGeneticsError(error instanceof Error ? error.message : "Failed to save genetics.");
+    } finally {
+      setIsSavingGenetics(false);
+    }
   }
 
   function updateGeneticsField<K extends keyof GeneticsForm>(key: K, value: GeneticsForm[K]) {
     setGeneticsForm((current) => ({ ...current, [key]: value }));
+  }
+
+  function toggleTraitSelection(traitId: string) {
+    setSelectedTraitIds((current) =>
+      current.includes(traitId)
+        ? current.filter((id) => id !== traitId)
+        : [...current, traitId],
+    );
   }
 
   if (!isLoading && !bird) {
@@ -336,20 +395,22 @@ export default function BirdProfilePage() {
             </section>
           </div>
           <div className="space-y-6">
-            <section className="rounded-[28px] border border-[color:var(--line)] bg-white p-5">
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[color:var(--muted)]">AI Helper</p>
-                  <h2 className="mt-2 text-xl font-semibold tracking-tight">Quick bird actions</h2>
+            {aiAccessEnabled ? (
+              <section className="rounded-[28px] border border-[color:var(--line)] bg-white p-5">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[color:var(--muted)]">AI Helper</p>
+                    <h2 className="mt-2 text-xl font-semibold tracking-tight">Quick bird actions</h2>
+                  </div>
+                  <span className="rounded-full bg-[#ece7fb] px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--accent)]">Optional</span>
                 </div>
-                <span className="rounded-full bg-[#ece7fb] px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--accent)]">Placeholder AI</span>
-              </div>
-              <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                <AiActionLink href={`/ai?tool=listing&birdId=${bird.id}`} label="Generate Listing" />
-                <AiActionLink href={`/ai?tool=notes&birdId=${bird.id}`} label="Summarize Notes" />
-                <AiActionLink href={`/ai?tool=pairing&birdId=${bird.id}`} label="Suggest Pairing" />
-              </div>
-            </section>
+                <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                  <AiActionLink href={`/ai?tool=listing&birdId=${bird.id}`} label="Generate Listing" />
+                  <AiActionLink href={`/ai?tool=notes&birdId=${bird.id}`} label="Summarize Notes" />
+                  <AiActionLink href={`/ai?tool=pairing&birdId=${bird.id}`} label="Suggest Pairing" />
+                </div>
+              </section>
+            ) : null}
             {relatedPairings.length > 0 ? (
               <section className="rounded-[28px] border border-[color:var(--line)] bg-white p-5">
                 <div className="flex items-center justify-between gap-4">
@@ -409,7 +470,7 @@ export default function BirdProfilePage() {
                   <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[color:var(--muted)]">Genetics</p>
                   <h2 className="mt-2 text-xl font-semibold tracking-tight">Breeder genetics hub</h2>
                 </div>
-                <span className="rounded-full bg-[#edf7f8] px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--teal)]">Local edits</span>
+                <span className="rounded-full bg-[#edf7f8] px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--teal)]">Saved</span>
               </div>
               <div className="mt-5 grid gap-4">
                 <GeneticsCard label="Visual Traits" value={formatList(bird.visualTraits)} />
@@ -423,12 +484,48 @@ export default function BirdProfilePage() {
               <form onSubmit={handleGeneticsSubmit} className="mt-5 rounded-[24px] border border-[color:var(--line)] bg-[#fcfbff] p-4">
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)]">Edit Genetics</p>
                 <div className="mt-4 space-y-4">
+                  <div className="rounded-[22px] border border-[color:var(--line)] bg-white p-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)]">Saved Traits</p>
+                        <p className="mt-1 text-sm leading-6 text-[color:var(--muted)]">Attach traits you created on the Traits page to this bird record.</p>
+                      </div>
+                      <Link href="/traits" className="shrink-0 rounded-full border border-[color:var(--line)] bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-[color:var(--muted)] transition hover:bg-[#f8f7fe]">
+                        Manage
+                      </Link>
+                    </div>
+                    {traitOptions.length > 0 ? (
+                      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                        {traitOptions.map((trait) => (
+                          <label key={trait.id} className="flex items-start gap-3 rounded-[18px] border border-[color:var(--line)] bg-[#fcfbff] p-3 text-sm font-semibold text-foreground">
+                            <input
+                              type="checkbox"
+                              checked={selectedTraitIds.includes(trait.id)}
+                              onChange={() => toggleTraitSelection(trait.id)}
+                              className="mt-1 h-4 w-4 accent-[color:var(--accent)]"
+                            />
+                            <span>
+                              <span className="block">{trait.name}</span>
+                              <span className="mt-1 block text-xs font-semibold uppercase tracking-[0.14em] text-[color:var(--muted)]">{trait.category}</span>
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="mt-4 rounded-[18px] border border-dashed border-[color:var(--line)] bg-[#fcfbff] p-3 text-sm text-[color:var(--muted)]">
+                        No saved traits yet. Add traits once, then attach them to birds here.
+                      </p>
+                    )}
+                  </div>
                   <FormField label="Visual Traits" input={<input type="text" value={geneticsForm.visualTraits} onChange={(event) => updateGeneticsField("visualTraits", event.target.value)} placeholder="Blue Copper, Feathered Shanks" className={inputClassName()} />} />
                   <FormField label="Carried Traits" input={<input type="text" value={geneticsForm.carriedTraits} onChange={(event) => updateGeneticsField("carriedTraits", event.target.value)} placeholder="Deep Shell Color, Beard" className={inputClassName()} />} />
                   <FormField label="Project Tags" input={<input type="text" value={geneticsForm.projectTags} onChange={(event) => updateGeneticsField("projectTags", event.target.value)} placeholder="Dark Egg Project, Keeper Dam" className={inputClassName()} />} />
                   <FormField label="Genotype Notes" input={<textarea value={geneticsForm.genotypeNotes} onChange={(event) => updateGeneticsField("genotypeNotes", event.target.value)} rows={5} placeholder="Add genotype observations, inheritance assumptions, or breeder notes." className={`${inputClassName()} resize-none`} />} />
                 </div>
-                <button type="submit" className="mt-4 inline-flex w-full items-center justify-center rounded-full bg-[color:var(--accent)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#4f3fa0]">Update Genetics View</button>
+                {geneticsError ? <p className="mt-3 text-sm text-[#b34b75]">{geneticsError}</p> : null}
+                <button type="submit" disabled={isSavingGenetics} className="mt-4 inline-flex w-full items-center justify-center rounded-full bg-[color:var(--accent)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#4f3fa0] disabled:cursor-not-allowed disabled:opacity-70">
+                  {isSavingGenetics ? "Saving..." : "Save Genetics"}
+                </button>
               </form>
             </section>
             <section className="rounded-[28px] border border-[color:var(--line)] bg-white p-5">

@@ -2,12 +2,37 @@ import { NextRequest, NextResponse } from "next/server";
 import { buildContentSecurityPolicy } from "@/lib/security";
 
 const SESSION_COOKIE_NAME = "havenhatchr_session";
-const PUBLIC_PATHS = new Set(["/", "/login", "/signup", "/pricing", "/robots.txt", "/sitemap.xml"]);
-const INDEXABLE_PUBLIC_PATHS = new Set(["/", "/pricing", "/robots.txt", "/sitemap.xml"]);
+const PUBLIC_PATHS = new Set([
+  "/",
+  "/about",
+  "/features",
+  "/forgot-password",
+  "/guides",
+  "/login",
+  "/manifest.webmanifest",
+  "/pricing",
+  "/reset-password",
+  "/robots.txt",
+  "/signup",
+  "/sitemap.xml",
+]);
+const PUBLIC_PREFIXES = ["/images/"];
+const INDEXABLE_PUBLIC_PATHS = new Set([
+  "/",
+  "/about",
+  "/features",
+  "/pricing",
+  "/robots.txt",
+  "/sitemap.xml",
+]);
+
+function isPublicRequestPath(pathname: string) {
+  return PUBLIC_PATHS.has(pathname) || PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+}
 
 function applySecurityHeaders(request: NextRequest, response: NextResponse) {
   const isIndexable = INDEXABLE_PUBLIC_PATHS.has(request.nextUrl.pathname);
-  const isPrivate = !PUBLIC_PATHS.has(request.nextUrl.pathname);
+  const isPrivate = !isPublicRequestPath(request.nextUrl.pathname);
 
   response.headers.set("Content-Security-Policy", buildContentSecurityPolicy());
   response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
@@ -46,7 +71,7 @@ export function proxy(request: NextRequest) {
   const forwardedHeaders = new Headers(request.headers);
   forwardedHeaders.set("x-request-id", requestId);
   const sessionToken = request.cookies.get(SESSION_COOKIE_NAME)?.value;
-  const isPublicPath = PUBLIC_PATHS.has(pathname);
+  const isPublicPath = isPublicRequestPath(pathname);
 
   if (pathname.startsWith("/api")) {
     return applySecurityHeaders(
@@ -57,6 +82,10 @@ export function proxy(request: NextRequest) {
         },
       }),
     );
+  }
+
+  if (pathname === "/guides") {
+    return applySecurityHeaders(request, NextResponse.redirect(new URL("/features", request.url), 308));
   }
 
   if (isPublicPath && sessionToken && (pathname === "/login" || pathname === "/signup")) {

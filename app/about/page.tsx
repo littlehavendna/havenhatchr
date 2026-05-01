@@ -69,6 +69,7 @@ export default function AboutPage() {
                   src="/images/eggsongrass.jpeg"
                   alt="Eggs on grass"
                   fill
+                  sizes="(min-width: 1024px) 46vw, 100vw"
                   className="object-cover"
                 />
               </div>

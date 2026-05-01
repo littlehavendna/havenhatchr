@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUserId } from "@/lib/auth";
-import { createBirdNote, getBirdProfileData } from "@/lib/db";
-import { readJsonObject, readString, validateAuthenticatedMutation } from "@/lib/security";
+import { createBirdNote, getBirdProfileData, updateBirdGenetics } from "@/lib/db";
+import { readJsonObject, readString, readStringArray, validateAuthenticatedMutation } from "@/lib/security";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -45,4 +45,25 @@ export async function POST(request: Request, context: RouteContext) {
       createdAt: note.createdAt.toISOString(),
     },
   });
+}
+
+export async function PATCH(request: Request, context: RouteContext) {
+  const userId = await getCurrentUserId();
+  if (!userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  validateAuthenticatedMutation(request);
+  const { id } = await context.params;
+  const body = await readJsonObject(request);
+
+  await updateBirdGenetics(userId, id, {
+    visualTraits: readStringArray(body, "visualTraits", { maxItems: 80, maxItemLength: 80 }),
+    carriedTraits: readStringArray(body, "carriedTraits", { maxItems: 80, maxItemLength: 80 }),
+    projectTags: readStringArray(body, "projectTags", { maxItems: 80, maxItemLength: 80 }),
+    genotypeNotes: readString(body, "genotypeNotes", { maxLength: 3000 }),
+    traitIds: readStringArray(body, "traitIds", { maxItems: 120, maxItemLength: 80 }),
+  });
+
+  return NextResponse.json({ ok: true });
 }

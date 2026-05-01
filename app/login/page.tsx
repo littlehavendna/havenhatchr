@@ -192,6 +192,12 @@ export default function LoginPage() {
                 Sign up
               </Link>
             </p>
+            <p className="mt-3 text-sm text-[color:var(--muted)]">
+              Forgot your password?{" "}
+              <Link href="/forgot-password" className="font-semibold text-foreground">
+                Reset it
+              </Link>
+            </p>
           </section>
         </div>
       </div>

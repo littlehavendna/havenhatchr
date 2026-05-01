@@ -3,6 +3,7 @@
 import { FormEvent, type ReactNode, useEffect, useMemo, useState } from "react";
 import { DataTable } from "@/components/data-table";
 import { StatCard } from "@/components/stat-card";
+import { HATCH_BREED_OPTIONS, deriveIncubationDates } from "@/lib/hatch-groups";
 
 type IncubationResponse = {
   incubators: Array<{
@@ -130,6 +131,8 @@ type RunForm = {
   id?: string;
   incubatorId: string;
   hatchGroupId: string;
+  hatchLabel: string;
+  species: string;
   startDate: string;
   lockdownDate: string;
   expectedHatchDate: string;
@@ -151,6 +154,8 @@ const emptyIncubatorForm: IncubatorForm = {
 const emptyRunForm: RunForm = {
   incubatorId: "",
   hatchGroupId: "",
+  hatchLabel: "",
+  species: "Chicken",
   startDate: "",
   lockdownDate: "",
   expectedHatchDate: "",
@@ -211,6 +216,8 @@ export default function IncubationPage() {
         id: run.id,
         incubatorId: run.incubatorId,
         hatchGroupId: run.hatchGroupId,
+        hatchLabel: run.hatchGroupName,
+        species: "Chicken",
         startDate: run.startDate,
         lockdownDate: run.lockdownDate,
         expectedHatchDate: run.expectedHatchDate,
@@ -226,6 +233,7 @@ export default function IncubationPage() {
       setRunForm(emptyRunForm);
       setRunFormMode("create");
     }
+    setRequestError("");
     setActiveModal("run");
   }
 
@@ -234,9 +242,30 @@ export default function IncubationPage() {
     setRunForm((current) => ({
       ...current,
       hatchGroupId,
+      hatchLabel: option?.name ?? current.hatchLabel,
       startDate: option?.setDate ?? current.startDate,
       lockdownDate: option?.lockdownDate ?? current.lockdownDate,
       expectedHatchDate: option?.expectedHatchDate ?? current.expectedHatchDate,
+    }));
+  }
+
+  function updateRunStartDate(startDate: string) {
+    const dates = deriveIncubationDates(startDate, runForm.species);
+    setRunForm((current) => ({
+      ...current,
+      startDate,
+      lockdownDate: dates.lockdownDate || current.lockdownDate,
+      expectedHatchDate: dates.hatchDate || current.expectedHatchDate,
+    }));
+  }
+
+  function updateRunSpecies(species: string) {
+    const dates = deriveIncubationDates(runForm.startDate, species);
+    setRunForm((current) => ({
+      ...current,
+      species,
+      lockdownDate: dates.lockdownDate || current.lockdownDate,
+      expectedHatchDate: dates.hatchDate || current.expectedHatchDate,
     }));
   }
 
@@ -329,6 +358,7 @@ export default function IncubationPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...runForm,
+          hatchLabel: runForm.hatchLabel.trim(),
           temperatureNotes: runForm.temperatureNotes.trim(),
           humidityNotes: runForm.humidityNotes.trim(),
           turningNotes: runForm.turningNotes.trim(),
@@ -900,10 +930,15 @@ export default function IncubationPage() {
       {activeModal === "run" ? (
         <Modal
           title={runFormMode === "edit" ? "Edit Incubator Run" : "Log Incubator Run"}
-          subtitle="Connect a hatch group to an incubator and save the notes breeders need for review and comparison."
+          subtitle="Label the hatch, choose the species, and let HavenHatchr calculate the expected dates."
           onClose={() => setActiveModal(null)}
         >
           <form onSubmit={handleSaveRun} className="mt-6 grid gap-4 sm:grid-cols-2">
+            {requestError ? (
+              <p className="sm:col-span-2 rounded-2xl border border-[#f0cada] bg-[#fff7fb] px-4 py-3 text-sm text-[#9b4768]">
+                {requestError}
+              </p>
+            ) : null}
             <Field
               label="Incubator"
               input={
@@ -926,7 +961,7 @@ export default function IncubationPage() {
               }
             />
             <Field
-              label="Hatch Group"
+              label="Existing Hatch Group (optional)"
               input={
                 <select
                   value={runForm.hatchGroupId}
@@ -943,14 +978,42 @@ export default function IncubationPage() {
               }
             />
             <Field
+              label="Hatch Label"
+              input={
+                <input
+                  type="text"
+                  value={runForm.hatchLabel}
+                  onChange={(event) =>
+                    setRunForm((current) => ({ ...current, hatchLabel: event.target.value }))
+                  }
+                  placeholder="Mixed Ameraucanas"
+                  className={inputClassName()}
+                />
+              }
+            />
+            <Field
+              label="Species"
+              input={
+                <select
+                  value={runForm.species}
+                  onChange={(event) => updateRunSpecies(event.target.value)}
+                  className={inputClassName()}
+                >
+                  {HATCH_BREED_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              }
+            />
+            <Field
               label="Start Date"
               input={
                 <input
                   type="date"
                   value={runForm.startDate}
-                  onChange={(event) =>
-                    setRunForm((current) => ({ ...current, startDate: event.target.value }))
-                  }
+                  onChange={(event) => updateRunStartDate(event.target.value)}
                   className={inputClassName()}
                 />
               }

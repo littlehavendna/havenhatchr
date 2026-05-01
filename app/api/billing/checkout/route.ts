@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { logAuditAction, logUsageEvent } from "@/lib/admin";
 import { getCurrentUser } from "@/lib/auth";
-import { getAppUrl, getStripe, getStripePriceId } from "@/lib/billing";
+import { getRequestAppUrl, getStripe, getStripePriceId } from "@/lib/billing";
 import { prisma } from "@/lib/prisma";
 import {
   getClientErrorMessage,
@@ -50,11 +50,14 @@ export async function POST(request: Request) {
       });
     }
 
-    const appUrl = getAppUrl();
+    const appUrl = getRequestAppUrl(request);
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer: stripeCustomerId,
       client_reference_id: user.id,
+      metadata: {
+        userId: user.id,
+      },
       line_items: [
         {
           price: getStripePriceId(),
@@ -67,8 +70,8 @@ export async function POST(request: Request) {
           userId: user.id,
         },
       },
-      success_url: `${appUrl}/settings?billing=success`,
-      cancel_url: `${appUrl}/pricing?billing=cancelled`,
+      success_url: `${appUrl}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${appUrl}/dashboard?billing=cancelled`,
       allow_promotion_codes: true,
     });
 

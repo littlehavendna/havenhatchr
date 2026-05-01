@@ -3,6 +3,12 @@
 import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import { useRouter } from "next/navigation";
+import {
+  formatCurrencyFromCents,
+  getDnaOrderLineItems,
+  type DnaSelectionsByChick,
+} from "@/lib/dna";
 import type { BirdSex, ChickDeathReason, ChickStatus } from "@/lib/types";
 
 type ChickProfileResponse = {
@@ -69,7 +75,26 @@ type EditFormState = {
   notes: string;
 };
 
-const dnaTestOptions = ["Sexing", "Color", "Trait Panel"];
+type DnaConfig = {
+  enabled: boolean;
+  instructions: string;
+  defaultContactName: string;
+  defaultContactEmail: string;
+  tests: Array<{
+    code: string;
+    label: string;
+    description: string;
+    priceCents: number;
+  }>;
+};
+
+type DnaOrderForm = {
+  contactName: string;
+  contactEmail: string;
+  selectionsByChick: DnaSelectionsByChick;
+  notes: string;
+};
+
 const deathReasonOptions: Array<{ value: ChickDeathReason; label: string }> = [
   { value: "FailureToThrive", label: "Failure to thrive" },
   { value: "ShippedWeak", label: "Shipped weak" },
@@ -85,16 +110,17 @@ const chickStatusOptions: ChickStatus[] = ["Available", "Reserved", "Sold", "Hol
 const sexOptions: BirdSex[] = ["Male", "Female", "Unknown"];
 
 export default function ChickProfilePage() {
+  const router = useRouter();
   const params = useParams<{ id: string }>();
   const chickId = typeof params?.id === "string" ? params.id : "";
   const [profile, setProfile] = useState<ChickProfileResponse | null>(null);
+  const [dnaConfig, setDnaConfig] = useState<DnaConfig | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [requestError, setRequestError] = useState("");
   const [isDnaModalOpen, setIsDnaModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCreatingDnaCheckout, setIsCreatingDnaCheckout] = useState(false);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
-  const [testType, setTestType] = useState("Sexing");
   const [isDeathModalOpen, setIsDeathModalOpen] = useState(false);
   const [isSavingDeath, setIsSavingDeath] = useState(false);
   const [deathDate, setDeathDate] = useState(new Date().toISOString().slice(0, 10));
@@ -109,6 +135,12 @@ export default function ChickProfilePage() {
     sex: "Unknown",
     color: "",
     observedTraits: "",
+    notes: "",
+  });
+  const [dnaOrderForm, setDnaOrderForm] = useState<DnaOrderForm>({
+    contactName: "",
+    contactEmail: "",
+    selectionsByChick: {},
     notes: "",
   });
 
@@ -138,28 +170,91 @@ export default function ChickProfilePage() {
     void loadProfile();
   }, [chickId, loadProfile]);
 
-  async function handleDnaRequest(event: FormEvent<HTMLFormElement>) {
+  useEffect(() => {
+    async function loadDnaConfig() {
+      try {
+        const response = await fetch("/api/dna-tests", { cache: "no-store" });
+        if (!response.ok) {
+          throw new Error("Failed to load DNA settings.");
+        }
+
+        const data = (await response.json()) as DnaConfig;
+        setDnaConfig(data);
+        setDnaOrderForm((current) => ({
+          ...current,
+          contactName: current.contactName || data.defaultContactName,
+          contactEmail: current.contactEmail || data.defaultContactEmail,
+        }));
+      } catch (error) {
+        setRequestError(error instanceof Error ? error.message : "Failed to load DNA settings.");
+      }
+    }
+
+    void loadDnaConfig();
+  }, []);
+
+  function openDnaOrderModal() {
+    if (!profile) return;
+
+    setDnaOrderForm((current) => ({
+      ...current,
+      contactName: current.contactName || dnaConfig?.defaultContactName || "",
+      contactEmail: current.contactEmail || dnaConfig?.defaultContactEmail || "",
+      selectionsByChick: {
+        [profile.chick.id]: current.selectionsByChick[profile.chick.id] ?? {
+          includeSex: true,
+          includeBlueEgg: false,
+          includeRecessiveWhite: false,
+        },
+      },
+    }));
+    setRequestError("");
+    setIsDnaModalOpen(true);
+  }
+
+  async function handleDnaCheckout(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!profile) return;
 
     try {
-      setIsSubmitting(true);
+      if (!dnaOrderForm.contactName.trim()) {
+        throw new Error("Contact name is required.");
+      }
+
+      if (!dnaOrderForm.contactEmail.trim()) {
+        throw new Error("Contact email is required.");
+      }
+
+      setIsCreatingDnaCheckout(true);
       setRequestError("");
-      const response = await fetch("/api/dna-tests", {
+
+      const response = await fetch("/api/dna-tests/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chickId: profile.chick.id, testType }),
+        body: JSON.stringify({
+          chickIds: [profile.chick.id],
+          contactName: dnaOrderForm.contactName.trim(),
+          contactEmail: dnaOrderForm.contactEmail.trim(),
+          selectionsByChick: dnaOrderForm.selectionsByChick,
+          notes: dnaOrderForm.notes.trim(),
+        }),
       });
-      const payload = (await response.json().catch(() => ({}))) as { error?: string };
+      const payload = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        order?: { id: string };
+      };
       if (!response.ok) {
-        throw new Error(payload.error || "Unable to request DNA test.");
+        throw new Error(payload.error || "Unable to start DNA checkout.");
       }
-      await loadProfile();
+
       setIsDnaModalOpen(false);
+      if (payload.order?.id) {
+        router.push(`/chicks/dna-checkout?orderId=${payload.order.id}`);
+      }
     } catch (error) {
-      setRequestError(error instanceof Error ? error.message : "Unable to request DNA test.");
+      setRequestError(error instanceof Error ? error.message : "Unable to start DNA checkout.");
     } finally {
-      setIsSubmitting(false);
+      setIsCreatingDnaCheckout(false);
     }
   }
 
@@ -344,10 +439,11 @@ export default function ChickProfilePage() {
                   </div>
                   <button
                     type="button"
-                    onClick={() => setIsDnaModalOpen(true)}
+                    onClick={openDnaOrderModal}
+                    disabled={!dnaConfig?.enabled}
                     className="rounded-full bg-[color:var(--accent)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#4f3fa0]"
                   >
-                    Request DNA Test
+                    Order DNA Tests
                   </button>
                   {chick.status !== "Deceased" ? (
                     <button
@@ -442,12 +538,12 @@ export default function ChickProfilePage() {
 
       {isDnaModalOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#221c3f]/40 px-4 backdrop-blur-sm">
-          <div className="soft-shadow w-full max-w-xl rounded-[30px] border border-[color:var(--line)] bg-white p-6 sm:p-7">
+          <div className="soft-shadow max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-[30px] border border-[color:var(--line)] bg-white p-6 sm:p-7">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h3 className="text-2xl font-semibold tracking-tight">Request DNA Test</h3>
+                <h3 className="text-2xl font-semibold tracking-tight">Order DNA Tests</h3>
                 <p className="mt-1 text-sm text-[color:var(--muted)]">
-                  Create a DNA request and keep the chick record connected to its testing history.
+                  Choose tests here, pay in HavenHatchr, and Little Haven DNA will receive the paid order automatically.
                 </p>
               </div>
               <button
@@ -458,28 +554,68 @@ export default function ChickProfilePage() {
                 Cancel
               </button>
             </div>
-            <form onSubmit={handleDnaRequest} className="mt-6 space-y-4">
-              <Field label="Band Number" value={chick.bandNumber} />
+            <form onSubmit={handleDnaCheckout} className="mt-6 space-y-5">
+              <DnaPriceHeader config={dnaConfig} />
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="block">
+                  <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)]">Contact Name</span>
+                  <input
+                    type="text"
+                    value={dnaOrderForm.contactName}
+                    onChange={(event) => setDnaOrderForm((current) => ({ ...current, contactName: event.target.value }))}
+                    className={inputClassName()}
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)]">Contact Email</span>
+                  <input
+                    type="email"
+                    value={dnaOrderForm.contactEmail}
+                    onChange={(event) => setDnaOrderForm((current) => ({ ...current, contactEmail: event.target.value }))}
+                    className={inputClassName()}
+                  />
+                </label>
+              </div>
+              <DnaChickTestRow
+                chick={chick}
+                selections={
+                  dnaOrderForm.selectionsByChick[chick.id] ?? {
+                    includeSex: true,
+                    includeBlueEgg: false,
+                    includeRecessiveWhite: false,
+                  }
+                }
+                config={dnaConfig}
+                onChange={(nextSelections) =>
+                  setDnaOrderForm((current) => ({
+                    ...current,
+                    selectionsByChick: {
+                      ...current.selectionsByChick,
+                      [chick.id]: nextSelections,
+                    },
+                  }))
+                }
+              />
               <label className="block">
-                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)]">Test Selection</span>
-                <select
-                  value={testType}
-                  onChange={(event) => setTestType(event.target.value)}
-                  className={inputClassName()}
-                >
-                  {dnaTestOptions.map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))}
-                </select>
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)]">Optional Notes</span>
+                <textarea
+                  value={dnaOrderForm.notes}
+                  onChange={(event) => setDnaOrderForm((current) => ({ ...current, notes: event.target.value }))}
+                  rows={3}
+                  placeholder="Optional notes for the lab"
+                  className={`${inputClassName()} resize-none`}
+                />
               </label>
+              <DnaSubtotal chickId={chick.id} selectionsByChick={dnaOrderForm.selectionsByChick} />
               <button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={
+                  isCreatingDnaCheckout
+                  || getDnaOrderLineItems([chick.id], dnaOrderForm.selectionsByChick).length === 0
+                }
                 className="inline-flex w-full items-center justify-center rounded-full bg-[color:var(--accent)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#4f3fa0] disabled:cursor-not-allowed disabled:opacity-70"
               >
-                {isSubmitting ? "Requesting..." : "Confirm DNA Request"}
+                {isCreatingDnaCheckout ? "Preparing Checkout..." : "Order Now"}
               </button>
             </form>
           </div>
@@ -633,6 +769,130 @@ export default function ChickProfilePage() {
 
 function SummaryCard({ label, value }: { label: string; value: string }) {
   return <div className="rounded-[22px] border border-[color:var(--line)] bg-white/82 p-4"><p className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)]">{label}</p><p className="mt-2 text-lg font-semibold tracking-tight">{value}</p></div>;
+}
+
+function DnaPriceHeader({ config }: { config: DnaConfig | null }) {
+  const sexing = config?.tests.find((test) => test.code === "chicken_sex");
+  const blueEgg = config?.tests.find((test) => test.code === "chicken_blue_egg");
+  const recessiveWhite = config?.tests.find((test) => test.code === "chicken_recessive_white");
+
+  return (
+    <div className="grid gap-3 sm:grid-cols-3">
+      <DnaPriceCard label="Sexing" priceCents={sexing?.priceCents ?? 0} />
+      <DnaPriceCard label="Blue Egg Gene" priceCents={blueEgg?.priceCents ?? 0} />
+      <DnaPriceCard label="Recessive White" priceCents={recessiveWhite?.priceCents ?? 0} />
+    </div>
+  );
+}
+
+function DnaPriceCard({ label, priceCents }: { label: string; priceCents: number }) {
+  return (
+    <div className="rounded-[20px] border border-[color:var(--line)] bg-[#fcfbff] p-4">
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--muted)]">{label}</p>
+      <p className="mt-2 text-lg font-semibold tracking-tight">{formatCurrencyFromCents(priceCents)}</p>
+    </div>
+  );
+}
+
+function DnaChickTestRow({
+  chick,
+  selections,
+  config,
+  onChange,
+}: {
+  chick: ChickProfileResponse["chick"];
+  selections: { includeSex: boolean; includeBlueEgg: boolean; includeRecessiveWhite: boolean };
+  config: DnaConfig | null;
+  onChange: (selections: { includeSex: boolean; includeBlueEgg: boolean; includeRecessiveWhite: boolean }) => void;
+}) {
+  const sexing = config?.tests.find((test) => test.code === "chicken_sex");
+  const blueEgg = config?.tests.find((test) => test.code === "chicken_blue_egg");
+  const recessiveWhite = config?.tests.find((test) => test.code === "chicken_recessive_white");
+
+  return (
+    <div className="overflow-hidden rounded-[22px] border border-[color:var(--line)]">
+      <div className="grid gap-3 bg-[#f5f2fd] px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--muted)] sm:grid-cols-[minmax(0,1fr)_120px_150px_170px]">
+        <span>Chick ID</span>
+        <span>Sexing</span>
+        <span>Blue Egg</span>
+        <span>Recessive White</span>
+      </div>
+      <div className="grid gap-3 bg-white px-4 py-4 text-sm sm:grid-cols-[minmax(0,1fr)_120px_150px_170px] sm:items-center">
+        <div>
+          <p className="font-semibold">{chick.bandNumber}</p>
+          <p className="mt-1 text-[color:var(--muted)]">{chick.flockName}</p>
+        </div>
+        <label className="inline-flex items-start gap-2 font-semibold">
+          <input
+            type="checkbox"
+            checked={selections.includeSex}
+            onChange={(event) => onChange({ ...selections, includeSex: event.target.checked })}
+            className="mt-0.5 h-4 w-4 accent-[color:var(--accent)]"
+          />
+          <span>
+            <span className="block">{formatCurrencyFromCents(sexing?.priceCents ?? 0)}</span>
+            <span className="mt-1 block text-xs font-normal text-[color:var(--muted)]">Male or female</span>
+          </span>
+        </label>
+        <label className="inline-flex items-start gap-2 font-semibold">
+          <input
+            type="checkbox"
+            checked={selections.includeBlueEgg}
+            onChange={(event) => onChange({ ...selections, includeBlueEgg: event.target.checked })}
+            className="mt-0.5 h-4 w-4 accent-[color:var(--accent)]"
+          />
+          <span>
+            <span className="block">{formatCurrencyFromCents(blueEgg?.priceCents ?? 0)}</span>
+            <span className="mt-1 block text-xs font-normal text-[color:var(--muted)]">Blue egg gene</span>
+          </span>
+        </label>
+        <label className="inline-flex items-start gap-2 font-semibold">
+          <input
+            type="checkbox"
+            checked={selections.includeRecessiveWhite}
+            onChange={(event) => onChange({ ...selections, includeRecessiveWhite: event.target.checked })}
+            className="mt-0.5 h-4 w-4 accent-[color:var(--accent)]"
+          />
+          <span>
+            <span className="block">{formatCurrencyFromCents(recessiveWhite?.priceCents ?? 0)}</span>
+            <span className="mt-1 block text-xs font-normal text-[color:var(--muted)]">Hidden white gene</span>
+          </span>
+        </label>
+      </div>
+    </div>
+  );
+}
+
+function DnaSubtotal({
+  chickId,
+  selectionsByChick,
+}: {
+  chickId: string;
+  selectionsByChick: DnaSelectionsByChick;
+}) {
+  const lineItems = getDnaOrderLineItems([chickId], selectionsByChick);
+  const total = lineItems.reduce((sum, item) => sum + item.totalPriceCents, 0);
+
+  return (
+    <div className="rounded-[22px] border border-[color:var(--line)] bg-[#fcfbff] p-4">
+      <div className="space-y-2">
+        {lineItems.length > 0 ? lineItems.map((item) => (
+          <div key={item.code} className="flex items-center justify-between gap-4 text-sm">
+            <span>{item.label}</span>
+            <span className="font-semibold">{formatCurrencyFromCents(item.totalPriceCents)}</span>
+          </div>
+        )) : (
+          <p className="rounded-2xl border border-dashed border-[color:var(--line)] bg-white px-4 py-3 text-sm text-[color:var(--muted)]">
+            Choose at least one test to continue.
+          </p>
+        )}
+      </div>
+      <div className="mt-3 flex items-center justify-between border-t border-[color:var(--line)] pt-3">
+        <span className="text-sm font-semibold uppercase tracking-[0.16em] text-[color:var(--muted)]">Subtotal</span>
+        <span className="text-xl font-semibold">{formatCurrencyFromCents(total)}</span>
+      </div>
+    </div>
+  );
 }
 
 function OverviewCard({ label, value }: { label: string; value: string }) {

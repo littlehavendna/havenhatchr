@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 type OnboardingWalkthroughProps = {
   pathname: string;
   isEnabled: boolean;
+  aiAccessEnabled: boolean;
 };
 
 type WalkthroughStep = {
@@ -94,11 +95,16 @@ const walkthroughSteps: WalkthroughStep[] = [
 export function OnboardingWalkthrough({
   pathname,
   isEnabled,
+  aiAccessEnabled,
 }: OnboardingWalkthroughProps) {
   const router = useRouter();
   const [stepIndex, setStepIndex] = useState(0);
   const [isVisible, setIsVisible] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const visibleSteps = useMemo(
+    () => walkthroughSteps.filter((entry) => aiAccessEnabled || entry.href !== "/ai"),
+    [aiAccessEnabled],
+  );
 
   useEffect(() => {
     if (isEnabled) {
@@ -109,12 +115,16 @@ export function OnboardingWalkthrough({
     }
   }, [isEnabled]);
 
-  const step = walkthroughSteps[stepIndex];
-  const isLastStep = stepIndex === walkthroughSteps.length - 1;
+  const step = visibleSteps[stepIndex];
+  const isLastStep = stepIndex === visibleSteps.length - 1;
   const activeSection = useMemo(
-    () => walkthroughSteps.find((entry) => pathname === entry.href)?.title ?? null,
-    [pathname],
+    () => visibleSteps.find((entry) => pathname === entry.href)?.title ?? null,
+    [pathname, visibleSteps],
   );
+
+  useEffect(() => {
+    setStepIndex((current) => Math.min(current, Math.max(visibleSteps.length - 1, 0)));
+  }, [visibleSteps.length]);
 
   useEffect(() => {
     if (!isVisible || !step) {
@@ -158,7 +168,7 @@ export function OnboardingWalkthrough({
             </h2>
           </div>
           <span className="rounded-full border border-[color:var(--teal)] bg-[color:var(--teal-soft)] px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--teal)]">
-            {stepIndex + 1} of {walkthroughSteps.length}
+            {stepIndex + 1} of {visibleSteps.length}
           </span>
         </div>
 
@@ -188,7 +198,7 @@ export function OnboardingWalkthrough({
         <div className="mt-5 h-2 overflow-hidden rounded-full bg-[color:var(--teal-soft)]">
           <div
             className="h-full rounded-full bg-[color:var(--teal)] transition-all"
-            style={{ width: `${((stepIndex + 1) / walkthroughSteps.length) * 100}%` }}
+            style={{ width: `${((stepIndex + 1) / visibleSteps.length) * 100}%` }}
           />
         </div>
 
@@ -222,7 +232,7 @@ export function OnboardingWalkthrough({
           ) : (
             <button
               type="button"
-              onClick={() => setStepIndex((current) => Math.min(current + 1, walkthroughSteps.length - 1))}
+              onClick={() => setStepIndex((current) => Math.min(current + 1, visibleSteps.length - 1))}
               disabled={isSubmitting}
               className="inline-flex flex-1 items-center justify-center rounded-full bg-[color:var(--teal)] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#2f8c87] disabled:cursor-not-allowed disabled:opacity-70"
             >

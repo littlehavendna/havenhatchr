@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCurrentUserId } from "@/lib/auth";
-import { createOrder, getOrdersData } from "@/lib/db";
+import { createCustomer, createOrder, getOrdersData } from "@/lib/db";
 import { reportRequestEvent } from "@/lib/monitoring";
 import {
   getClientErrorMessage,
@@ -33,9 +33,27 @@ export async function POST(request: Request) {
 
     validateAuthenticatedMutation(request);
     const body = await readJsonObject(request);
+    let customerId = readString(body, "customerId", { maxLength: 40 });
+    const customerName = readString(body, "customerName", { maxLength: 120 });
+
+    if (!customerId) {
+      if (!customerName) {
+        return NextResponse.json({ error: "Add or select a customer." }, { status: 400 });
+      }
+
+      const customer = await createCustomer(userId, {
+        name: customerName,
+        email: "",
+        phone: "",
+        location: "",
+        notes: "Created from order entry.",
+        status: "Active",
+      });
+      customerId = customer.id;
+    }
 
     const order = await createOrder(userId, {
-      customerId: readString(body, "customerId", { required: true, maxLength: 40 }),
+      customerId,
       total: readNumber(body, "total", { min: 0, max: 1000000, defaultValue: 0 }),
       status: readString(body, "status", { maxLength: 40, defaultValue: "Pending" }),
       pickupDate: readIsoDateString(body, "pickupDate", { required: true }),

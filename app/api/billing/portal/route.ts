@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { logAuditAction, logUsageEvent } from "@/lib/admin";
 import { getCurrentUser } from "@/lib/auth";
-import { getAppUrl, getStripe } from "@/lib/billing";
+import { getRequestAppUrl, getStripe } from "@/lib/billing";
 import {
   getClientErrorMessage,
   getErrorStatus,
@@ -35,7 +35,7 @@ export async function POST(request: Request) {
     }
 
     const stripe = getStripe();
-    const appUrl = getAppUrl();
+    const appUrl = getRequestAppUrl(request);
     const session = await stripe.billingPortal.sessions.create({
       customer: user.stripeCustomerId,
       return_url: `${appUrl}/settings`,

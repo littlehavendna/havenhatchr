@@ -56,6 +56,7 @@ type ReservationsResponse = {
 
 type ReservationForm = {
   customerId: string;
+  customerName: string;
   requestedSex: string;
   requestedBreed: string;
   requestedVariety: string;
@@ -83,6 +84,7 @@ const statusOptions: Array<ReservationStatus | "All Statuses"> = [
 
 const emptyForm: ReservationForm = {
   customerId: "",
+  customerName: "",
   requestedSex: "",
   requestedBreed: "",
   requestedVariety: "",
@@ -201,6 +203,19 @@ export default function ReservationsPage() {
     setRequestError("");
   }
 
+  function updateCustomerName(value: string) {
+    const exactMatch = customers.find(
+      (customer) => normalizeCustomerName(customer.name) === normalizeCustomerName(value),
+    );
+    setForm((current) => ({
+      ...current,
+      customerName: value,
+      customerId: exactMatch?.id ?? "",
+    }));
+    setErrors((current) => ({ ...current, customerId: undefined, customerName: undefined }));
+    setRequestError("");
+  }
+
   function closePanel() {
     setIsOpen(false);
     setForm(emptyForm);
@@ -212,7 +227,9 @@ export default function ReservationsPage() {
     event.preventDefault();
 
     const nextErrors: Partial<Record<keyof ReservationForm, string>> = {};
-    if (!form.customerId) nextErrors.customerId = "Customer is required.";
+    if (!form.customerId && !form.customerName.trim()) {
+      nextErrors.customerId = "Select a customer or type a new customer name.";
+    }
     if (!form.requestedBreed.trim()) nextErrors.requestedBreed = "Requested Breed is required.";
     if (!form.quantity || Number(form.quantity) <= 0) {
       nextErrors.quantity = "Quantity must be at least 1.";
@@ -232,6 +249,7 @@ export default function ReservationsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           customerId: form.customerId,
+          customerName: form.customerName.trim(),
           requestedSex: form.requestedSex.trim(),
           requestedBreed: form.requestedBreed.trim(),
           requestedVariety: form.requestedVariety.trim(),
@@ -256,6 +274,11 @@ export default function ReservationsPage() {
       setIsSaving(false);
     }
   }
+
+  const customerSuggestion =
+    form.customerName.trim() && !form.customerId
+      ? findCustomerSuggestion(customers, form.customerName)
+      : null;
 
   return (
     <>
@@ -525,18 +548,41 @@ export default function ReservationsPage() {
                 label="Customer"
                 error={errors.customerId}
                 input={
-                  <select
-                    value={form.customerId}
-                    onChange={(event) => updateField("customerId", event.target.value)}
-                    className={inputClassName(errors.customerId)}
-                  >
-                    <option value="">Select customer</option>
-                    {customers.map((customer) => (
-                      <option key={customer.id} value={customer.id}>
-                        {customer.name}
-                      </option>
-                    ))}
-                  </select>
+                  <>
+                    <input
+                      type="text"
+                      list="reservation-customers"
+                      value={form.customerName}
+                      onChange={(event) => updateCustomerName(event.target.value)}
+                      placeholder="Type customer name or pick an existing customer"
+                      className={inputClassName(errors.customerId)}
+                    />
+                    <datalist id="reservation-customers">
+                      {customers.map((customer) => (
+                        <option key={customer.id} value={customer.name} />
+                      ))}
+                    </datalist>
+                    {customerSuggestion ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setForm((current) => ({
+                            ...current,
+                            customerId: customerSuggestion.id,
+                            customerName: customerSuggestion.name,
+                          }));
+                          setErrors((current) => ({ ...current, customerId: undefined }));
+                        }}
+                        className="mt-2 text-left text-xs font-semibold text-[color:var(--accent)] underline-offset-4 hover:underline"
+                      >
+                        Did you mean {customerSuggestion.name}?
+                      </button>
+                    ) : !form.customerId && form.customerName.trim() ? (
+                      <p className="mt-2 text-xs text-[color:var(--muted)]">
+                        This will create a new customer.
+                      </p>
+                    ) : null}
+                  </>
                 }
               />
               <FormField
@@ -791,6 +837,49 @@ function inputClassName(error?: string) {
       ? "border-[#d67aa0] focus:border-[#d67aa0] focus:ring-[#f3d4e1]"
       : "border-[color:var(--line)] focus:border-[color:var(--accent)] focus:ring-[color:var(--accent-soft)]"
   }`;
+}
+
+function normalizeCustomerName(value: string) {
+  return value.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function findCustomerSuggestion<T extends { name: string }>(customers: T[], value: string) {
+  const typed = normalizeCustomerName(value);
+  if (!typed) return undefined;
+
+  const partialMatch = customers.find((customer) => {
+    const existing = normalizeCustomerName(customer.name);
+    return existing.includes(typed) || typed.includes(existing);
+  });
+
+  if (partialMatch) return partialMatch;
+
+  return customers
+    .map((customer) => ({
+      customer,
+      distance: getEditDistance(normalizeCustomerName(customer.name), typed),
+    }))
+    .filter(({ distance }) => distance <= Math.max(2, Math.ceil(typed.length * 0.25)))
+    .sort((left, right) => left.distance - right.distance)[0]?.customer;
+}
+
+function getEditDistance(left: string, right: string) {
+  const matrix = Array.from({ length: left.length + 1 }, (_, row) =>
+    Array.from({ length: right.length + 1 }, (_, column) => (row === 0 ? column : column === 0 ? row : 0)),
+  );
+
+  for (let row = 1; row <= left.length; row += 1) {
+    for (let column = 1; column <= right.length; column += 1) {
+      const cost = left[row - 1] === right[column - 1] ? 0 : 1;
+      matrix[row][column] = Math.min(
+        matrix[row - 1][column] + 1,
+        matrix[row][column - 1] + 1,
+        matrix[row - 1][column - 1] + cost,
+      );
+    }
+  }
+
+  return matrix[left.length][right.length];
 }
 
 function statusBadgeClassName(status: ReservationStatus) {

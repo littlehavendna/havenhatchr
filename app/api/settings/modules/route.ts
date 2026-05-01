@@ -50,8 +50,10 @@ export async function PUT(request: Request) {
       current[key] = readBoolean(body, key, true);
       return current;
     }, {});
+    const aiAccessEnabled = readBoolean(body, "aiAccessEnabled", user.aiAccessEnabled);
 
-    const updatedSetting = await prisma.systemSetting.upsert({
+    const [updatedSetting, updatedUser] = await prisma.$transaction([
+      prisma.systemSetting.upsert({
       where: { key: getModuleVisibilitySettingKey(user.id) },
       update: {
         label: "User Module Visibility",
@@ -66,10 +68,17 @@ export async function PUT(request: Request) {
         value: moduleVisibility,
         updatedById: user.id,
       },
-    });
+      }),
+      prisma.user.update({
+        where: { id: user.id },
+        data: { aiAccessEnabled },
+        select: { aiAccessEnabled: true },
+      }),
+    ]);
 
     return NextResponse.json({
       moduleVisibility: normalizeModuleVisibility(updatedSetting.value),
+      aiAccessEnabled: updatedUser.aiAccessEnabled,
     });
   } catch (error) {
     const status = getErrorStatus(error);

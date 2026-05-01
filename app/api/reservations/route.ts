@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { trackFirstRunMilestone } from "@/lib/admin";
 import { getCurrentUserId } from "@/lib/auth";
-import { createReservation, getReservationsData } from "@/lib/db";
+import { createCustomer, createReservation, getReservationsData } from "@/lib/db";
 import { reportRequestEvent } from "@/lib/monitoring";
 import {
   getClientErrorMessage,
@@ -33,9 +33,27 @@ export async function POST(request: Request) {
 
     validateAuthenticatedMutation(request);
     const body = await readJsonObject(request);
+    let customerId = readString(body, "customerId", { maxLength: 40 });
+    const customerName = readString(body, "customerName", { maxLength: 120 });
+
+    if (!customerId) {
+      if (!customerName) {
+        return NextResponse.json({ error: "Add or select a customer." }, { status: 400 });
+      }
+
+      const customer = await createCustomer(userId, {
+        name: customerName,
+        email: "",
+        phone: "",
+        location: "",
+        notes: "Created from reservation entry.",
+        status: "Active",
+      });
+      customerId = customer.id;
+    }
 
     const reservation = await createReservation(userId, {
-      customerId: readString(body, "customerId", { required: true, maxLength: 40 }),
+      customerId,
       requestedSex: readString(body, "requestedSex", { maxLength: 80 }),
       requestedBreed: readString(body, "requestedBreed", { maxLength: 120 }),
       requestedVariety: readString(body, "requestedVariety", { maxLength: 120 }),

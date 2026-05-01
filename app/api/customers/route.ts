@@ -30,11 +30,21 @@ export async function POST(request: Request) {
 
     validateAuthenticatedMutation(request);
     const body = await readJsonObject(request);
+    const name = readString(body, "name", { maxLength: 120 });
+    const email = readString(body, "email", { maxLength: 320 });
+    const phone = readString(body, "phone", { maxLength: 40 });
+
+    if (!name && !email && !phone) {
+      return NextResponse.json(
+        { error: "Add a name, email, or phone number for this customer." },
+        { status: 400 },
+      );
+    }
 
     const customer = await createCustomer(userId, {
-      name: readString(body, "name", { required: true, maxLength: 120 }),
-      email: readString(body, "email", { maxLength: 320 }),
-      phone: readString(body, "phone", { maxLength: 40 }),
+      name: name || email || phone,
+      email,
+      phone,
       location: readString(body, "location", { maxLength: 120 }),
       notes: readString(body, "notes", { maxLength: 2000 }),
       status: readString(body, "status", { maxLength: 40, defaultValue: "Active" }),

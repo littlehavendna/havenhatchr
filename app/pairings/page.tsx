@@ -226,7 +226,7 @@ export default function PairingsPage() {
               <div>
                 <h3 className="text-2xl font-semibold tracking-tight">Add Pairing</h3>
                 <p className="mt-1 text-sm text-[color:var(--muted)]">
-                  Create a new breeder pairing and persist it to PostgreSQL immediately.
+                  Create a new breeder pairing with goals, traits, and parent details.
                 </p>
               </div>
               <button

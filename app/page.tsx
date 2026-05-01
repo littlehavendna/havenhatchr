@@ -95,20 +95,7 @@ const capabilities = [
   },
 ];
 
-const homeGallery = [
-  {
-    title: "Blue eggs and breeder detail",
-    image: "/images/brightblueeggs.jpeg",
-  },
-  {
-    title: "Show-quality birds",
-    image: "/images/chickenshowbest.JPG",
-  },
-  {
-    title: "Breeding stock and flock planning",
-    image: "/images/hen_and_dom_white.JPG",
-  },
-];
+const brandMark = "🐣";
 
 export default function Home() {
   return (
@@ -247,6 +234,7 @@ export default function Home() {
                       src={audience.image}
                       alt={audience.title}
                       fill
+                      sizes="(min-width: 1024px) 33vw, 100vw"
                       className="object-cover"
                     />
                   </div>
@@ -301,28 +289,19 @@ export default function Home() {
 
         <section className="px-4 py-4 sm:px-6 lg:px-8 lg:py-8">
           <div className="mx-auto max-w-7xl">
-            <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr_0.9fr]">
-              {homeGallery.map((item, index) => (
-                <article
-                  key={item.title}
-                  className={`soft-shadow overflow-hidden rounded-[32px] border border-[color:var(--line)] ${
-                    index === 0 ? "lg:row-span-2" : ""
-                  }`}
-                >
-                  <div className={`relative ${index === 0 ? "aspect-[4/5]" : "aspect-[4/3]"}`}>
-                    <Image
-                      src={item.image}
-                      alt={item.title}
-                      fill
-                      className="object-cover"
-                    />
-                  </div>
-                  <div className="bg-white/90 p-5">
-                    <p className="text-sm font-medium text-[color:var(--muted)]">{item.title}</p>
-                  </div>
-                </article>
-              ))}
-              <article className="rounded-[32px] border border-[color:var(--line)] bg-[linear-gradient(180deg,#efeafd_0%,#dff4f1_100%)] p-7">
+            <div className="grid gap-5 lg:grid-cols-2 lg:items-stretch">
+              <article className="soft-shadow overflow-hidden rounded-[32px] border border-[color:var(--line)] bg-white/70">
+                <div className="relative aspect-[4/3] lg:h-full">
+                  <Image
+                    src="/images/brightblueeggs.jpeg"
+                    alt="Blue eggs in a basket"
+                    fill
+                    sizes="(min-width: 1024px) 50vw, 100vw"
+                    className="object-cover"
+                  />
+                </div>
+              </article>
+              <article className="rounded-[32px] border border-[color:var(--line)] bg-[linear-gradient(180deg,#efeafd_0%,#dff4f1_100%)] p-7 sm:p-8 lg:flex lg:flex-col lg:justify-center">
                 <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[color:var(--muted)]">
                   Breeder-centered
                 </p>
@@ -361,8 +340,11 @@ export default function Home() {
                     index % 2 === 0 ? "bg-[#fcfaff]" : "bg-[#edf7f8]"
                   }`}
                 >
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[color:var(--accent-soft)] text-sm font-semibold text-[color:var(--accent)]">
-                    HH
+                  <div
+                    aria-hidden="true"
+                    className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[color:var(--accent-soft)] text-2xl"
+                  >
+                    {brandMark}
                   </div>
                   <h3 className="mt-5 text-xl font-semibold tracking-tight">
                     {feature.title}
@@ -434,6 +416,7 @@ export default function Home() {
                   src="/images/ermine_chicks.jpg"
                   alt="Ermine chicks"
                   fill
+                  sizes="(min-width: 1024px) 49vw, 100vw"
                   className="object-cover"
                 />
               </div>

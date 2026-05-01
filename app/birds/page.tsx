@@ -40,6 +40,7 @@ type BirdsResponse = {
 type BirdForm = {
   name: string;
   bandNumber: string;
+  noBand: boolean;
   sex: BirdSex;
   breed: string;
   variety: string;
@@ -55,6 +56,7 @@ const statusOptions: BirdStatus[] = ["Active", "Holdback", "Retired", "Sold"];
 const emptyForm: BirdForm = {
   name: "",
   bandNumber: "",
+  noBand: false,
   sex: "Unknown",
   breed: "",
   variety: "",
@@ -123,7 +125,6 @@ export default function BirdsPage() {
 
     const nextErrors: Partial<Record<keyof BirdForm, string>> = {};
     if (!form.name.trim()) nextErrors.name = "Name is required.";
-    if (!form.bandNumber.trim()) nextErrors.bandNumber = "Band Number is required.";
     if (!form.flockId) nextErrors.flockId = "Flock is required.";
 
     if (Object.keys(nextErrors).length > 0) {
@@ -142,7 +143,7 @@ export default function BirdsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: form.name.trim(),
-          bandNumber: form.bandNumber.trim(),
+          bandNumber: form.noBand ? "" : form.bandNumber.trim(),
           sex: form.sex,
           breed: form.breed.trim() || selectedFlock?.breed || "",
           variety: form.variety.trim() || selectedFlock?.variety || "",
@@ -239,7 +240,7 @@ export default function BirdsPage() {
                       {bird.name}
                     </td>
                     <td className="px-5 py-4 text-sm text-foreground sm:px-6">
-                      {bird.bandNumber}
+                      {formatBandNumber(bird.bandNumber)}
                     </td>
                     <td className="px-5 py-4 text-sm text-foreground sm:px-6">{bird.sex}</td>
                     <td className="px-5 py-4 text-sm text-foreground sm:px-6">
@@ -309,7 +310,7 @@ export default function BirdsPage() {
               <div>
                 <h3 className="text-2xl font-semibold tracking-tight">Add Bird</h3>
                 <p className="mt-1 text-sm text-[color:var(--muted)]">
-                  Add a breeder bird record and make it available in the directory immediately.
+                  Add a breeder bird record and keep flock, pairing, and genetics details connected.
                 </p>
               </div>
               <button
@@ -339,13 +340,34 @@ export default function BirdsPage() {
                 label="Band Number"
                 error={errors.bandNumber}
                 input={
-                  <input
-                    type="text"
-                    value={form.bandNumber}
-                    onChange={(event) => updateField("bandNumber", event.target.value)}
-                    placeholder="B-401"
-                    className={inputClassName(errors.bandNumber)}
-                  />
+                  <div className="space-y-3">
+                    <input
+                      type="text"
+                      value={form.bandNumber}
+                      onChange={(event) => updateField("bandNumber", event.target.value)}
+                      placeholder="B-401"
+                      disabled={form.noBand}
+                      className={inputClassName(errors.bandNumber)}
+                    />
+                    <label className="flex items-center justify-between rounded-2xl border border-[color:var(--line)] bg-[#fcfbff] px-4 py-3">
+                      <span className="text-sm font-medium text-foreground">No band</span>
+                      <input
+                        type="checkbox"
+                        checked={form.noBand}
+                        onChange={(event) => {
+                          const checked = event.target.checked;
+                          setForm((current) => ({
+                            ...current,
+                            noBand: checked,
+                            bandNumber: checked ? "" : current.bandNumber,
+                          }));
+                          setErrors((current) => ({ ...current, bandNumber: undefined }));
+                          setRequestError("");
+                        }}
+                        className="h-4 w-4 rounded border-[color:var(--line)] text-[color:var(--accent)] focus:ring-[color:var(--accent)]"
+                      />
+                    </label>
+                  </div>
                 }
               />
               <FormField
@@ -496,6 +518,10 @@ function inputClassName(error?: string) {
   return `w-full rounded-2xl border bg-white px-4 py-3 text-sm outline-none transition focus:ring-2 ${
     error
       ? "border-[#d67aa0] focus:border-[#d67aa0] focus:ring-[#f3d4e1]"
-      : "border-[color:var(--line)] focus:border-[color:var(--accent)] focus:ring-[color:var(--accent-soft)]"
+      : "border-[color:var(--line)] focus:border-[color:var(--accent)] focus:ring-[color:var(--accent-soft)] disabled:bg-[#f7f5fb] disabled:text-[color:var(--muted)]"
   }`;
+}
+
+function formatBandNumber(value: string) {
+  return value.startsWith("NO-BAND-") ? "No band" : value;
 }

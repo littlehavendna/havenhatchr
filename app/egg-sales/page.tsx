@@ -119,6 +119,7 @@ export default function EggSalesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [requestError, setRequestError] = useState("");
   const [activePanel, setActivePanel] = useState<"sale" | "locations" | "settings" | null>(null);
+  const [editingSaleId, setEditingSaleId] = useState("");
   const [filters, setFilters] = useState<FilterState>(emptyFilters);
   const [saleForm, setSaleForm] = useState<SaleForm>(() => createEmptySaleForm());
   const [saleErrors, setSaleErrors] = useState<Partial<Record<keyof SaleForm, string>>>({});
@@ -177,8 +178,19 @@ export default function EggSalesPage() {
     }
   }
 
-  function openSalePanel() {
-    if (data) {
+  function openSalePanel(sale?: EggSaleRow) {
+    setEditingSaleId(sale?.id ?? "");
+    if (sale) {
+      setSaleForm({
+        saleDate: sale.saleDate,
+        locationId: sale.locationId,
+        saleType: sale.saleType,
+        quantity: formatEditableNumber(sale.quantity),
+        unitType: sale.unitType,
+        pricePerUnit: formatEditableNumber(sale.pricePerUnit),
+        notes: sale.notes,
+      });
+    } else if (data) {
       setSaleForm(buildSaleForm(data));
     }
     setSaleErrors({});
@@ -221,6 +233,7 @@ export default function EggSalesPage() {
 
   function closePanel() {
     setActivePanel(null);
+    setEditingSaleId("");
     setRequestError("");
     setSaleErrors({});
     setSettingsError("");
@@ -258,7 +271,7 @@ export default function EggSalesPage() {
     setRequestError("");
   }
 
-  async function handleCreateSale(event: FormEvent<HTMLFormElement>) {
+  async function handleSaveSale(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     const nextErrors: Partial<Record<keyof SaleForm, string>> = {};
@@ -281,9 +294,10 @@ export default function EggSalesPage() {
       setRequestError("");
 
       const response = await fetch("/api/egg-sales", {
-        method: "POST",
+        method: editingSaleId ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          id: editingSaleId || undefined,
           saleDate: saleForm.saleDate,
           locationId: saleForm.locationId,
           saleType: saleForm.saleType,
@@ -441,6 +455,7 @@ export default function EggSalesPage() {
   const topLocation = summary.locationBreakdown[0];
   const insight = buildSalesInsight(summary, filteredSales);
   const tableRows = filteredSales.map((sale) => ({
+    id: sale.id,
     date: formatDate(sale.saleDate),
     location: sale.locationName,
     saleType: sale.saleTypeLabel,
@@ -466,7 +481,7 @@ export default function EggSalesPage() {
               </p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row">
-              <button type="button" onClick={openSalePanel} className="inline-flex items-center justify-center rounded-full bg-[color:var(--accent)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#4f3fa0]">
+              <button type="button" onClick={() => openSalePanel()} className="inline-flex items-center justify-center rounded-full bg-[color:var(--accent)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#4f3fa0]">
                 Add Sale
               </button>
               <button type="button" onClick={openLocationsPanel} className="inline-flex items-center justify-center rounded-full border border-[color:var(--line)] bg-white px-5 py-3 text-sm font-semibold text-foreground transition hover:bg-[#f8f7fe]">
@@ -480,21 +495,24 @@ export default function EggSalesPage() {
           {requestError ? <p className="mt-4 text-sm text-[#b34b75]">{requestError}</p> : null}
         </section>
 
+        <section className="rounded-[22px] border border-[color:var(--line)] bg-[#edf7f8] px-5 py-4">
+          <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[color:var(--teal)]">
+              Sales Heads Up
+            </p>
+            <p className="text-sm leading-6 text-[color:var(--muted)]">
+              <span className="font-semibold text-foreground">{insight.title}</span>
+              {" "}
+              {insight.message}
+            </p>
+          </div>
+        </section>
+
         <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatCard label="Total Sales Revenue" value={formatCurrency(summary.totalRevenue)} detail={`${filteredSales.length} sale${filteredSales.length === 1 ? "" : "s"} in view`} />
           <StatCard label="Eggs Sold" value={formatCompactNumber(summary.eggsSold)} detail="Per-egg sales tracked in current results" />
           <StatCard label="Dozens Sold" value={formatCompactNumber(summary.dozensSold)} detail="Per-dozen sales tracked in current results" />
           <StatCard label="Top Location" value={topLocation?.locationName ?? "-"} detail={topLocation ? `${formatCurrency(topLocation.revenue)} across ${topLocation.saleCount} sales` : "No location data yet"} />
-        </section>
-
-        <section className="soft-shadow rounded-[28px] border border-[color:var(--line)] bg-[#edf7f8] p-5 sm:p-6">
-          <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[color:var(--teal)]">
-            Sales Heads Up
-          </p>
-          <h3 className="mt-2 text-xl font-semibold tracking-tight">{insight.title}</h3>
-          <p className="mt-2 max-w-3xl text-sm leading-7 text-[color:var(--muted)]">
-            {insight.message}
-          </p>
         </section>
 
         <section className="soft-shadow rounded-[28px] border border-[color:var(--line)] bg-white/88 p-5 sm:p-6">
@@ -545,7 +563,7 @@ export default function EggSalesPage() {
 
         <DataTable
           title="Sales Log"
-          description={isLoading ? "Loading egg sales..." : "Every sale is persisted through Prisma so revenue and location reporting stay current."}
+          description={isLoading ? "Loading egg sales..." : "Every sale stays editable so revenue and location reporting stay current."}
           columns={[
             { key: "date", label: "Date" },
             { key: "location", label: "Location" },
@@ -557,6 +575,20 @@ export default function EggSalesPage() {
             { key: "notes", label: "Notes" },
           ]}
           rows={tableRows}
+          renderActions={(row) => {
+            const sale = filteredSales.find((entry) => entry.id === row.id);
+            if (!sale) return null;
+
+            return (
+              <button
+                type="button"
+                onClick={() => openSalePanel(sale)}
+                className="inline-flex rounded-full border border-[color:var(--line)] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--accent)] transition hover:bg-[#f8f7fe]"
+              >
+                Edit
+              </button>
+            );
+          }}
           emptyState={{
             title: "No egg sales yet",
             description: "Log your first egg sale to start tracking revenue, default pricing, and location performance.",
@@ -611,8 +643,16 @@ export default function EggSalesPage() {
       </div>
 
       {activePanel === "sale" ? (
-        <ModalShell title="Add Sale" subtitle="Log table eggs, hatching eggs, or any other egg sale with default pricing ready to use." onClose={closePanel}>
-          <form onSubmit={handleCreateSale} className="mt-6 space-y-5">
+        <ModalShell
+          title={editingSaleId ? "Edit Sale" : "Add Sale"}
+          subtitle={
+            editingSaleId
+              ? "Update this sale and refresh the revenue totals."
+              : "Log table eggs, hatching eggs, or any other egg sale with default pricing ready to use."
+          }
+          onClose={closePanel}
+        >
+          <form onSubmit={handleSaveSale} className="mt-6 space-y-5">
             <div className="grid gap-4 sm:grid-cols-2">
               <FormField label="Sale Date" error={saleErrors.saleDate} input={<input type="date" value={saleForm.saleDate} onChange={(event) => updateSaleField("saleDate", event.target.value)} className={inputClassName(saleErrors.saleDate)} />} />
               <FormField
@@ -720,7 +760,7 @@ export default function EggSalesPage() {
             />
 
             <button type="submit" disabled={isSavingSale} className="inline-flex w-full items-center justify-center rounded-full bg-[color:var(--accent)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#4f3fa0] disabled:cursor-not-allowed disabled:opacity-70">
-              {isSavingSale ? "Saving..." : "Save Sale"}
+              {isSavingSale ? "Saving..." : editingSaleId ? "Update Sale" : "Save Sale"}
             </button>
           </form>
         </ModalShell>
