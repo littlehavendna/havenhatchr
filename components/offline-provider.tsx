@@ -9,24 +9,30 @@ declare global {
 }
 
 export function OfflineProvider() {
-  const [isOnline, setIsOnline] = useState(() =>
-    typeof navigator === "undefined" ? true : navigator.onLine,
-  );
+  const [isOnline, setIsOnline] = useState(true);
 
   useEffect(() => {
-    if ("serviceWorker" in navigator) {
+    const isLocalhost = ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
+    const syncOnlineStatus = () => setIsOnline(isLocalhost ? true : navigator.onLine);
+    window.setTimeout(syncOnlineStatus, 0);
+
+    if ("serviceWorker" in navigator && (process.env.NODE_ENV !== "production" || isLocalhost)) {
+      void navigator.serviceWorker.getRegistrations().then((registrations) =>
+        Promise.all(registrations.map((registration) => registration.unregister())),
+      );
+      if ("caches" in window) {
+        void caches.keys().then((keys) => Promise.all(keys.map((key) => caches.delete(key))));
+      }
+    } else if ("serviceWorker" in navigator) {
       void navigator.serviceWorker.register("/sw.js");
     }
 
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
-
-    window.addEventListener("online", handleOnline);
-    window.addEventListener("offline", handleOffline);
+    window.addEventListener("online", syncOnlineStatus);
+    window.addEventListener("offline", syncOnlineStatus);
 
     return () => {
-      window.removeEventListener("online", handleOnline);
-      window.removeEventListener("offline", handleOffline);
+      window.removeEventListener("online", syncOnlineStatus);
+      window.removeEventListener("offline", syncOnlineStatus);
     };
   }, []);
 

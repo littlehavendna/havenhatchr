@@ -44,31 +44,28 @@ self.addEventListener("fetch", (event) => {
 
 async function handleNavigationRequest(request) {
   try {
-    const response = await fetch(request);
-
-    if (response.ok) {
-      const cache = await caches.open(RUNTIME_CACHE);
-      cache.put(request, response.clone());
-    }
-
-    return response;
+    return await fetch(request);
   } catch {
-    const cachedResponse = await caches.match(request);
-    if (cachedResponse) {
-      return cachedResponse;
-    }
-
     return caches.match(OFFLINE_URL);
   }
 }
 
 async function handleStaticRequest(request) {
-  const cachedResponse = await caches.match(request);
-
-  if (cachedResponse) {
-    void refreshStaticAsset(request);
-    return cachedResponse;
+  if (["script", "style"].includes(request.destination)) {
+    try {
+      const response = await fetch(request);
+      if (response.ok) {
+        const cache = await caches.open(RUNTIME_CACHE);
+        await cache.put(request, response.clone());
+      }
+      return response;
+    } catch {
+      return (await caches.match(request)) || Response.error();
+    }
   }
+
+  const cachedResponse = await caches.match(request);
+  if (cachedResponse) return cachedResponse;
 
   try {
     const response = await fetch(request);
@@ -79,17 +76,5 @@ async function handleStaticRequest(request) {
     return response;
   } catch {
     return cachedResponse || Response.error();
-  }
-}
-
-async function refreshStaticAsset(request) {
-  try {
-    const response = await fetch(request);
-    if (response.ok) {
-      const cache = await caches.open(RUNTIME_CACHE);
-      await cache.put(request, response.clone());
-    }
-  } catch {
-    return;
   }
 }

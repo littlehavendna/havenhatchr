@@ -13,9 +13,23 @@ const HATCH_BREED_RULES = new Map(
   HATCH_BREED_OPTIONS.map((option) => [option.value, option]),
 );
 
-function parseIsoDateOnly(value: string) {
-  const [year, month, day] = value.split("-").map(Number);
-  return new Date(Date.UTC(year, month - 1, day));
+function parseDateOnly(value: string) {
+  const trimmed = value.trim();
+  const isoMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmed);
+  const usMatch = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(trimmed);
+
+  const [, year, month, day] = isoMatch
+    ? isoMatch
+    : usMatch
+      ? [usMatch[0], usMatch[3], usMatch[1].padStart(2, "0"), usMatch[2].padStart(2, "0")]
+      : [];
+
+  if (!year || !month || !day) {
+    return null;
+  }
+
+  const date = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)));
+  return Number.isNaN(date.getTime()) ? null : date;
 }
 
 function formatIsoDateOnly(value: Date) {
@@ -23,7 +37,11 @@ function formatIsoDateOnly(value: Date) {
 }
 
 function addDays(value: string, days: number) {
-  const next = parseIsoDateOnly(value);
+  const next = parseDateOnly(value);
+  if (!next) {
+    return "";
+  }
+
   next.setUTCDate(next.getUTCDate() + days);
   return formatIsoDateOnly(next);
 }
