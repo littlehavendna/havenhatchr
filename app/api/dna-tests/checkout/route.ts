@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { logAuditAction, logUsageEvent } from "@/lib/admin";
 import { requireCurrentUser } from "@/lib/auth";
+import { getRequestAppUrl } from "@/lib/billing";
 import {
   createDnaCheckoutOrder,
   getDnaPublishableKey,
@@ -99,12 +100,12 @@ export async function POST(request: Request) {
       selectionsByChick: readSelectionsByChick(body, chickIds),
     });
 
-    const requestOrigin = new URL(request.url).origin;
+    const appUrl = getRequestAppUrl(request);
     const session = await stripe.checkout.sessions.create({
       ui_mode: "embedded_page" as never,
       mode: "payment",
       customer_email: order.contactEmail,
-      return_url: `${requestOrigin}/chicks/dna-success?orderId=${order.id}&session_id={CHECKOUT_SESSION_ID}`,
+      return_url: `${appUrl}/chicks/dna-success?orderId=${order.id}&session_id={CHECKOUT_SESSION_ID}`,
       metadata: {
         flow: "dna_test_order",
         dnaOrderId: order.id,

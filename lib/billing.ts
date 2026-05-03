@@ -42,13 +42,36 @@ export function getRequestAppUrl(request: Request) {
   const forwardedProto = request.headers.get("x-forwarded-proto");
   const forwardedHost = request.headers.get("x-forwarded-host");
   const host = forwardedHost || request.headers.get("host");
+  const configuredAppUrl = getAppUrl();
+  let requestAppUrl: string | null = null;
 
   if (host) {
     const protocol = forwardedProto || new URL(request.url).protocol.replace(":", "") || "https";
-    return `${protocol}://${host}`;
+    requestAppUrl = `${protocol}://${host}`;
   }
 
-  return getAppUrl();
+  const isLocalUrl = (value: string) => {
+    try {
+      const { hostname } = new URL(value);
+      return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
+    } catch {
+      return false;
+    }
+  };
+
+  if (process.env.NODE_ENV === "development" && requestAppUrl) {
+    return requestAppUrl;
+  }
+
+  if (!isLocalUrl(configuredAppUrl)) {
+    return configuredAppUrl;
+  }
+
+  if (requestAppUrl && !isLocalUrl(requestAppUrl)) {
+    return requestAppUrl;
+  }
+
+  return requestAppUrl || configuredAppUrl;
 }
 
 export function isSubscriptionActive(status: string) {
