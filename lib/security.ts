@@ -343,7 +343,7 @@ export function buildContentSecurityPolicy() {
     "frame-ancestors 'none'",
     "img-src 'self' data: blob: https:",
     "font-src 'self' data:",
-    `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : ""}`,
+    `script-src 'self' 'unsafe-inline' https://js.stripe.com${process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : ""}`,
     "style-src 'self' 'unsafe-inline'",
     "connect-src 'self' https://api.stripe.com https://checkout.stripe.com https://billing.stripe.com",
     "frame-src 'self' https://checkout.stripe.com https://billing.stripe.com https://js.stripe.com https://hooks.stripe.com",
