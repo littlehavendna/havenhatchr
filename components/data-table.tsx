@@ -68,7 +68,7 @@ export function DataTable<T extends Record<string, RowValue>>({
                     <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)]">
                       {column.label}
                     </span>
-                    <span className="max-w-[60%] text-right text-sm font-medium text-foreground">
+                    <span className="min-w-0 max-w-[60%] break-words text-right text-sm font-medium text-foreground">
                       {renderCell ? renderCell(row, column, index) : row[column.key]}
                     </span>
                   </div>

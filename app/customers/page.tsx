@@ -449,8 +449,8 @@ export default function CustomersPage() {
       </div>
 
       {isOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#221c3f]/40 px-4 backdrop-blur-sm">
-          <div className="soft-shadow w-full max-w-3xl rounded-[30px] border border-[color:var(--line)] bg-white p-6 sm:p-7">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-[#221c3f]/40 px-3 py-4 backdrop-blur-sm sm:items-center sm:px-4">
+          <div className="soft-shadow max-h-[calc(100dvh-2rem)] w-full max-w-3xl overflow-y-auto rounded-[30px] border border-[color:var(--line)] bg-white p-4 sm:p-7">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h3 className="text-2xl font-semibold tracking-tight">Add Customer</h3>
@@ -568,9 +568,9 @@ export default function CustomersPage() {
       ) : null}
 
       {isManagingList && selectedCustomer ? (
-        <div className="fixed inset-0 z-50 flex justify-end bg-[#221c3f]/35 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex justify-end overflow-y-auto bg-[#221c3f]/35 backdrop-blur-sm">
           <button type="button" onClick={closeListManager} className="flex-1" />
-          <aside className="soft-shadow h-full w-full max-w-2xl overflow-y-auto border-l border-[color:var(--line)] bg-white px-6 py-7">
+          <aside className="soft-shadow h-full w-full max-w-2xl overflow-y-auto border-l border-[color:var(--line)] bg-white px-4 py-5 sm:px-6 sm:py-7">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[color:var(--muted)]">

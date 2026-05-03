@@ -537,8 +537,8 @@ export default function ChickProfilePage() {
       </div>
 
       {isDnaModalOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#221c3f]/40 px-4 backdrop-blur-sm">
-          <div className="soft-shadow max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-[30px] border border-[color:var(--line)] bg-white p-6 sm:p-7">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-[#221c3f]/40 px-3 py-4 backdrop-blur-sm sm:items-center sm:px-4">
+          <div className="soft-shadow max-h-[calc(100dvh-2rem)] w-full max-w-3xl overflow-y-auto rounded-[30px] border border-[color:var(--line)] bg-white p-4 sm:p-7">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h3 className="text-2xl font-semibold tracking-tight">Order DNA Tests</h3>
@@ -626,8 +626,8 @@ export default function ChickProfilePage() {
       ) : null}
 
       {isEditModalOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#221c3f]/40 px-4 backdrop-blur-sm">
-          <div className="soft-shadow w-full max-w-3xl rounded-[30px] border border-[color:var(--line)] bg-white p-6 sm:p-7">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-[#221c3f]/40 px-3 py-4 backdrop-blur-sm sm:items-center sm:px-4">
+          <div className="soft-shadow max-h-[calc(100dvh-2rem)] w-full max-w-3xl overflow-y-auto rounded-[30px] border border-[color:var(--line)] bg-white p-4 sm:p-7">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h3 className="text-2xl font-semibold tracking-tight">Edit Chick</h3>
@@ -720,8 +720,8 @@ export default function ChickProfilePage() {
       ) : null}
 
       {isDeathModalOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#221c3f]/40 px-4 backdrop-blur-sm">
-          <div className="soft-shadow w-full max-w-xl rounded-[30px] border border-[color:var(--line)] bg-white p-6 sm:p-7">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-[#221c3f]/40 px-3 py-4 backdrop-blur-sm sm:items-center sm:px-4">
+          <div className="soft-shadow max-h-[calc(100dvh-2rem)] w-full max-w-xl overflow-y-auto rounded-[30px] border border-[color:var(--line)] bg-white p-4 sm:p-7">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h3 className="text-2xl font-semibold tracking-tight">Log Chick Loss</h3>

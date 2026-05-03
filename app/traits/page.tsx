@@ -202,14 +202,14 @@ export default function TraitsPage() {
       </div>
 
       {isOpen ? (
-        <div className="fixed inset-0 z-50 flex justify-end bg-[#221c3f]/35 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex justify-end overflow-y-auto bg-[#221c3f]/35 backdrop-blur-sm">
           <button
             type="button"
             aria-label="Close trait panel"
             onClick={closePanel}
             className="flex-1"
           />
-          <aside className="soft-shadow h-full w-full max-w-xl border-l border-[color:var(--line)] bg-white px-6 py-7">
+          <aside className="soft-shadow h-full w-full max-w-xl overflow-y-auto border-l border-[color:var(--line)] bg-white px-4 py-5 sm:px-6 sm:py-7">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[color:var(--muted)]">

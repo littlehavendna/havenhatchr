@@ -84,7 +84,7 @@ export function Topbar({ onMenuClick, onFeedbackClick }: TopbarProps) {
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 sm:justify-end">
+        <div className="flex min-w-0 flex-wrap items-center justify-between gap-3 sm:justify-end">
           {user ? (
             <div className="order-3 w-full rounded-full border border-[color:var(--line)] bg-[color:var(--teal-soft)] px-4 py-2 text-center text-[11px] font-semibold uppercase tracking-[0.18em] text-[color:var(--teal)] sm:order-none sm:w-auto sm:text-xs">
               {user.planBadge}
@@ -102,14 +102,14 @@ export function Topbar({ onMenuClick, onFeedbackClick }: TopbarProps) {
           <button
             type="button"
             onClick={onFeedbackClick}
-            className="rounded-full border border-[color:var(--line)] bg-white/80 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)] transition hover:bg-white"
+            className="rounded-full border border-[color:var(--line)] bg-white/80 px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-[color:var(--muted)] transition hover:bg-white sm:px-4 sm:tracking-[0.18em]"
           >
             Feedback
           </button>
           <button
             type="button"
             onClick={handleLogout}
-            className="rounded-full border border-[color:var(--line)] bg-white/80 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)] transition hover:bg-white"
+            className="rounded-full border border-[color:var(--line)] bg-white/80 px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-[color:var(--muted)] transition hover:bg-white sm:px-4 sm:tracking-[0.18em]"
           >
             Log Out
           </button>
