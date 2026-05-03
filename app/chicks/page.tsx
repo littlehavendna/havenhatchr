@@ -1001,19 +1001,24 @@ export default function ChicksPage() {
                   }
                 />
                 <FormField
-                  label="Contact Email"
+                  label="DNA Order Email"
                   input={
-                    <input
-                      type="email"
-                      value={dnaOrderForm.contactEmail}
-                      onChange={(event) =>
-                        setDnaOrderForm((current) => ({
-                          ...current,
-                          contactEmail: event.target.value,
-                        }))
-                      }
-                      className={inputClassName()}
-                    />
+                    <>
+                      <input
+                        type="email"
+                        value={dnaOrderForm.contactEmail}
+                        onChange={(event) =>
+                          setDnaOrderForm((current) => ({
+                            ...current,
+                            contactEmail: event.target.value,
+                          }))
+                        }
+                        className={inputClassName()}
+                      />
+                      <span className="mt-2 block text-xs leading-5 text-[color:var(--muted)]">
+                        Change this for this DNA order only.
+                      </span>
+                    </>
                   }
                 />
               </div>

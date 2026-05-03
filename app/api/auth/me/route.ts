@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, requireCurrentUser } from "@/lib/auth";
 import { formatBillingDate, getPlanBadge, hasBillingAccess } from "@/lib/billing";
 import {
   defaultModuleVisibility,
@@ -7,6 +7,15 @@ import {
   normalizeModuleVisibility,
 } from "@/lib/module-visibility";
 import { prisma } from "@/lib/prisma";
+import {
+  createHttpError,
+  getClientErrorMessage,
+  getErrorStatus,
+  logServerError,
+  readJsonObject,
+  readString,
+  validateAuthenticatedMutation,
+} from "@/lib/security";
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -52,4 +61,53 @@ export async function GET() {
       accountDisabledAt: formatBillingDate(user.accountDisabledAt),
     },
   });
+}
+
+export async function PATCH(request: Request) {
+  try {
+    validateAuthenticatedMutation(request);
+
+    const user = await requireCurrentUser();
+    const body = await readJsonObject(request);
+    const email = readString(body, "email", {
+      required: true,
+      maxLength: 320,
+    }).toLowerCase();
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      throw createHttpError("Enter a valid email address.", 400);
+    }
+
+    const existingUser = await prisma.user.findUnique({
+      where: { email },
+      select: { id: true },
+    });
+
+    if (existingUser && existingUser.id !== user.id) {
+      throw createHttpError("That email is already used by another account.", 409);
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id: user.id },
+      data: { email },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+      },
+    });
+
+    return NextResponse.json({ user: updatedUser });
+  } catch (error) {
+    const status = getErrorStatus(error);
+
+    if (status >= 500) {
+      logServerError("auth.me.update", error);
+    }
+
+    return NextResponse.json(
+      { error: getClientErrorMessage(error, "Unable to update account email.") },
+      { status },
+    );
+  }
 }

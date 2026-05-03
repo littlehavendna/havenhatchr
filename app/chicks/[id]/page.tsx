@@ -567,13 +567,16 @@ export default function ChickProfilePage() {
                   />
                 </label>
                 <label className="block">
-                  <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)]">Contact Email</span>
+                  <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)]">DNA Order Email</span>
                   <input
                     type="email"
                     value={dnaOrderForm.contactEmail}
                     onChange={(event) => setDnaOrderForm((current) => ({ ...current, contactEmail: event.target.value }))}
                     className={inputClassName()}
                   />
+                  <span className="mt-2 block text-xs leading-5 text-[color:var(--muted)]">
+                    Change this for this DNA order only.
+                  </span>
                 </label>
               </div>
               <DnaChickTestRow

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   moduleLabels,
   optionalModuleKeys,
@@ -36,8 +36,11 @@ export default function SettingsPage() {
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRedirecting, setIsRedirecting] = useState(false);
+  const [isSavingAccount, setIsSavingAccount] = useState(false);
   const [isSavingModules, setIsSavingModules] = useState(false);
   const [requestError, setRequestError] = useState("");
+  const [accountMessage, setAccountMessage] = useState("");
+  const [accountEmail, setAccountEmail] = useState("");
   const [moduleError, setModuleError] = useState("");
   const [moduleVisibility, setModuleVisibility] = useState<ModuleVisibility | null>(null);
   const [aiAccessEnabled, setAiAccessEnabled] = useState(true);
@@ -54,6 +57,7 @@ export default function SettingsPage() {
 
         const data = (await response.json()) as { user: CurrentUser };
         setUser(data.user);
+        setAccountEmail(data.user.email);
         setModuleVisibility(data.user.moduleVisibility);
         setAiAccessEnabled(data.user.aiAccessEnabled);
       } catch (error) {
@@ -104,6 +108,46 @@ export default function SettingsPage() {
     } catch (error) {
       setRequestError(error instanceof Error ? error.message : "Unable to open billing.");
       setIsRedirecting(false);
+    }
+  }
+
+  async function handleAccountSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    try {
+      setIsSavingAccount(true);
+      setAccountMessage("");
+      setRequestError("");
+
+      const response = await fetch("/api/auth/me", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: accountEmail.trim() }),
+      });
+      const data = await readJsonSafely<{
+        user?: Pick<CurrentUser, "name" | "email">;
+        error?: string;
+      }>(response);
+
+      if (!response.ok || !data.user) {
+        throw new Error(data.error || "Unable to update account email.");
+      }
+
+      setUser((current) =>
+        current
+          ? {
+              ...current,
+              email: data.user?.email ?? current.email,
+              name: data.user?.name ?? current.name,
+            }
+          : current,
+      );
+      setAccountEmail(data.user.email);
+      setAccountMessage("Account email saved.");
+    } catch (error) {
+      setRequestError(error instanceof Error ? error.message : "Unable to update account email.");
+    } finally {
+      setIsSavingAccount(false);
     }
   }
 
@@ -273,6 +317,50 @@ export default function SettingsPage() {
         </div>
 
         {requestError ? <p className="mt-5 text-sm text-[#b34b75]">{requestError}</p> : null}
+        <form
+          onSubmit={handleAccountSubmit}
+          className="mt-8 rounded-[20px] border border-[color:var(--line)] bg-[#fcfaff] p-4"
+        >
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)]">
+            Account Email
+          </p>
+          <p className="mt-2 text-sm leading-7 text-[color:var(--muted)]">
+            This is the email used for login and the default contact email for new DNA orders.
+          </p>
+          <label className="mt-4 block">
+            <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)]">
+              Email
+            </span>
+            <input
+              type="email"
+              value={accountEmail}
+              onChange={(event) => {
+                setAccountEmail(event.target.value);
+                setAccountMessage("");
+              }}
+              disabled={isLoading || isSavingAccount}
+              className="w-full rounded-2xl border border-[color:var(--line)] bg-white px-4 py-3 text-sm outline-none transition focus:border-[color:var(--accent)] focus:ring-2 focus:ring-[color:var(--accent-soft)] disabled:cursor-not-allowed disabled:opacity-70"
+            />
+          </label>
+          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-[color:var(--muted)]">
+              {accountMessage || "DNA order email can still be changed per order at checkout."}
+            </p>
+            <button
+              type="submit"
+              disabled={
+                isLoading
+                || isSavingAccount
+                || !accountEmail.trim()
+                || accountEmail.trim().toLowerCase() === user?.email.toLowerCase()
+              }
+              className="inline-flex items-center justify-center rounded-full bg-[color:var(--accent)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#4f3fa0] disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {isSavingAccount ? "Saving..." : "Save Email"}
+            </button>
+          </div>
+        </form>
+
         <div className="mt-8 rounded-[20px] border border-[color:var(--line)] bg-[#fcfaff] p-4">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--muted)]">
             Onboarding
