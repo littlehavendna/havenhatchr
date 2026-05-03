@@ -26,6 +26,18 @@ function formatDateTime(value: Date) {
 
 let dnaStripeClient: Stripe | null = null;
 
+function getStripeKeyMode(value: string) {
+  if (value.startsWith("sk_live_") || value.startsWith("pk_live_")) {
+    return "live";
+  }
+
+  if (value.startsWith("sk_test_") || value.startsWith("pk_test_")) {
+    return "test";
+  }
+
+  return "unknown";
+}
+
 async function requireOwnedChicks(userId: string, chickIds: string[]) {
   const records = await prisma.chick.findMany({
     where: {
@@ -320,6 +332,21 @@ export function getDnaStripe() {
   if (!secretKey) {
     throw createHttpError(
       "DNA Stripe checkout is missing a secret key. Add DNA_STRIPE_SECRET_KEY for LittleHaven DNA checkout.",
+      500,
+    );
+  }
+
+  const publishableKey = getDnaPublishableKey();
+  const secretMode = getStripeKeyMode(secretKey);
+  const publishableMode = getStripeKeyMode(publishableKey);
+
+  if (
+    secretMode !== "unknown"
+    && publishableMode !== "unknown"
+    && secretMode !== publishableMode
+  ) {
+    throw createHttpError(
+      "DNA Stripe checkout keys are mixed between live and test mode. Use matching DNA_STRIPE_SECRET_KEY and NEXT_PUBLIC_DNA_STRIPE_PUBLISHABLE_KEY values.",
       500,
     );
   }

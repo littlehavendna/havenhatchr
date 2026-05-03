@@ -89,6 +89,7 @@ export async function POST(request: Request) {
     const body = await readJsonObject(request);
     const chickIds = readStringArray(body, "chickIds", { maxItems: 100, maxItemLength: 40 });
     getDnaPublishableKey();
+    const stripe = getDnaStripe();
 
     const order = await createDnaCheckoutOrder(user.id, {
       chickIds,
@@ -98,7 +99,6 @@ export async function POST(request: Request) {
       selectionsByChick: readSelectionsByChick(body, chickIds),
     });
 
-    const stripe = getDnaStripe();
     const requestOrigin = new URL(request.url).origin;
     const session = await stripe.checkout.sessions.create({
       ui_mode: "embedded_page" as never,
