@@ -299,12 +299,30 @@ export async function getDnaOrderForUser(userId: string, orderId: string) {
 }
 
 export function getDnaPublishableKey() {
-  return process.env.NEXT_PUBLIC_DNA_STRIPE_PUBLISHABLE_KEY
-    || getRequiredEnv("NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY");
+  const publishableKey =
+    process.env.NEXT_PUBLIC_DNA_STRIPE_PUBLISHABLE_KEY?.trim()
+    || process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY?.trim();
+
+  if (!publishableKey) {
+    throw createHttpError(
+      "DNA Stripe checkout is missing a publishable key. Add NEXT_PUBLIC_DNA_STRIPE_PUBLISHABLE_KEY for LittleHaven DNA checkout.",
+      500,
+    );
+  }
+
+  return publishableKey;
 }
 
 export function getDnaStripe() {
-  const secretKey = process.env.DNA_STRIPE_SECRET_KEY || getRequiredEnv("STRIPE_SECRET_KEY");
+  const secretKey =
+    process.env.DNA_STRIPE_SECRET_KEY?.trim() || process.env.STRIPE_SECRET_KEY?.trim();
+
+  if (!secretKey) {
+    throw createHttpError(
+      "DNA Stripe checkout is missing a secret key. Add DNA_STRIPE_SECRET_KEY for LittleHaven DNA checkout.",
+      500,
+    );
+  }
 
   dnaStripeClient ??= new Stripe(secretKey);
   return dnaStripeClient;

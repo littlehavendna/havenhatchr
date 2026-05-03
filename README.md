@@ -56,8 +56,15 @@ Create a local `.env` file in the project root with:
 ```env
 DATABASE_URL="postgresql://USER:PASSWORD@HOST:PORT/DBNAME?schema=public"
 STRIPE_SECRET_KEY="sk_test_..."
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY="pk_test_..."
 STRIPE_PRICE_ID="price_..."
 STRIPE_WEBHOOK_SECRET="whsec_..."
+DNA_STRIPE_SECRET_KEY="sk_test_..."
+NEXT_PUBLIC_DNA_STRIPE_PUBLISHABLE_KEY="pk_test_..."
+DNA_STRIPE_WEBHOOK_SECRET="whsec_..."
+LITTLEHAVEN_DNA_API_URL="https://littlehavendna.com/api/havenhatchr/orders/"
+LITTLEHAVEN_DNA_API_SECRET="shared-secret-from-littlehaven"
+DNA_RESULTS_WEBHOOK_SECRET="shared-secret-for-results"
 NEXT_PUBLIC_APP_URL="http://localhost:3000"
 MONITORING_PROVIDER=""
 SENTRY_DSN=""
@@ -68,15 +75,23 @@ For Railway, use the PostgreSQL connection string exposed by the Railway databas
 Required environment variables:
 - `DATABASE_URL`
 - `STRIPE_SECRET_KEY`
+- `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
 - `STRIPE_PRICE_ID`
 - `STRIPE_WEBHOOK_SECRET`
 - `NEXT_PUBLIC_APP_URL`
+- `DNA_STRIPE_SECRET_KEY` for LittleHaven DNA checkout payments
+- `NEXT_PUBLIC_DNA_STRIPE_PUBLISHABLE_KEY` for LittleHaven DNA embedded checkout
+- `DNA_STRIPE_WEBHOOK_SECRET` for LittleHaven DNA checkout payment webhooks
+- `LITTLEHAVEN_DNA_API_URL` for sending paid DNA orders to LittleHaven
+- `LITTLEHAVEN_DNA_API_SECRET` for authenticating with LittleHaven
+- `DNA_RESULTS_WEBHOOK_SECRET` for receiving DNA results back from LittleHaven
 - `MONITORING_PROVIDER` optional
 - `SENTRY_DSN` optional
 
 Security-sensitive environment notes:
-- `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` must stay server-only
+- `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `DNA_STRIPE_SECRET_KEY`, `DNA_STRIPE_WEBHOOK_SECRET`, `LITTLEHAVEN_DNA_API_SECRET`, and `DNA_RESULTS_WEBHOOK_SECRET` must stay server-only
 - `NEXT_PUBLIC_APP_URL` should be the canonical public app URL used for metadata, sitemap, billing redirects, and canonical tags
+- `NEXT_PUBLIC_DNA_STRIPE_PUBLISHABLE_KEY` is intentionally public and must match the same Stripe account as `DNA_STRIPE_SECRET_KEY`
 - local development can use Stripe test keys and a local webhook secret from the Stripe CLI
 - `MONITORING_PROVIDER` and `SENTRY_DSN` are optional placeholders for a future provider-backed error monitoring integration
 

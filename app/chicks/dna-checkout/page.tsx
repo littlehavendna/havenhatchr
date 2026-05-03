@@ -145,7 +145,7 @@ export default function DnaCheckoutPage() {
                     className="rounded-2xl border border-[color:var(--line)] bg-[#fcfbff] px-4 py-3 text-sm"
                   >
                     <p className="font-semibold">
-                      Sample #{chick.sampleNumber} · {chick.bandNumber}
+                      Sample #{chick.sampleNumber} - {chick.bandNumber}
                     </p>
                     <p className="mt-1 text-[color:var(--muted)]">{chick.flockName}</p>
                   </div>

@@ -3,9 +3,9 @@ import { logAuditAction, logUsageEvent } from "@/lib/admin";
 import { requireCurrentUser } from "@/lib/auth";
 import {
   createDnaCheckoutOrder,
+  getDnaPublishableKey,
   getDnaStripe,
 } from "@/lib/dna-server";
-import { getAppOrigin } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
 import {
   createHttpError,
@@ -88,6 +88,7 @@ export async function POST(request: Request) {
     const user = await requireCurrentUser();
     const body = await readJsonObject(request);
     const chickIds = readStringArray(body, "chickIds", { maxItems: 100, maxItemLength: 40 });
+    getDnaPublishableKey();
 
     const order = await createDnaCheckoutOrder(user.id, {
       chickIds,
@@ -98,11 +99,12 @@ export async function POST(request: Request) {
     });
 
     const stripe = getDnaStripe();
+    const requestOrigin = new URL(request.url).origin;
     const session = await stripe.checkout.sessions.create({
-      ui_mode: "embedded" as never,
+      ui_mode: "embedded_page" as never,
       mode: "payment",
       customer_email: order.contactEmail,
-      return_url: `${getAppOrigin()}/chicks/dna-success?orderId=${order.id}&session_id={CHECKOUT_SESSION_ID}`,
+      return_url: `${requestOrigin}/chicks/dna-success?orderId=${order.id}&session_id={CHECKOUT_SESSION_ID}`,
       metadata: {
         flow: "dna_test_order",
         dnaOrderId: order.id,
